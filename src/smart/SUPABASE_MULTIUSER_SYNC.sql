@@ -1,0 +1,6 @@
+-- تم دمج HELM Smart مع HELM Portal.
+-- لا تستخدم ملف payload القديم، لأنه كان ينشئ جداول clients/cases/invoices/documents بشكل متعارض.
+-- الملف الصحيح الآن هو:
+-- supabase/migrations/009_unified_smart_portal_auth_rls_storage.sql
+-- أو من جذر المشروع:
+-- UNIFIED_SUPABASE_SETUP.sql

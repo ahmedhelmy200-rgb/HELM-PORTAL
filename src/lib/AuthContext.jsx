@@ -5,6 +5,26 @@ import { supabase } from '@/integrations/supabase/client'
 
 const AuthContext = createContext()
 
+const AUTH_TIMEOUT_MS = 12000
+const PROFILE_TIMEOUT_MS = 12000
+const SETTINGS_TIMEOUT_MS = 8000
+const TAB_RECHECK_DEBOUNCE_MS = 350
+
+function isAbortLike(error) {
+  const message = String(error?.message || error || '').toLowerCase()
+  return message.includes('timeout') || message.includes('network') || message.includes('fetch') || message.includes('abort')
+}
+
+function withTimeout(promise, ms, label) {
+  let timer
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(`${label} timeout`)), ms)
+    }),
+  ]).finally(() => window.clearTimeout(timer))
+}
+
 export const AuthProvider = ({ children }) => {
   const [user,                    setUser]                    = useState(null)
   const [isAuthenticated,         setIsAuthenticated]         = useState(false)
@@ -12,74 +32,118 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false)
   const [authError,               setAuthError]               = useState(null)
   const [appPublicSettings,       setAppPublicSettings]       = useState(null)
-  const checkingRef = useRef(false)
 
-  const checkAppState = useCallback(async () => {
-    // منع الاستدعاء المزدوج
-    if (checkingRef.current) return
+  const checkingRef = useRef(false)
+  const checkIdRef = useRef(0)
+  const tabRecheckTimerRef = useRef(null)
+
+  const clearBase44Cache = useCallback(() => {
+    try { base44.__clearCache?.() } catch {}
+  }, [])
+
+  const finishAsGuest = useCallback((error = null) => {
+    setUser(null)
+    setIsAuthenticated(false)
+    setAppPublicSettings(null)
+    if (error) setAuthError(error)
+  }, [])
+
+  const checkAppState = useCallback(async (options = {}) => {
+    const { silent = false, force = false } = options || {}
+
+    // منع تكديس طلبات الفحص؛ الفحص القسري يستخدم عند الرجوع للتبويب أو بعد تسجيل الدخول.
+    if (checkingRef.current && !force) return { ok: false, skipped: true }
+
+    const checkId = ++checkIdRef.current
     checkingRef.current = true
+
+    if (!silent) {
+      setIsLoadingAuth(true)
+      setIsLoadingPublicSettings(false)
+    }
 
     try {
       setAuthError(null)
-      setIsLoadingAuth(true)
 
-      // ── 1. تحقق من الجلسة ────────────────────────────────────────────
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+      const { data: sessionData, error: sessionErr } = await withTimeout(
+        supabase.auth.getSession(),
+        AUTH_TIMEOUT_MS,
+        'auth session'
+      )
 
-      if (sessionErr) {
-        console.error('[Auth] getSession error:', sessionErr.message)
-        throw sessionErr
-      }
+      if (checkId !== checkIdRef.current) return { ok: false, stale: true }
+
+      if (sessionErr) throw sessionErr
 
       if (!sessionData?.session) {
-        // لا توجد جلسة — المستخدم غير مسجّل دخول
-        setUser(null)
-        setIsAuthenticated(false)
-        setAppPublicSettings(null)
-        setAuthError(null)
-        return
+        clearBase44Cache()
+        finishAsGuest(null)
+        return { ok: true, authenticated: false }
       }
 
-      // ── 2. جلب بيانات المستخدم ───────────────────────────────────────
-      setIsLoadingPublicSettings(true)
-      const currentUser = await base44.auth.me()
+      clearBase44Cache()
+      if (!silent) setIsLoadingPublicSettings(true)
 
-      // ── 3. جلب إعدادات المكتب ────────────────────────────────────────
+      const currentUser = await withTimeout(
+        base44.auth.me(),
+        PROFILE_TIMEOUT_MS,
+        'user profile'
+      )
+
+      if (checkId !== checkIdRef.current) return { ok: false, stale: true }
+
       const settingsRows = currentUser?.role === 'pending_client'
         ? []
-        : await base44.entities.OfficeSettings.list().catch(() => [])
+        : await withTimeout(
+            base44.entities.OfficeSettings.list().catch(() => []),
+            SETTINGS_TIMEOUT_MS,
+            'office settings'
+          )
+
+      if (checkId !== checkIdRef.current) return { ok: false, stale: true }
 
       setAppPublicSettings(settingsRows?.[0] || null)
       setUser(currentUser)
       setIsAuthenticated(true)
-
+      setAuthError(null)
+      return { ok: true, authenticated: true }
     } catch (error) {
       console.error('[Auth] checkAppState failed:', error)
 
+      if (checkId !== checkIdRef.current) return { ok: false, stale: true }
+
       const msg     = error?.message || ''
       const isNoReg = msg.includes('registered') || msg.includes('not found') || msg.includes('user_profiles')
-      const isConn  = msg.includes('fetch') || msg.includes('network') || msg.includes('NetworkError')
+      const isConn  = isAbortLike(error)
 
-      setUser(null)
-      setIsAuthenticated(false)
-      setAppPublicSettings(null)
-      setAuthError({
+      clearBase44Cache()
+      finishAsGuest({
         type: isNoReg ? 'user_not_registered'
             : isConn  ? 'network_error'
             : 'auth_required',
         message: isNoReg ? 'حسابك غير مسجّل في النظام. تواصل مع مدير المكتب.'
-                : isConn  ? 'تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت.'
+                : isConn  ? 'تعذر استكمال فحص الجلسة. أعد المحاولة أو سجل الدخول مرة أخرى.'
                 : msg || 'تعذر التحقق من الهوية.',
       })
+      return { ok: false, error }
     } finally {
-      checkingRef.current         = false
-      setIsLoadingAuth(false)
-      setIsLoadingPublicSettings(false)
+      if (checkId === checkIdRef.current) {
+        checkingRef.current = false
+        setIsLoadingAuth(false)
+        setIsLoadingPublicSettings(false)
+      }
     }
-  }, [])
+  }, [clearBase44Cache, finishAsGuest])
+
+  const scheduleSilentRecheck = useCallback(() => {
+    window.clearTimeout(tabRecheckTimerRef.current)
+    tabRecheckTimerRef.current = window.setTimeout(() => {
+      clearBase44Cache()
+      checkAppState({ silent: true, force: true })
+    }, TAB_RECHECK_DEBOUNCE_MS)
+  }, [checkAppState, clearBase44Cache])
 
   useEffect(() => {
-    // ── معالجة OAuth callback (hash أو code في URL) ──────────────────
     const handleOAuthCallback = async () => {
       const hash   = window.location.hash
       const search = window.location.search
@@ -87,25 +151,26 @@ export const AuthProvider = ({ children }) => {
       const hasCode  = search.includes('code=')
 
       if (hasToken || hasCode) {
-        // Supabase سيعالج الـ token تلقائياً عبر detectSessionInUrl
-        // ننتظر قليلاً ثم نفحص الحالة
-        await new Promise(r => setTimeout(r, 600))
-        // نظّف الـ URL بعد المعالجة
+        await new Promise(r => window.setTimeout(r, 600))
         window.history.replaceState({}, document.title, window.location.pathname)
       }
 
-      await checkAppState()
+      await checkAppState({ force: true })
     }
 
     handleOAuthCallback()
 
-    // ── الاستماع لتغييرات الجلسة ──────────────────────────────────────
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       console.log('[Auth] event:', event)
 
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        await checkAppState()
+      // مهم: لا نستدعي Supabase مباشرة داخل callback حتى لا يحدث تعليق عند الرجوع للتبويب.
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        window.setTimeout(() => {
+          clearBase44Cache()
+          checkAppState({ silent: event !== 'SIGNED_IN', force: true })
+        }, 0)
       } else if (event === 'SIGNED_OUT') {
+        clearBase44Cache()
         setUser(null)
         setIsAuthenticated(false)
         setAppPublicSettings(null)
@@ -115,11 +180,34 @@ export const AuthProvider = ({ children }) => {
       }
     })
 
-    return () => sub?.subscription?.unsubscribe()
-  }, [checkAppState])
+    return () => {
+      window.clearTimeout(tabRecheckTimerRef.current)
+      sub?.subscription?.unsubscribe()
+    }
+  }, [checkAppState, clearBase44Cache])
 
-  const logout = (shouldRedirect = true) =>
-    base44.auth.logout(shouldRedirect ? window.location.origin : null)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') scheduleSilentRecheck()
+    }
+    const handlePageShow = () => scheduleSilentRecheck()
+    const handleFocus = () => scheduleSilentRecheck()
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [scheduleSilentRecheck])
+
+  const logout = async (shouldRedirect = true) => {
+    clearBase44Cache()
+    return base44.auth.logout(shouldRedirect ? window.location.origin : null)
+  }
 
   const navigateToLoginWithCalendar = async () => {
     try { await loginWithCalendarScope(import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL || window.location.origin) }
@@ -132,7 +220,7 @@ export const AuthProvider = ({ children }) => {
       const redirectTo = (
         import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL ||
         window.location.origin
-      ).replace(/\/$/, '') // إزالة الـ trailing slash
+      ).replace(/\/$/, '')
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -161,7 +249,8 @@ export const AuthProvider = ({ children }) => {
       })
 
       if (error) throw error
-      await checkAppState()
+      clearBase44Cache()
+      await checkAppState({ force: true })
       return { ok: true }
     } catch (err) {
       const message = err?.message?.includes('Invalid login credentials')
@@ -190,7 +279,8 @@ export const AuthProvider = ({ children }) => {
       })
 
       if (error) throw error
-      await checkAppState()
+      clearBase44Cache()
+      await checkAppState({ force: true })
       return { ok: true }
     } catch (err) {
       const message = err?.message || 'تعذر إنشاء الحساب بالإيميل وكلمة المرور.'

@@ -25,21 +25,25 @@ const PENDING_CLIENT_ALLOWED_PAGES = new Set(['ClientOnboarding'])
 const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
 
 const PageFallback = () => (
-  <div className="fixed inset-0 flex items-center justify-center" style={{background:'linear-gradient(180deg,#03070f,#060d1f)'}}>
-    <div className="text-center space-y-5">
-      <div className="relative mx-auto h-14 w-14">
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/30">
-          <svg className="h-7 w-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
+  <div className="fixed inset-0 flex items-center justify-center" style={{background:'radial-gradient(circle at 50% 35%, #101d3d 0%, #050913 42%, #02040a 100%)'}}>
+    <div className="text-center space-y-5 select-none">
+      <div className="relative mx-auto h-20 w-20">
+        <div className="absolute inset-0 rounded-3xl bg-white/5 border border-blue-400/25 shadow-2xl shadow-blue-500/20"/>
+        <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-blue-600/90 to-slate-950 flex items-center justify-center overflow-hidden">
+          <img
+            src="/icon-192.png"
+            alt="HELM Portal"
+            className="h-12 w-12 rounded-xl object-contain drop-shadow-lg"
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
         </div>
-        <div className="absolute inset-0 rounded-2xl border-2 border-blue-400/30 animate-ping"/>
+        <div className="absolute inset-0 rounded-3xl border border-blue-400/30 animate-ping"/>
       </div>
-      <div className="space-y-1.5">
-        <div className="h-1 w-24 mx-auto rounded-full bg-white/10 overflow-hidden">
+      <div className="space-y-2">
+        <div className="h-1.5 w-32 mx-auto rounded-full bg-white/10 overflow-hidden">
           <div className="h-full bg-blue-500 rounded-full animate-[loading_1.5s_ease-in-out_infinite]"/>
         </div>
-        <p className="text-xs text-white/30">جارٍ التحميل…</p>
+        <p className="text-xs text-white/40">جارٍ تحميل HELM Portal…</p>
       </div>
     </div>
   </div>

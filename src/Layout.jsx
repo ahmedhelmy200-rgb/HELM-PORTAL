@@ -17,8 +17,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, APP_SHORTCUT_HELP, emitAppEvent } from '@/lib/app-events'
 import { getArchiveCount } from '@/lib/archive'
-import GlobalSearch, { GLOBAL_SEARCH_EVENT } from "@/components/app/GlobalSearch"
-import KeyboardShortcutsModal from '@/components/app/KeyboardShortcutsModal'
+import { GLOBAL_SEARCH_EVENT } from "@/components/app/GlobalSearch"
 
 const staffNavItems = [
   { label: "لوحة التحكم", page: "Dashboard", icon: LayoutDashboard, fx: "nav-fx-float" },
@@ -75,7 +74,7 @@ export default function Layout({ children, currentPageName }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [officeSettings, setOfficeSettings] = useState(null)
-  const [archiveCount, setArchiveCount]     = useState(0)
+  const [archiveCount, setArchiveCount] = useState(0)
   const [themePreference, setThemePreference] = useState(() => getStoredThemePreference())
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
     if (typeof window === "undefined") return true
@@ -88,9 +87,8 @@ export default function Layout({ children, currentPageName }) {
     return Number.isFinite(raw) ? raw : 1.15
   })
   const desktopSidebarScrollRef = useRef(null)
-  const mobileSidebarScrollRef  = useRef(null)
+  const mobileSidebarScrollRef = useRef(null)
 
-  // ── تحديث عداد الأرشيف ────────────────────────────────────────────────
   useEffect(() => {
     const update = () => setArchiveCount(getArchiveCount())
     update()
@@ -103,7 +101,7 @@ export default function Layout({ children, currentPageName }) {
   const resolvedTheme = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference
   const isPrimaryMobilePage = mobileTabs.some((item) => item.page === currentPageName)
   const shouldShowBack = !isPrimaryMobilePage
-  const officeName = officeSettings?.office_name || appPublicSettings?.office_name || "نظام حلم"
+  const officeName = officeSettings?.office_name || appPublicSettings?.office_name || "مكتب المستشار أحمد حلمي"
   const logoUrl = officeSettings?.logo_url || appPublicSettings?.logo_url || null
   const themeMeta = themePreference === "system"
     ? { icon: MonitorCog, label: `تلقائي (${resolvedTheme === "dark" ? "ليلي" : "نهاري"})` }
@@ -126,7 +124,7 @@ export default function Layout({ children, currentPageName }) {
       }
     }
     load()
-  }, [user?.email, resolvedTheme]) // ← أُزيل currentPageName — لا داعي لإعادة التحميل في كل صفحة
+  }, [user?.email, resolvedTheme])
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined
@@ -235,7 +233,6 @@ export default function Layout({ children, currentPageName }) {
     )
   }
 
-
   const SidebarFooter = () => {
     const ThemeIcon = themeMeta.icon
     return (
@@ -250,7 +247,7 @@ export default function Layout({ children, currentPageName }) {
           </button>
         </Link>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 md:hidden">
           <button onClick={handleThemeToggle} className="control-chip" title="تبديل الثيم">
             <ThemeIcon className="h-4 w-4" />
             <span>{themeMeta.label}</span>
@@ -261,7 +258,7 @@ export default function Layout({ children, currentPageName }) {
           </button>
         </div>
 
-        <div className="control-chip w-full justify-between">
+        <div className="control-chip w-full justify-between md:hidden">
           <span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> شبكة الكهرباء</span>
           <input
             type="range"
@@ -294,6 +291,50 @@ export default function Layout({ children, currentPageName }) {
     )
   }
 
+  const DesktopTopPortalBar = () => {
+    const ThemeIcon = themeMeta.icon
+    return (
+      <div className="hidden md:flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl border border-white/10 bg-slate-950/45 backdrop-blur-xl shadow-[0_12px_34px_rgba(2,8,23,.22)]">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-600 to-slate-950 flex items-center justify-center ring-1 ring-sky-300/25 shadow-[0_0_22px_rgba(59,130,246,.24)] overflow-hidden shrink-0">
+            {logoUrl ? (
+              <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1.5" />
+            ) : (
+              <img src="/icon-192.png" alt="HELM Portal" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+            )}
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[11px] text-sky-200/70 leading-tight">HELM Portal</p>
+            <h2 className="text-white font-extrabold text-base leading-tight truncate">{officeName}</h2>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={handleThemeToggle} className="control-chip min-w-[92px]" title="تبديل الثيم">
+            <ThemeIcon className="h-4 w-4" />
+            <span>{themeMeta.label}</span>
+          </button>
+          <button onClick={handleSoundToggle} className="control-chip min-w-[84px]">
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            <span>{soundEnabled ? "الصوت" : "صامت"}</span>
+          </button>
+          <div className="control-chip min-w-[210px] justify-between">
+            <span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> شبكة الكهرباء</span>
+            <input
+              type="range"
+              min="0.6"
+              max="2.2"
+              step="0.05"
+              value={effectPower}
+              onChange={(e) => setEffectPower(Number(e.target.value))}
+              className="w-24 accent-sky-400"
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={cn("min-h-screen md:h-screen flex app-shell md:overflow-hidden") } dir="rtl">
       <AnimatedBackground active intensity={effectPower} theme={resolvedTheme} />
@@ -303,15 +344,15 @@ export default function Layout({ children, currentPageName }) {
 
       <aside className="hidden md:flex flex-col w-64 sidebar-shell h-screen fixed right-0 top-0 z-40" onWheelCapture={(event) => handleSidebarWheel(event, desktopSidebarScrollRef)}>
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/8">
-          {logoUrl ? (
-            <img src={logoUrl} alt="شعار المكتب" className="h-11 w-11 object-contain rounded-2xl bg-white/10 p-1.5 shrink-0 ring-1 ring-white/10" />
-          ) : (
-            <div className="h-11 w-11 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[0_0_22px_rgba(68,127,255,.16)]">
-              <Zap className="h-5 w-5 text-sky-300" />
-            </div>
-          )}
+          <div className="h-11 w-11 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[0_0_22px_rgba(68,127,255,.16)] overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1.5" />
+            ) : (
+              <img src="/icon-192.png" alt="HELM Portal" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+            )}
+          </div>
           <div className="min-w-0">
-            <h1 className="text-white font-bold text-sm leading-tight truncate">{officeName}</h1>
+            <h1 className="text-white font-bold text-sm leading-tight truncate">HELM Portal</h1>
             <p className="text-white/55 text-xs leading-tight">{user?.role === 'client' ? 'بوابة العميل الآمنة' : 'منصة الإدارة القانونية'}</p>
           </div>
         </div>
@@ -336,11 +377,11 @@ export default function Layout({ children, currentPageName }) {
           )}
         </div>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10">
-            <Zap className="h-4.5 w-4.5 text-sky-300" />
+          <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10 overflow-hidden">
+            {logoUrl ? <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1" /> : <img src="/icon-192.png" alt="HELM Portal" className="h-6 w-6 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />}
           </div>
           <div className="min-w-0">
-            <span className="text-white font-bold text-sm truncate block">{officeName}</span>
+            <span className="text-white font-bold text-sm truncate block">HELM Portal</span>
             {shouldShowBack && <span className="text-white/55 text-[11px] truncate block">{currentPageName}</span>}
           </div>
         </div>
@@ -366,10 +407,10 @@ export default function Layout({ children, currentPageName }) {
           <div className="relative w-72 sidebar-shell h-full mr-auto shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10">
-                  <Zap className="h-4.5 w-4.5 text-sky-300" />
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10 overflow-hidden">
+                  {logoUrl ? <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1" /> : <img src="/icon-192.png" alt="HELM Portal" className="h-7 w-7 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />}
                 </div>
-                <span className="text-white font-bold text-sm truncate">{officeName}</span>
+                <span className="text-white font-bold text-sm truncate">HELM Portal</span>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="icon-glass-btn">
                 <X className="h-5 w-5 text-white/80" />
@@ -385,6 +426,7 @@ export default function Layout({ children, currentPageName }) {
 
       <main className="flex-1 md:mr-64 pt-[calc(4rem+env(safe-area-inset-top))] md:pt-0 min-h-screen md:h-screen relative z-[1] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-6 md:overflow-y-auto overflow-x-hidden">
         <div className="p-4 md:p-6 max-w-7xl mx-auto w-full page-enter">
+          <DesktopTopPortalBar />
           {shouldShowBack && (
             <div className="mb-3 md:mb-4 flex">
               <Button type="button" variant="outline" onClick={goBack} className="mobile-page-back-button gap-2">

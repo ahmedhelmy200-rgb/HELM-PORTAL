@@ -1,102 +1,139 @@
 
-
-export type UserRole = 'admin' | 'visitor' | 'client' | 'staff';
-export type AppLanguage = 'ar' | 'en';
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  FINANCE = 'FINANCE',
+  CLIENT = 'CLIENT'
+}
 
 export enum CaseStatus {
-  WON = 'ربح',
-  PREP = 'قيد التحضير',
-  ACTIVE = 'متداولة',
-  LOST = 'خسارة',
-  ARCHIVED = 'مؤرشف',
-  JUDGMENT = 'حكم',
-  APPEAL = 'استئناف',
+  ACTIVE = 'نشط',
+  PENDING = 'قيد الانتظار',
   CLOSED = 'مغلق',
-  LITIGATION = 'تقاضي',
-  PENDING = 'معلق'
+  APPEAL = 'استئناف',
+  JUDGMENT = 'حكم',
+  LITIGATION = 'مرافعة'
 }
 
-export enum CaseCategory {
-  CIVIL = 'مدني',
-  CRIMINAL = 'جزائي',
-  LABOR = 'عمالي',
-  COMMERCIAL = 'تجاري',
-  FAMILY = 'أحوال شخصية',
-  RENTAL = 'إيجاري',
-  ADMINISTRATIVE = 'إداري',
-  EXECUTION = 'تنفيذ',
-  ARCHIVED = 'أرشيف'
+export enum CourtType {
+  DUBAI = 'محاكم دبي',
+  ADJD = 'محاكم أبوظبي',
+  FEDERAL = 'المحاكم الاتحادية',
+  DIFC = 'محاكم مركز دبي المالي العالمي',
+  SHARIAH = 'المحاكم الشرعية'
 }
 
-export interface GroundingLink {
-  title: string;
-  uri: string;
-}
-
-export interface ChatMessage {
-  role: 'user' | 'ai';
-  text: string;
-  image?: string;
-  video?: string;
-  links?: GroundingLink[];
-  isAudio?: boolean;
-}
-
-// Added missing CaseComment interface
-export interface CaseComment {
+// Dynamic court list configured from Settings. Used for case entry dropdowns.
+export interface CourtConfig {
   id: string;
-  authorRole: UserRole;
-  authorName: string;
-  text: string;
-  date: string;
+  name: string;
+  emirate?: string; // e.g. دبي، أبوظبي ... (optional)
 }
 
-// Added missing CaseActivity interface
-export interface CaseActivity {
+export interface CaseDocument {
   id: string;
-  type: 'status_change' | 'comment_added' | 'info_update' | 'document_added'; // Added 'document_added'
-  description: string;
-  userRole: UserRole;
-  userName: string;
-  timestamp: string;
-}
-
-export interface LegalDocument {
-  id: string;
-  title: string;
-  category: 'Contract' | 'Judgment' | 'Memo' | 'Receipt' | 'Other' | 'EmiratesID' | 'Passport' | 'License';
-  uri: string; // Base64 or URL
+  name: string;
+  type: string;
+  // MIME type (e.g. application/pdf, image/png). Optional for backward compatibility.
+  mimeType?: string;
+  // Optional classification to make client document libraries easier to manage.
+  category?: string;
   uploadDate: string;
-  caseId?: string;
-  clientId: string;
-  fileName?: string; // Original file name
-  mimeType?: string; // e.g., 'application/pdf', 'image/jpeg'
-  // Added for display convenience in components
-  clientName?: string; 
-  caseTitle?: string;
+  content?: string;
+  status?: 'Signed' | 'Draft';
+  description?: string;
+  reviewReminder?: string;
+  // File key for IndexedDB local storage (optional)
+  fileKey?: string;
+  // Storage metadata for cloud/local
+  storage?: {
+    provider: 'indexeddb' | 'supabase';
+    bucket?: string;
+    path?: string;
+    size?: number;
+  };
 }
 
 export interface LegalCase {
   id: string;
   caseNumber: string;
   title: string;
-  category: CaseCategory;
-  subCategory?: string; // Added subCategory field
+  // Optional dynamic type (configured from Settings).
+  caseType?: string;
   clientId: string;
   clientName: string;
   opponentName: string;
+  // Court is stored as a string for forward/backward compatibility.
+  // Older data may contain values from CourtType enum.
   court: string;
   status: CaseStatus;
+  nextHearingDate: string;
+  assignedLawyer: string;
+  createdAt: string;
+  documents: CaseDocument[];
   totalFee: number;
   paidAmount: number;
-  createdAt: string;
-  nextHearingDate?: string; // Added nextHearingDate field
-  isArchived: boolean;
-  documents: string[]; // Stores IDs of LegalDocuments
-  comments?: CaseComment[]; // Updated to use CaseComment interface
-  activities?: CaseActivity[]; // Updated to use CaseActivity interface
-  assignedLawyer?: string; // Added assignedLawyer field
+  reminderPreferences?: {
+    sevenDays: boolean;
+    oneDay: boolean;
+  };
 }
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  caseId: string;
+  caseTitle: string;
+  clientId: string;
+  clientName: string;
+  amount: number;
+  date: string;
+  status: 'Paid' | 'Unpaid' | 'Partial';
+  description: string;
+
+  // Optional advanced invoicing fields (backward compatible)
+  discountValue?: number;
+  discountType?: 'percent' | 'fixed';
+  finalAmount?: number;
+}
+
+export interface Expense {
+  id: string;
+  category: string;
+  amount: number;
+  date: string;
+  description: string;
+  status: 'Paid' | 'Pending';
+}
+
+export interface Receipt {
+  id: string;
+  receiptNumber: string;
+  kind: 'in' | 'out';
+  date: string; // YYYY-MM-DD
+  amount: number;
+  method?: string; // Cash/Transfer/Card/etc
+  note?: string;
+
+  // Links (optional)
+  clientId?: string;
+  clientName?: string;
+  caseId?: string;
+  caseNumber?: string;
+  caseTitle?: string;
+  linkedInvoiceId?: string;
+  linkedExpenseId?: string;
+}
+
+// Notebook / quick notes (local-first, safe to sync as plain JSON)
+export interface NotebookNote {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
+  pinned?: boolean;
+}
+
 
 export interface Client {
   id: string;
@@ -104,72 +141,131 @@ export interface Client {
   email: string;
   phone: string;
   emiratesId: string;
-  address: string;
+  address?: string;
+  platformAccount?: string;
+  dateOfBirth?: string;
+  profileImage?: string;
   type: 'Individual' | 'Corporate';
+  totalCases: number;
   createdAt: string;
-  documents: string[]; // Stores IDs of LegalDocuments
-  totalCases?: number; // Added totalCases field
-  profileImage?: string; // Added profileImage field
-  balance?: number; // Added for financial summary
+  notes?: string;
+  tags?: string[];
+  documents?: CaseDocument[];
+  // Optional client category to separate office clients from other contacts.
+  category?: 'office' | 'other';
 }
 
-// Updated Invoice interface for partial payments and optional caseId/branch
-export interface Invoice {
+export interface ServiceItem {
   id: string;
-  clientId: string;
-  caseId?: string; // Optional: Link to a specific case
-  amount: number;
-  paidAmount: number; // Added to track partial payments
-  status: 'Paid' | 'Unpaid' | 'Partially Paid'; // Added Partially Paid
-  date: string;
-  description?: string;
-  branch?: string; // For multi-branch support
-}
-
-// Added missing ExpenseCategory enum
-export enum ExpenseCategory {
-  OFFICE = 'مكتبي',
-  PERSONAL = 'شخصي',
-  CASE_RELATED = 'خاص بقضية', // Added for case-related expenses
-  GENERAL_OPERATIONAL = 'تشغيل عام' // For generic office expenses
-}
-
-// Added missing Expense interface
-export interface Expense {
-  id: string;
-  amount: number;
-  category: ExpenseCategory;
+  name: string;
   description: string;
-  date: string;
-  caseId?: string; // Optional: Link to a specific case
-  branch?: string;
+  price?: number;
 }
 
-// Added missing PaymentReceipt interface (currently not used explicitly but good to have)
-export interface PaymentReceipt {
+// Invoice templates (used in Settings to create reusable billing descriptions)
+export interface InvoiceTemplate {
   id: string;
-  clientId: string;
-  amount: number;
-  date: string;
-  invoiceId?: string; // Link to an invoice
+  title: string;
+  content: string;
 }
 
-// Added missing FutureDebt interface
-export interface FutureDebt {
+// Dynamic case types configured from Settings
+export interface CaseTypeConfig {
   id: string;
-  clientName: string;
-  clientId?: string; // Optional: Link to a client
-  amount: number;
-  dueDate: string;
-  description: string;
-  isReminded?: boolean; // To track if a reminder has been sent
+  name: string;
 }
 
-// Added missing SystemSettings interface, with added signature
-export interface SystemSettings {
-  logo?: string;
-  stamp?: string;
-  signature?: string; // Added signature field
-  language: AppLanguage;
+// New Interface for System Logs
+export interface SystemLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string; // e.g., "Login", "Update Settings", "Export Backup"
+  role: string;
+}
+
+// Enhanced System Config
+export interface SystemConfig {
+  officeName: string;
+  officeSlogan: string;
+
+  // Optional contact fields to appear on PDFs / reports
+  officePhone?: string;
+  officeEmail?: string;
+  officeAddress?: string;
+  officeWebsite?: string;
+
   primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string; // New: App Background Color
+  fontFamily: string;      // New: App Font Family
+  logo: string | null;
+  stamp: string | null;
+  services: ServiceItem[];
+
+  // Dynamic lists (safe defaults are applied in App.tsx)
+  caseTypes?: CaseTypeConfig[];
+  invoiceTemplates?: InvoiceTemplate[];
+  courts?: CourtConfig[];
+
+  /**
+   * Smart templates used across WhatsApp messages and PDF/print outputs.
+   * Token placeholders supported (examples):
+   * {officeName} {clientName} {caseNumber} {caseTitle} {invoiceNumber} {amount} {due} {date}
+   */
+  smartTemplates?: {
+    whatsappInvoice: string;
+    whatsappPaymentReminder: string;
+    whatsappSessionReminder: string;
+    whatsappGeneral: string;
+    invoiceLineNote: string;
+    invoiceFooter: string;
+    receiptFooter: string;
+  };
+
+  officeTemplates: CaseDocument[];
+  invoiceFormatting: {
+    prefix: string;
+    suffix: string;
+    nextSequence: number;
+  };
+  // Feature Flags for modular control
+  features: {
+    enableAI: boolean;
+    enableAnalysis: boolean;
+    enableWhatsApp: boolean;
+  };
+
+
+  // Reminder sounds/settings
+  reminderSettings?: {
+    enableSound: boolean;
+    sound: 'beep' | 'chime' | 'bell';
+    volume: number; // 0..1
+  };
+
+  // Cloud documents storage (Supabase Storage) - optional
+  cloudDocuments?: {
+    enableStorageSync: boolean;
+    bucket: string;
+  };
+}
+
+
+export type ReminderSource =
+  | { type: 'manual' }
+  | { type: 'case_hearing'; caseId: string }
+  | { type: 'doc_review'; caseId: string; docId: string };
+
+export interface Reminder {
+  id: string;
+  title: string;
+  dueDate: string; // YYYY-MM-DD
+  dueTime?: string; // HH:MM (optional)
+  note?: string;
+  priority?: 'low' | 'normal' | 'high';
+  done?: boolean;
+  createdAt: string;
+  source: ReminderSource;
+  notifiedAt?: string; // ISO
 }

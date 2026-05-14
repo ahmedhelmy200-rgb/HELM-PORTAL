@@ -8,12 +8,12 @@ import PageHeader from '@/components/helm/PageHeader'
 import {
   Trash2, RotateCcw, Archive, Search, AlertTriangle,
   Briefcase, Users, CalendarDays, FileText, Receipt,
-  CheckSquare, X, Loader2,
+  CheckSquare, X, Loader2, Database,
 } from 'lucide-react'
 import { format, isValid } from 'date-fns'
 import {
-  getArchive, removeFromArchive, clearArchive,
-  ENTITY_LABELS,
+  getArchive, removeFromArchive, clearArchive, markArchiveRestored,
+  migrateLocalStorageToSupabase, ENTITY_LABELS,
 } from '@/lib/archive'
 import { normalizeArabicText } from '@/lib/search'
 
@@ -40,13 +40,26 @@ function safeFmt(v, pat = 'dd/MM/yyyy HH:mm') {
   try { const d = new Date(v); return isValid(d) ? format(d, pat) : '' } catch { return '' }
 }
 
+function getRecord(entry) {
+  return entry.record_data || entry.record || {}
+}
+
+function getEntityName(entry) {
+  return entry.entity_name || entry.entityName
+}
+
+function getEntityLabel(entry) {
+  const entityName = getEntityName(entry)
+  return entry.entity_label || entry.entityLabel || ENTITY_LABELS[entityName] || entityName
+}
+
 function getDisplayName(entry) {
-  const r = entry.record
+  const r = getRecord(entry)
   return r.full_name || r.title || r.invoice_number || r.case_title || '—'
 }
 
 function getSub(entry) {
-  const r = entry.record
+  const r = getRecord(entry)
   const parts = [
     r.client_name, r.court, r.case_type, r.client_type,
     r.doc_type, r.status,
@@ -58,38 +71,61 @@ export default function ArchivePage() {
   const [items,     setItems]     = useState([])
   const [search,    setSearch]    = useState('')
   const [filter,    setFilter]    = useState('الكل')
+  const [loading,   setLoading]   = useState(true)
   const [restoring, setRestoring] = useState(null)
   const [deleting,  setDeleting]  = useState(null)
+  const [migrated,  setMigrated]  = useState(false)
 
-  const reload = useCallback(() => setItems(getArchive()), [])
-  useEffect(() => { reload() }, [reload])
+  const reload = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await getArchive()
+      setItems(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.error('[Archive] reload failed:', err)
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const result = await migrateLocalStorageToSupabase()
+        if (mounted && result?.migrated > 0) setMigrated(true)
+      } catch {}
+      if (mounted) await reload()
+    })()
+    return () => { mounted = false }
+  }, [reload])
 
   const filtered = items.filter(entry => {
-    const matchType   = filter === 'الكل' || ENTITY_LABELS[entry.entityName] === filter
+    const matchType = filter === 'الكل' || getEntityLabel(entry) === filter
     const matchSearch = !search || normalizeArabicText(
       `${getDisplayName(entry)} ${getSub(entry)}`
     ).includes(normalizeArabicText(search))
     return matchType && matchSearch
   })
 
-  const entityTypes = [...new Set(items.map(e => ENTITY_LABELS[e.entityName]))].filter(Boolean)
+  const entityTypes = [...new Set(items.map(e => getEntityLabel(e)))].filter(Boolean)
 
   const handleRestore = async (entry) => {
     setRestoring(entry.id)
     try {
-      const entityName = entry.entityName
+      const entityName = getEntityName(entry)
       const fields     = ENTITY_RESTORE_FIELDS[entityName] || []
-      const record     = entry.record
+      const record     = getRecord(entry)
 
-      // بناء البيانات المستعادة (بدون id ومعرفات Supabase)
       const payload = {}
       for (const f of fields) {
         if (record[f] !== undefined && record[f] !== null) payload[f] = record[f]
       }
 
       await base44.entities[entityName].create(payload)
-      removeFromArchive(entry.id)
-      reload()
+      await markArchiveRestored(entry.id)
+      await reload()
     } catch (err) {
       alert(`تعذر الاستعادة: ${err.message}`)
     } finally {
@@ -97,18 +133,26 @@ export default function ArchivePage() {
     }
   }
 
-  const handleDeletePermanent = (entry) => {
+  const handleDeletePermanent = async (entry) => {
     if (!window.confirm(`حذف نهائي لـ "${getDisplayName(entry)}"؟ لا يمكن التراجع.`)) return
     setDeleting(entry.id)
-    removeFromArchive(entry.id)
-    reload()
-    setDeleting(null)
+    try {
+      await removeFromArchive(entry.id)
+      await reload()
+    } finally {
+      setDeleting(null)
+    }
   }
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!window.confirm(`حذف ${items.length} عنصر نهائياً من الأرشيف؟ لا يمكن التراجع.`)) return
-    clearArchive()
-    reload()
+    setDeleting('all')
+    try {
+      await clearArchive()
+      await reload()
+    } finally {
+      setDeleting(null)
+    }
   }
 
   return (
@@ -118,25 +162,35 @@ export default function ArchivePage() {
         subtitle={`${items.length} عنصر محذوف قابل للاستعادة`}
         action={
           items.length > 0 ? (
-            <Button variant="destructive" size="sm" onClick={handleClearAll} className="gap-1.5">
-              <Trash2 className="h-3.5 w-3.5" />حذف الكل نهائياً
+            <Button variant="destructive" size="sm" onClick={handleClearAll} disabled={deleting === 'all'} className="gap-1.5">
+              {deleting === 'all' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              حذف الكل نهائياً
             </Button>
           ) : undefined
         }
       />
 
-      {/* banner */}
+      <Card className="p-4 bg-emerald-500/8 border-emerald-500/20 flex items-start gap-3">
+        <Database className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-semibold text-foreground text-sm">الأرشيف مرتبط بـ Supabase مع نسخة احتياطية محلية</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            عند توفر جدول الأرشيف يتم الحفظ والاسترجاع عبر قاعدة البيانات، ومع عدم توفره يستخدم النظام التخزين المحلي مؤقتاً.
+          </p>
+          {migrated && <p className="text-xs text-emerald-600 mt-1">تم ترحيل الأرشيف المحلي إلى Supabase بنجاح.</p>}
+        </div>
+      </Card>
+
       <Card className="p-4 bg-amber-500/8 border-amber-500/20 flex items-start gap-3">
         <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
         <div>
-          <p className="font-semibold text-foreground text-sm">العناصر المحذوفة محفوظة محلياً في هذا الجهاز</p>
+          <p className="font-semibold text-foreground text-sm">تنبيه الحذف النهائي</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            يمكن استعادتها بضغطة واحدة. الحذف النهائي من هنا لا رجعة فيه.
+            الاستعادة تنشئ نسخة جديدة من السجل ثم تضع علامة مسترجع على عنصر الأرشيف. الحذف النهائي لا رجعة فيه.
           </p>
         </div>
       </Card>
 
-      {/* filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -162,7 +216,12 @@ export default function ArchivePage() {
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {loading ? (
+        <Card className="p-14 text-center space-y-3">
+          <Loader2 className="h-10 w-10 text-primary mx-auto animate-spin" />
+          <p className="font-bold text-foreground text-lg">جارٍ تحميل الأرشيف…</p>
+        </Card>
+      ) : items.length === 0 ? (
         <Card className="p-14 text-center space-y-3">
           <Archive className="h-10 w-10 text-muted-foreground mx-auto opacity-30" />
           <p className="font-bold text-foreground text-lg">الأرشيف فارغ</p>
@@ -175,11 +234,13 @@ export default function ArchivePage() {
       ) : (
         <div className="space-y-2.5">
           {filtered.map(entry => {
-            const Icon = ENTITY_ICONS[entry.entityName] || FileText
+            const entityName = getEntityName(entry)
+            const Icon = ENTITY_ICONS[entityName] || FileText
             const name  = getDisplayName(entry)
             const sub   = getSub(entry)
             const isRest = restoring === entry.id
             const isDel  = deleting  === entry.id
+            const archivedAt = entry.archived_at || entry.archivedAt
 
             return (
               <Card key={entry.id} className="p-4 flex items-center gap-4 hover:shadow-sm transition-shadow">
@@ -191,12 +252,12 @@ export default function ArchivePage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-foreground text-sm truncate">{name}</p>
                     <Badge variant="outline" className="text-[10px] py-0 h-5">
-                      {entry.entityLabel}
+                      {getEntityLabel(entry)}
                     </Badge>
                   </div>
                   {sub && <p className="text-xs text-muted-foreground truncate mt-0.5">{sub}</p>}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    حُذف {safeFmt(entry.archivedAt, 'dd/MM/yyyy HH:mm')}
+                    حُذف {safeFmt(archivedAt, 'dd/MM/yyyy HH:mm')}
                   </p>
                 </div>
 
@@ -222,7 +283,7 @@ export default function ArchivePage() {
                     disabled={isDel}
                     title="حذف نهائي"
                   >
-                    <X className="h-4 w-4" />
+                    {isDel ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                   </Button>
                 </div>
               </Card>

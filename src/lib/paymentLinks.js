@@ -1,14 +1,14 @@
 // توليد روابط الدفع وإدارة حالات الدفع
+import { getInvoiceTotals } from './invoiceMath'
 
 export function generatePaymentToken(invoiceId) {
-  // token بسيط للتحقق من الفاتورة (يمكن تحسينه بـ JWT في الإنتاج)
   const payload = { id: invoiceId, ts: Date.now() }
   return btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
 export function parsePaymentToken(token) {
   try {
-    const padded = token.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = String(token || '').replace(/-/g, '+').replace(/_/g, '/')
     const json = atob(padded + '==')
     return JSON.parse(json)
   } catch {
@@ -24,7 +24,7 @@ export function buildPaymentUrl(invoiceId, baseUrl) {
 
 // رسالة واتساب مع رابط الدفع
 export function buildPaymentWhatsAppMessage(invoice, paymentUrl, officeSettings = {}) {
-  const { total, remaining } = calcTotals(invoice)
+  const { remaining } = getInvoiceTotals(invoice)
   const office = officeSettings.office_name || 'المكتب القانوني'
   const phone  = officeSettings.phone || ''
 
@@ -46,20 +46,11 @@ ${office}`
 
 // رسالة إيميل مع رابط الدفع
 export function buildPaymentEmailBody(invoice, paymentUrl, officeSettings = {}) {
-  const { total, remaining } = calcTotals(invoice)
+  const { remaining } = getInvoiceTotals(invoice)
   const office = officeSettings.office_name || 'المكتب القانوني'
 
   return {
     subject: `رابط الدفع — فاتورة ${invoice.invoice_number || ''}`,
     body: `مرحباً ${invoice.client_name || ''},\n\nيسعدنا إعلامك بأن فاتورتك جاهزة للدفع الإلكتروني:\n\nرقم الفاتورة: ${invoice.invoice_number || '—'}\nالمبلغ المستحق: ${remaining.toLocaleString()} ${invoice.currency || 'د.إ'}\n\nرابط الدفع:\n${paymentUrl}\n\nيمكنك الدفع بأي بطاقة ائتمانية أو مدى أو Apple Pay أو Google Pay.\n\n${office}`,
   }
-}
-
-function calcTotals(invoice) {
-  const sub       = Math.max(0, (invoice.total_fees || 0) - (invoice.discount || 0))
-  const vat       = sub * ((invoice.vat_rate || 0) / 100)
-  const total     = sub + vat
-  const paid      = invoice.paid_amount || 0
-  const remaining = Math.max(0, total - paid)
-  return { total, paid, remaining }
 }

@@ -7,7 +7,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
-import PublicEntry from './pages/PublicEntry'
+import PublicEntryWithLogo from './pages/PublicEntryWithLogo'
 import PublicLegalLibrary from './pages/PublicLegalLibrary'
 import PasswordReset from './pages/PasswordReset'
 import Payment from './pages/Payment'
@@ -75,7 +75,7 @@ function OnboardingRoute() {
 function PublicRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<PublicEntry />} />
+      <Route path="/" element={<PublicEntryWithLogo />} />
       <Route path="/Payment" element={<Payment />} />
       <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />
       <Route path="/PasswordReset" element={<PasswordReset />} />

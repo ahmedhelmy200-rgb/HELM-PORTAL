@@ -15,6 +15,7 @@ import { createPageUrl } from '@/utils'
 import ErrorBoundary from '@/components/app/ErrorBoundary'
 import AppStatusBar from '@/components/app/AppStatusBar'
 import KeyboardShortcutsModal from '@/components/app/KeyboardShortcutsModal'
+import SupabaseConfigGate from '@/components/app/SupabaseConfigGate'
 import { base44 } from '@/api/base44Client'
 
 const { Pages, Layout, mainPage } = pagesConfig
@@ -127,16 +128,18 @@ const AuthenticatedApp = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <AppStatusBar />
-            <KeyboardShortcutsModal />
-            <AuthenticatedApp />
-          </Router>
-          <Toaster />
-        </QueryClientProvider>
-      </AuthProvider>
+      <SupabaseConfigGate>
+        <AuthProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <Router>
+              <AppStatusBar />
+              <KeyboardShortcutsModal />
+              <AuthenticatedApp />
+            </Router>
+            <Toaster />
+          </QueryClientProvider>
+        </AuthProvider>
+      </SupabaseConfigGate>
     </ErrorBoundary>
   )
 }

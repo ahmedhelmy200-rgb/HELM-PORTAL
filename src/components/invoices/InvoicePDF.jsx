@@ -1,115 +1,266 @@
 import React from "react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
+import { getInvoiceTotals } from "@/lib/invoiceMath";
 
-export default function InvoicePDF({ invoice }) {
+function safeDate(value) {
+  if (!value) return "---";
+  try { return format(new Date(value), "yyyy/MM/dd"); } catch { return String(value); }
+}
+
+function money(value, currency = "د.إ") {
+  const n = Number(value || 0);
+  return `${n.toLocaleString()} ${currency}`;
+}
+
+export default function InvoicePDF({ invoice, officeSettings }) {
   const { appPublicSettings } = useAuth();
-  const settings = appPublicSettings || {};
-  const primaryColor = settings?.primary_color || "#1d4ed8";
-  const subtotal = Math.max(0, (invoice.total_fees || 0) - (invoice.discount || 0));
-  const vat = subtotal * ((invoice.vat_rate || 0) / 100);
-  const total = subtotal + vat;
-  const remaining = Math.max(0, total - (invoice.paid_amount || 0));
-  const officeName = settings?.office_name || invoice.office_name || "مكتب المحامي";
-  const officePhone = settings?.phone || invoice.office_phone || "";
-  const officeAddress = settings?.address || invoice.office_address || "";
+  const settings = { ...(appPublicSettings || {}), ...(officeSettings || {}) };
+
+  const primaryColor = settings?.primary_color || "#0f172a";
+  const secondaryColor = settings?.secondary_color || "#d4af37";
+  const currency = settings?.currency || "د.إ";
+  const totals = getInvoiceTotals(invoice || {});
+  const subtotal = Number(totals.subtotal ?? invoice?.total_fees ?? invoice?.amount ?? 0);
+  const total = Number(totals.total ?? subtotal);
+  const paid = Number(totals.paid ?? invoice?.paid_amount ?? 0);
+  const remaining = Number(totals.remaining ?? Math.max(0, total - paid));
+  const vat = Number(totals.vat ?? 0);
+
+  const officeName = settings?.office_name || invoice?.office_name || "مكتب المستشار أحمد حلمي";
+  const officeNameEn = settings?.office_name_en || "Ahmed Helmy Law Office";
+  const officePhone = settings?.phone || invoice?.office_phone || "";
+  const officeEmail = settings?.email || "";
+  const officeAddress = settings?.address || invoice?.office_address || "";
+  const officeWebsite = settings?.website || "";
   const logoUrl = settings?.logo_url || null;
   const stampUrl = settings?.stamp_url || null;
   const signatureUrl = settings?.signature_url || null;
-  const bank_name = settings?.bank_name || "";
+  const bankName = settings?.bank_name || "";
+  const bankAccount = settings?.bank_account || "";
   const iban = settings?.iban || "";
-  const vat_number = settings?.vat_number || "";
-  const currency = settings?.currency || "د.إ";
-  const invoice_footer_text = settings?.invoice_footer_text || "شكراً لثقتكم بنا · نتمنى لكم دوام التوفيق والنجاح";
-  const invoice_header_text = settings?.invoice_header_text || "";
-  const watermarkText = settings?.office_name || officeName || 'HELM LAW';
-  const statusColors = {"مدفوعة":"#16a34a","متأخرة":"#dc2626","صادرة":primaryColor,"مسودة":"#6b7280","ملغاة":"#6b7280"};
+  const vatNumber = settings?.vat_number || "";
+  const footerText = settings?.invoice_footer_text || "شكراً لثقتكم بنا · نسعى دائماً لتقديم أفضل خدمة قانونية";
+  const headerText = settings?.invoice_header_text || "للاستشارات القانونية وإدارة الملفات";
+
+  const statusColors = {
+    "مدفوعة": "#16a34a",
+    "مدفوعة جزئياً": "#f59e0b",
+    "متأخرة": "#dc2626",
+    "صادرة": primaryColor,
+    "مسودة": "#6b7280",
+    "ملغاة": "#6b7280",
+  };
+  const statusColor = statusColors[invoice?.status] || primaryColor;
+
+  const items = Array.isArray(invoice?.items) && invoice.items.length
+    ? invoice.items
+    : [{ description: invoice?.description || "أتعاب وخدمات قانونية", amount: invoice?.total_fees || invoice?.amount || total }];
 
   return (
-    <div id="invoice-print-area" dir="rtl" style={{ fontFamily: "'Cairo', 'Arial', sans-serif", width: "794px", minHeight: "1123px", background: "#fff", color: "#1a1a2e", padding: 0, boxSizing: "border-box", position: "relative", overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.06, transform: 'rotate(-32deg)' }}>
-        {logoUrl ? (
-          <img src={logoUrl} alt="watermark" style={{ width: '420px', objectFit: 'contain', filter: 'grayscale(1)' }} />
-        ) : (
-          <div style={{ fontSize: '68px', fontWeight: 900, color: primaryColor, letterSpacing: '0.12em' }}>{watermarkText}</div>
-        )}
-      </div>
+    <div id="invoice-print-area" dir="rtl" className="helm-invoice-print-root">
+      <style>{`
+        .helm-invoice-print-root, .helm-invoice-print-root * { box-sizing: border-box; }
+        .helm-invoice-sheet {
+          font-family: 'Cairo', 'Arial', sans-serif;
+          width: 100%;
+          max-width: 794px;
+          min-height: 1123px;
+          margin: 0 auto;
+          background: #fff;
+          color: #0f172a;
+          position: relative;
+          overflow: visible;
+          border: 1px solid #e5e7eb;
+        }
+        .helm-letterhead {
+          background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}e6 100%);
+          color: #fff;
+          padding: 26px 34px 22px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 18px;
+          border-bottom: 6px solid ${secondaryColor};
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .helm-office-block { display:flex; align-items:center; gap:14px; min-width:0; }
+        .helm-logo-box { width:70px; height:70px; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; padding:7px; flex-shrink:0; }
+        .helm-logo-box img { max-width:100%; max-height:100%; object-fit:contain; }
+        .helm-logo-fallback { width:70px; height:70px; border-radius:18px; background:#fff; color:${primaryColor}; display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:900; }
+        .helm-contact-line { display:flex; gap:10px; flex-wrap:wrap; margin-top:7px; color:rgba(255,255,255,.82); font-size:11px; line-height:1.7; }
+        .helm-invoice-label { text-align:left; flex-shrink:0; }
+        .helm-invoice-label-card { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.13); border-radius:16px; padding:12px 18px; text-align:center; min-width:170px; }
+        .helm-body { padding: 24px 34px 18px; position:relative; z-index:1; }
+        .helm-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:.055; transform:rotate(-30deg); z-index:0; }
+        .helm-watermark img { width:430px; max-width:70%; filter:grayscale(1); object-fit:contain; }
+        .helm-watermark span { font-size:58px; font-weight:900; color:${primaryColor}; letter-spacing:.08em; }
+        .helm-info-grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
+        .helm-info-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px; }
+        .helm-info-card small { display:block; color:#64748b; font-size:10px; font-weight:900; margin-bottom:6px; letter-spacing:.04em; }
+        .helm-table { width:100%; border-collapse:collapse; margin:14px 0 18px; table-layout:fixed; }
+        .helm-table thead { display:table-header-group; }
+        .helm-table tr { break-inside:avoid; page-break-inside:avoid; }
+        .helm-table th { background:${primaryColor}; color:#fff; padding:11px 12px; font-size:12px; text-align:right; }
+        .helm-table td { border-bottom:1px solid #e2e8f0; padding:10px 12px; font-size:12px; vertical-align:top; overflow-wrap:anywhere; }
+        .helm-summary-row { display:grid; grid-template-columns: 1fr 300px; gap:18px; align-items:start; break-inside:avoid; page-break-inside:avoid; }
+        .helm-payment-box { background:#f0f9ff; border:1px solid #bae6fd; border-radius:16px; padding:13px; font-size:12px; line-height:1.8; }
+        .helm-notes-box { background:#fffbeb; border:1px solid #fde68a; border-radius:16px; padding:13px; font-size:12px; line-height:1.8; margin-top:10px; }
+        .helm-total-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:13px; }
+        .helm-total-line { display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid #e2e8f0; font-size:12px; }
+        .helm-total-final { display:flex; justify-content:space-between; gap:10px; padding:11px 0; border-bottom:2px solid ${primaryColor}; font-size:15px; font-weight:900; color:${primaryColor}; }
+        .helm-remaining { display:flex; justify-content:space-between; gap:10px; margin-top:9px; padding:12px; border-radius:12px; font-weight:900; background:${remaining > 0 ? "#fef2f2" : "#f0fdf4"}; color:${remaining > 0 ? "#dc2626" : "#16a34a"}; }
+        .helm-footer { border-top:4px solid ${secondaryColor}; background:linear-gradient(135deg, ${primaryColor}0f 0%, #fff 100%); padding:16px 34px 20px; position:relative; z-index:1; break-inside:avoid; page-break-inside:avoid; }
+        .helm-footer-content { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; }
+        .helm-official-images { display:flex; align-items:flex-end; gap:16px; flex-shrink:0; min-width:200px; justify-content:flex-end; }
+        .helm-official-images img { object-fit:contain; display:block; }
+        .helm-stamp-img { max-width:100px; max-height:88px; opacity:.9; }
+        .helm-signature-img { max-width:165px; max-height:72px; }
+        .helm-signature-label { font-size:10px; color:#64748b; font-weight:800; margin-top:4px; text-align:center; }
+        @page { size: A4; margin: 10mm; }
+        @media print {
+          html, body { width:auto !important; min-height:auto !important; margin:0 !important; padding:0 !important; background:#fff !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; overflow:visible !important; }
+          .helm-invoice-sheet { width:100% !important; max-width:none !important; min-height:auto !important; border:0 !important; box-shadow:none !important; overflow:visible !important; }
+          .helm-letterhead { padding:16px 0 14px !important; margin-bottom:8px !important; }
+          .helm-body { padding:14px 0 10px !important; }
+          .helm-footer { padding:12px 0 0 !important; }
+          .helm-watermark { opacity:.045 !important; }
+        }
+        @media screen and (max-width: 760px) {
+          .helm-invoice-sheet { max-width:100%; min-height:auto; border:0; }
+          .helm-letterhead { flex-direction:column; align-items:stretch; padding:20px; }
+          .helm-invoice-label { text-align:right; }
+          .helm-invoice-label-card { width:100%; }
+          .helm-body { padding:18px; }
+          .helm-info-grid, .helm-summary-row { grid-template-columns:1fr; }
+          .helm-footer { padding:16px 18px; }
+          .helm-footer-content { flex-direction:column; align-items:stretch; }
+          .helm-official-images { justify-content:flex-start; }
+        }
+      `}</style>
 
-      <div style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 100%)`, padding: "32px 48px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", position: 'relative', zIndex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          {logoUrl && <img src={logoUrl} alt="شعار المكتب" style={{ height: "64px", width: "64px", objectFit: "contain", background: "#fff", borderRadius: "12px", padding: "6px" }} />}
-          <div>
-            <h1 style={{ fontSize: "22px", fontWeight: "800", color: "#fff", margin: 0 }}>{officeName}</h1>
-            {invoice_header_text && <p style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.82)", fontSize: "12px" }}>{invoice_header_text}</p>}
-            <div style={{ marginTop: "6px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              {officePhone && <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "12px" }}>📞 {officePhone}</span>}
-              {settings?.email && <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "12px" }}>✉️ {settings.email}</span>}
-              {officeAddress && <span style={{ color: "rgba(255,255,255,0.8)", fontSize: "12px" }}>📍 {officeAddress}</span>}
+      <div className="helm-invoice-sheet">
+        <div className="helm-watermark">
+          {logoUrl ? <img src={logoUrl} alt="watermark" /> : <span>{officeName}</span>}
+        </div>
+
+        <header className="helm-letterhead">
+          <div className="helm-office-block">
+            {logoUrl ? (
+              <div className="helm-logo-box"><img src={logoUrl} alt="شعار المكتب" /></div>
+            ) : (
+              <div className="helm-logo-fallback">H</div>
+            )}
+            <div>
+              <h1 style={{ margin: 0, fontSize: 21, fontWeight: 900 }}>{officeName}</h1>
+              <div style={{ marginTop: 3, color: "rgba(255,255,255,.82)", fontSize: 12, fontWeight: 700 }}>{officeNameEn}</div>
+              {headerText && <div style={{ marginTop: 4, color: "rgba(255,255,255,.78)", fontSize: 11 }}>{headerText}</div>}
+              <div className="helm-contact-line">
+                {officePhone && <span>📞 {officePhone}</span>}
+                {officeEmail && <span>✉️ {officeEmail}</span>}
+                {officeWebsite && <span>🌐 {officeWebsite}</span>}
+                {officeAddress && <span>📍 {officeAddress}</span>}
+              </div>
             </div>
           </div>
-        </div>
-        <div style={{ textAlign: "left" }}>
-          <div style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", padding: "14px 24px", borderRadius: "12px", textAlign: "center" }}>
-            <p style={{ margin: 0, fontSize: "11px", opacity: 0.8, textTransform: "uppercase", letterSpacing: "0.05em" }}>فاتورة رقم</p>
-            <p style={{ margin: "4px 0 0", fontSize: "22px", fontWeight: "bold" }}>{invoice.invoice_number || "---"}</p>
-          </div>
-          <div style={{ marginTop: "8px", textAlign: "left", fontSize: "12px", color: "rgba(255,255,255,0.8)" }}>
-            <p style={{ margin: "2px 0" }}>📅 {invoice.issue_date ? format(new Date(invoice.issue_date), "yyyy/MM/dd") : "---"}</p>
-            {invoice.due_date && <p style={{ margin: "2px 0" }}>⏰ الاستحقاق: {format(new Date(invoice.due_date), "yyyy/MM/dd")}</p>}
-          </div>
-        </div>
-      </div>
 
-      <div style={{ padding: "32px 48px", position: 'relative', zIndex: 1 }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
-          <div style={{ padding: "8px 20px", borderRadius: "20px", fontSize: "14px", fontWeight: "700", background: `${statusColors[invoice.status] || "#6b7280"}15`, color: statusColors[invoice.status] || "#6b7280", border: `2px solid ${statusColors[invoice.status] || "#6b7280"}40` }}>{invoice.status}</div>
-        </div>
+          <div className="helm-invoice-label">
+            <div className="helm-invoice-label-card">
+              <div style={{ fontSize: 11, opacity: .84, fontWeight: 800 }}>فاتورة رقم</div>
+              <div style={{ fontSize: 22, fontWeight: 900, marginTop: 3 }}>{invoice?.invoice_number || "---"}</div>
+              <div style={{ fontSize: 11, marginTop: 7, opacity: .8 }}>تاريخ الإصدار: {safeDate(invoice?.issue_date || invoice?.created_date)}</div>
+              {invoice?.due_date && <div style={{ fontSize: 11, marginTop: 2, opacity: .8 }}>الاستحقاق: {safeDate(invoice.due_date)}</div>}
+            </div>
+          </div>
+        </header>
 
-        <div style={{ display: "flex", gap: "20px", marginBottom: "28px" }}>
-          <div style={{ flex: 1, background: "#f8fafc", borderRadius: "12px", padding: "18px", border: "1px solid #e2e8f0" }}>
-            <p style={{ margin: "0 0 6px", fontSize: "11px", color: "#6b7280", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em" }}>بيانات الموكل</p>
-            <p style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#1a1a2e" }}>{invoice.client_name}</p>
+        <main className="helm-body">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: primaryColor }}>فاتورة خدمات قانونية</h2>
+              <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 12 }}>Tax / Professional Invoice</p>
+            </div>
+            <div style={{ padding: "7px 17px", borderRadius: 999, fontSize: 13, fontWeight: 900, color: statusColor, background: `${statusColor}14`, border: `2px solid ${statusColor}33` }}>{invoice?.status || "صادرة"}</div>
           </div>
-          {invoice.case_title && <div style={{ flex: 1, background: "#f8fafc", borderRadius: "12px", padding: "18px", border: "1px solid #e2e8f0" }}>
-            <p style={{ margin: "0 0 6px", fontSize: "11px", color: "#6b7280", fontWeight: "700" }}>القضية</p>
-            <p style={{ margin: 0, fontSize: "14px", fontWeight: "bold", color: "#1a1a2e" }}>{invoice.case_title}</p>
-            {invoice.case_number && <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#6b7280" }}>رقم: {invoice.case_number}</p>}
-          </div>}
-        </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "24px", borderRadius: "12px", overflow: "hidden" }}>
-          <thead><tr style={{ background: primaryColor, color: "#fff" }}><th style={{ padding: "14px 16px", textAlign: "right", fontSize: "13px", fontWeight: "bold" }}>#</th><th style={{ padding: "14px 16px", textAlign: "right", fontSize: "13px", fontWeight: "bold" }}>البيان</th><th style={{ padding: "14px 16px", textAlign: "left", fontSize: "13px", fontWeight: "bold" }}>المبلغ ({currency})</th></tr></thead>
-          <tbody>{invoice.items && invoice.items.length > 0 ? invoice.items.map((item, i) => <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f8fafc" }}><td style={{ padding: "12px 16px", fontSize: "13px", color: "#6b7280", borderBottom: "1px solid #e2e8f0" }}>{i + 1}</td><td style={{ padding: "12px 16px", fontSize: "13px", borderBottom: "1px solid #e2e8f0" }}>{item.description}</td><td style={{ padding: "12px 16px", fontSize: "13px", textAlign: "left", borderBottom: "1px solid #e2e8f0" }}>{(item.amount || 0).toLocaleString()}</td></tr>) : <tr style={{ background: "#fff" }}><td style={{ padding: "12px 16px", fontSize: "13px", color: "#6b7280" }}>1</td><td style={{ padding: "12px 16px", fontSize: "13px" }}>أتعاب المحاماة</td><td style={{ padding: "12px 16px", fontSize: "13px", textAlign: "left" }}>{(invoice.total_fees || 0).toLocaleString()}</td></tr>}</tbody>
-        </table>
+          <section className="helm-info-grid">
+            <div className="helm-info-card">
+              <small>بيانات الموكل</small>
+              <div style={{ fontSize: 17, fontWeight: 900 }}>{invoice?.client_name || "—"}</div>
+            </div>
+            <div className="helm-info-card">
+              <small>القضية / الملف</small>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>{invoice?.case_title || "—"}</div>
+              {invoice?.case_number && <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>رقم: {invoice.case_number}</div>}
+            </div>
+          </section>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: 'flex-end', gap: '20px', marginBottom: "28px" }}>
-          <div style={{ flex: 1 }}>
-            {(bank_name || iban) && <div style={{ background: "#f0f9ff", borderRadius: "12px", padding: "16px", border: "1px solid #bae6fd", marginBottom: "16px" }}><p style={{ margin: "0 0 8px", fontSize: "12px", color: "#0369a1", fontWeight: "700" }}>💳 بيانات الدفع البنكي</p><div style={{ display: "flex", gap: "24px", flexWrap: "wrap", fontSize: "13px" }}>{bank_name && <span>🏦 البنك: <strong>{bank_name}</strong></span>}{iban && <span>IBAN: <strong>{iban}</strong></span>}{vat_number && <span>الرقم الضريبي: <strong>{vat_number}</strong></span>}</div></div>}
-            {invoice.notes && <div style={{ background: "#fffbeb", borderRadius: "12px", padding: "16px", border: "1px solid #fde68a" }}><p style={{ margin: "0 0 8px", fontSize: "12px", color: "#92400e", fontWeight: "700" }}>📝 ملاحظات</p><p style={{ margin: 0, fontSize: "13px", lineHeight: "1.7", color: "#78350f" }}>{invoice.notes}</p></div>}
-          </div>
-          <div style={{ width: "320px", background: "#f8fafc", borderRadius: "12px", padding: "16px", border: "1px solid #e2e8f0" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #e2e8f0", fontSize: "13px" }}><span style={{ color: "#6b7280" }}>المجموع الفرعي</span><span style={{ fontWeight: "600" }}>{(invoice.total_fees || 0).toLocaleString()} {currency}</span></div>
-            {(invoice.discount || 0) > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #e2e8f0", fontSize: "13px" }}><span style={{ color: "#6b7280" }}>الخصم</span><span style={{ color: "#16a34a", fontWeight: "600" }}>- {(invoice.discount || 0).toLocaleString()} {currency}</span></div>}
-            {(invoice.vat_rate || 0) > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #e2e8f0", fontSize: "13px" }}><span style={{ color: "#6b7280" }}>ضريبة القيمة المضافة ({invoice.vat_rate}%)</span><span style={{ fontWeight: "600" }}>{vat.toLocaleString()} {currency}</span></div>}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: `2px solid ${primaryColor}`, fontSize: "16px", fontWeight: "800" }}><span>الإجمالي</span><span style={{ color: primaryColor }}>{total.toLocaleString()} {currency}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #e2e8f0", fontSize: "13px" }}><span style={{ color: "#6b7280" }}>المدفوع</span><span style={{ color: "#16a34a", fontWeight: "600" }}>{(invoice.paid_amount || 0).toLocaleString()} {currency}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 16px", background: remaining > 0 ? "#fef2f2" : "#f0fdf4", borderRadius: "8px", marginTop: "8px", fontSize: "16px", fontWeight: "800" }}><span style={{ color: remaining > 0 ? "#dc2626" : "#16a34a" }}>المتبقي</span><span style={{ color: remaining > 0 ? "#dc2626" : "#16a34a" }}>{remaining.toLocaleString()} {currency}</span></div>
-          </div>
-        </div>
-      </div>
+          <table className="helm-table">
+            <thead>
+              <tr>
+                <th style={{ width: 48 }}>#</th>
+                <th>البيان</th>
+                <th style={{ width: 160, textAlign: "left" }}>المبلغ ({currency})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={index} style={{ background: index % 2 ? "#f8fafc" : "#fff" }}>
+                  <td>{index + 1}</td>
+                  <td>{item.description || "أتعاب وخدمات قانونية"}</td>
+                  <td style={{ textAlign: "left", fontWeight: 800 }}>{Number(item.amount || 0).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      <div style={{ background: `linear-gradient(135deg, ${primaryColor}10 0%, ${primaryColor}05 100%)`, borderTop: `3px solid ${primaryColor}`, padding: "18px 48px 24px", textAlign: "center", position: 'relative', zIndex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '20px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ margin: 0, fontSize: "13px", color: primaryColor, fontWeight: "700" }}>{invoice_footer_text}</p>
-            {invoice.payment_method && <p style={{ margin: "6px 0 0", fontSize: "12px", color: "#6b7280" }}>طريقة الدفع: {invoice.payment_method}</p>}
-            {settings?.website && <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#6b7280" }}>🌐 {settings.website}</p>}
+          <section className="helm-summary-row">
+            <div>
+              {(bankName || bankAccount || iban || vatNumber) && (
+                <div className="helm-payment-box">
+                  <div style={{ color: "#0369a1", fontWeight: 900, marginBottom: 5 }}>بيانات الدفع البنكي</div>
+                  {bankName && <div>البنك: <b>{bankName}</b></div>}
+                  {bankAccount && <div>رقم الحساب: <b>{bankAccount}</b></div>}
+                  {iban && <div dir="ltr" style={{ textAlign: "right" }}>IBAN: <b>{iban}</b></div>}
+                  {vatNumber && <div>الرقم الضريبي: <b>{vatNumber}</b></div>}
+                </div>
+              )}
+              {invoice?.notes && (
+                <div className="helm-notes-box">
+                  <div style={{ color: "#92400e", fontWeight: 900, marginBottom: 5 }}>ملاحظات</div>
+                  {invoice.notes}
+                </div>
+              )}
+            </div>
+
+            <div className="helm-total-box">
+              <div className="helm-total-line"><span>المجموع الفرعي</span><b>{money(subtotal, currency)}</b></div>
+              {(invoice?.discount || 0) > 0 && <div className="helm-total-line"><span>الخصم</span><b style={{ color: "#16a34a" }}>- {money(invoice.discount, currency)}</b></div>}
+              {vat > 0 && <div className="helm-total-line"><span>ضريبة القيمة المضافة</span><b>{money(vat, currency)}</b></div>}
+              <div className="helm-total-final"><span>الإجمالي</span><span>{money(total, currency)}</span></div>
+              <div className="helm-total-line"><span>المدفوع</span><b style={{ color: "#16a34a" }}>{money(paid, currency)}</b></div>
+              <div className="helm-remaining"><span>المتبقي</span><span>{money(remaining, currency)}</span></div>
+            </div>
+          </section>
+        </main>
+
+        <footer className="helm-footer">
+          <div className="helm-footer-content">
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 12, color: primaryColor, fontWeight: 900, whiteSpace: "pre-line", lineHeight: 1.7 }}>{footerText}</p>
+              {invoice?.payment_method && <p style={{ margin: "6px 0 0", fontSize: 11, color: "#64748b" }}>طريقة الدفع: {invoice.payment_method}</p>}
+              {(officePhone || officeEmail || officeWebsite) && <p style={{ margin: "5px 0 0", fontSize: 11, color: "#64748b" }}>{[officePhone, officeEmail, officeWebsite].filter(Boolean).join(" · ")}</p>}
+            </div>
+            <div className="helm-official-images">
+              {stampUrl && <img src={stampUrl} alt="ختم المكتب" className="helm-stamp-img" />}
+              <div>
+                {signatureUrl && <img src={signatureUrl} alt="توقيع المكتب" className="helm-signature-img" />}
+                <div className="helm-signature-label">التوقيع والختم</div>
+              </div>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'end', gap: '18px' }}>
-            {stampUrl && <img src={stampUrl} alt="ختم المكتب" style={{ maxHeight: '86px', maxWidth: '96px', objectFit: 'contain', opacity: 0.88 }} />}
-            {signatureUrl && <img src={signatureUrl} alt="توقيع المكتب" style={{ maxHeight: '64px', maxWidth: '150px', objectFit: 'contain' }} />}
-          </div>
-        </div>
+        </footer>
       </div>
     </div>
   );

@@ -9,7 +9,6 @@ import { Plus, Search, FileText, TrendingUp, DollarSign, AlertCircle, MessageCir
 import PageHeader from "../components/helm/PageHeader";
 import EmptyState from "../components/helm/EmptyState";
 import InvoiceCard from "../components/invoices/InvoiceCard";
-import ActionButtons from "@/components/shared/ActionButtons";
 import InvoiceFormDialog from "../components/invoices/InvoiceFormDialog";
 import InvoicePDF from "../components/invoices/InvoicePDF";
 import { useAuth } from "@/lib/AuthContext";
@@ -90,7 +89,7 @@ export default function Invoices() {
 
   const buildInvoiceMessage = (invoice) => {
     const { total, remaining, paid } = getInvoiceTotals(invoice);
-    return `مرحباً ${invoice.client_name || ''}،\n\nبخصوص الفاتورة رقم ${invoice.invoice_number || ''}:\nإجمالي الفاتورة: ${total.toLocaleString()} د.إ\nالمدفوع: ${paid.toLocaleString()} د.إ\nالمتبقي: ${remaining.toLocaleString()} د.إ\n${invoice.due_date ? `تاريخ الاستحقاق: ${invoice.due_date}\n` : ''}\nنرجو السداد أو التواصل معنا عند الحاجة.`;
+    return `مرحباً ${invoice.client_name || ''},\n\nبخصوص الفاتورة رقم ${invoice.invoice_number || ''}:\nإجمالي الفاتورة: ${total.toLocaleString()} د.إ\nالمدفوع: ${paid.toLocaleString()} د.إ\nالمتبقي: ${remaining.toLocaleString()} د.إ\n${invoice.due_date ? `تاريخ الاستحقاق: ${invoice.due_date}\n` : ''}\nنرجو السداد أو التواصل معنا عند الحاجة.`;
   };
 
   const handleSendWhatsApp = (invoice) => {
@@ -127,17 +126,38 @@ export default function Invoices() {
   };
 
   const printInvoice = () => {
-    const printContent = document.getElementById("invoice-print-area");
+    const printContent = document.querySelector(".helm-invoice-print-root");
     if (!printContent) return;
-    const win = window.open("", "_blank", "width=900,height=1200");
+    const win = window.open("", "_blank", "width=980,height=1200,scrollbars=yes");
+    if (!win) return alert("تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.");
+    win.document.open();
     win.document.write(`
-      <html dir="rtl">
+      <!doctype html>
+      <html lang="ar" dir="rtl">
         <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>فاتورة ${previewInvoice?.invoice_number || ""}</title>
-          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-          <style>@page { margin: 0; } body { margin: 0; padding: 0; font-family: 'Cairo', Arial, sans-serif; }</style>
+          <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+          <style>
+            html, body { margin:0; padding:0; background:#fff; direction:rtl; overflow:visible; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+            body { font-family:'Cairo', Arial, sans-serif; }
+            .print-actions { padding:12px; background:#0f172a; color:#fff; display:flex; justify-content:center; gap:8px; position:sticky; top:0; z-index:99999; }
+            .print-actions button { border:0; border-radius:12px; padding:10px 16px; font-weight:900; cursor:pointer; }
+            @page { size:A4; margin:10mm; }
+            @media print { .print-actions { display:none !important; } html, body { width:auto !important; height:auto !important; overflow:visible !important; } }
+          </style>
         </head>
-        <body>${printContent.outerHTML}<script>window.onload=function(){setTimeout(function(){window.print();window.close();},500);};</script></body>
+        <body>
+          <div class="print-actions">
+            <button onclick="window.print()">طباعة / حفظ PDF</button>
+            <button onclick="window.close()">إغلاق</button>
+          </div>
+          ${printContent.outerHTML}
+          <script>
+            window.onload = function(){ setTimeout(function(){ window.focus(); window.print(); }, 700); };
+          </script>
+        </body>
       </html>
     `);
     win.document.close();
@@ -223,15 +243,13 @@ export default function Invoices() {
       <InvoiceFormDialog open={showForm} onOpenChange={setShowForm} invoice={editing} onSaved={() => { setShowForm(false); loadInvoices(); }} />
 
       <Dialog open={!!previewInvoice} onOpenChange={(open) => !open && setPreviewInvoice(null)}>
-        <DialogContent className="max-w-5xl p-0 bg-transparent border-none shadow-none" dir="rtl">
+        <DialogContent className="max-w-5xl p-0 bg-transparent border-none shadow-none max-h-[95vh] overflow-auto" dir="rtl">
           {previewInvoice && (
             <div className="space-y-4">
-              <div className="flex items-center justify-end gap-2 px-3">
+              <div className="flex items-center justify-end gap-2 px-3 sticky top-0 z-10">
                 <Button onClick={printInvoice}>طباعة / PDF</Button>
               </div>
-              <div id="invoice-print-area">
-                <InvoicePDF invoice={previewInvoice} officeSettings={officeSettings} />
-              </div>
+              <InvoicePDF invoice={previewInvoice} officeSettings={officeSettings} />
             </div>
           )}
         </DialogContent>

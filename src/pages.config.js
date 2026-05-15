@@ -3,7 +3,7 @@ import React, { lazy } from 'react';
 
 const Cases = lazy(() => import('./pages/Cases'));
 const Clients = lazy(() => import('./pages/Clients'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Dashboard = lazy(() => import('./pages/DashboardOptimized'));
 const Discover = lazy(() => import('./pages/Discover'));
 const Documents = lazy(() => import('./pages/Documents'));
 const Events = lazy(() => import('./pages/Events'));

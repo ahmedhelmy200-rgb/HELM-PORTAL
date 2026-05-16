@@ -233,20 +233,40 @@ export default function Layout({ children, currentPageName }) {
     )
   }
 
+  const NotificationTopButton = ({ mobile = false }) => (
+    <Link
+      to={createPageUrl("Notifications")}
+      className="relative shrink-0"
+      title="التنبيهات"
+      onClick={() => playUiTone("nav", soundEnabled)}
+    >
+      {mobile ? (
+        <>
+          <span className="icon-glass-btn inline-flex">
+            <Bell className="h-4.5 w-4.5 text-white" />
+          </span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -left-1 h-4.5 w-4.5 bg-accent rounded-full text-[9px] text-white flex items-center justify-center">{unreadCount}</span>
+          )}
+        </>
+      ) : (
+        <span className="control-chip relative min-w-[112px] justify-center">
+          <Bell className="h-4 w-4" />
+          <span>التنبيهات</span>
+          {unreadCount > 0 && (
+            <Badge className="absolute -top-2 -left-2 bg-accent text-white text-[10px] h-5 min-w-[20px] px-1.5">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Badge>
+          )}
+        </span>
+      )}
+    </Link>
+  )
+
   const SidebarFooter = () => {
     const ThemeIcon = themeMeta.icon
     return (
       <div className="p-3 border-t border-white/10 space-y-2">
-        <Link to={createPageUrl("Notifications")} onClick={() => playUiTone("nav", soundEnabled)}>
-          <button className="sidebar-nav-item w-full">
-            <span className="sidebar-nav-icon nav-fx-spark"><Bell className="h-4 w-4" /></span>
-            التنبيهات
-            {unreadCount > 0 && (
-              <Badge className="mr-auto bg-accent text-white text-[10px] h-5 min-w-[20px]">{unreadCount}</Badge>
-            )}
-          </button>
-        </Link>
-
         <div className="grid grid-cols-2 gap-2 md:hidden">
           <button onClick={handleThemeToggle} className="control-chip" title="تبديل الثيم">
             <ThemeIcon className="h-4 w-4" />
@@ -310,6 +330,7 @@ export default function Layout({ children, currentPageName }) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <NotificationTopButton />
           <button onClick={handleThemeToggle} className="control-chip min-w-[92px]" title="تبديل الثيم">
             <ThemeIcon className="h-4 w-4" />
             <span>{themeMeta.label}</span>
@@ -390,14 +411,7 @@ export default function Layout({ children, currentPageName }) {
             {themeMeta.label.startsWith("تلقائي") ? <MonitorCog className="h-4.5 w-4.5 text-white" /> : resolvedTheme === "dark" ? <SunMedium className="h-4.5 w-4.5 text-white" /> : <MoonStar className="h-4.5 w-4.5 text-white" />}
           </button>
           <button onClick={() => window.dispatchEvent(new Event(GLOBAL_SEARCH_EVENT))} className="icon-glass-btn" title="بحث شامل (Ctrl+K)"><SearchIcon className="h-4 w-4 text-white" /></button>
-          <Link to={createPageUrl("Notifications")} className="relative" onClick={() => playUiTone("nav", soundEnabled)}>
-            <span className="icon-glass-btn inline-flex">
-              <Bell className="h-4.5 w-4.5 text-white" />
-            </span>
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -left-1 h-4.5 w-4.5 bg-accent rounded-full text-[9px] text-white flex items-center justify-center">{unreadCount}</span>
-            )}
-          </Link>
+          <NotificationTopButton mobile />
         </div>
       </header>
 

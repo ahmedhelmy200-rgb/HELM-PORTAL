@@ -8,7 +8,6 @@ const AuthContext = createContext()
 const AUTH_TIMEOUT_MS = 12000
 const PROFILE_TIMEOUT_MS = 12000
 const SETTINGS_TIMEOUT_MS = 8000
-const TAB_RECHECK_DEBOUNCE_MS = 350
 
 function isAbortLike(error) {
   const message = String(error?.message || error || '').toLowerCase()
@@ -35,7 +34,12 @@ export const AuthProvider = ({ children }) => {
 
   const checkingRef = useRef(false)
   const checkIdRef = useRef(0)
-  const tabRecheckTimerRef = useRef(null)
+  const userRef = useRef(null)
+  const authenticatedRef = useRef(false)
+  const bootstrappedRef = useRef(false)
+
+  useEffect(() => { userRef.current = user }, [user])
+  useEffect(() => { authenticatedRef.current = isAuthenticated }, [isAuthenticated])
 
   const clearBase44Cache = useCallback(() => {
     try { base44.__clearCache?.() } catch {}
@@ -51,7 +55,6 @@ export const AuthProvider = ({ children }) => {
   const checkAppState = useCallback(async (options = {}) => {
     const { silent = false, force = false } = options || {}
 
-    // منع تكديس طلبات الفحص؛ الفحص القسري يستخدم عند الرجوع للتبويب أو بعد تسجيل الدخول.
     if (checkingRef.current && !force) return { ok: false, skipped: true }
 
     const checkId = ++checkIdRef.current
@@ -63,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      setAuthError(null)
+      if (!silent) setAuthError(null)
 
       const { data: sessionData, error: sessionErr } = await withTimeout(
         supabase.auth.getSession(),
@@ -72,13 +75,18 @@ export const AuthProvider = ({ children }) => {
       )
 
       if (checkId !== checkIdRef.current) return { ok: false, stale: true }
-
       if (sessionErr) throw sessionErr
 
       if (!sessionData?.session) {
         clearBase44Cache()
         finishAsGuest(null)
         return { ok: true, authenticated: false }
+      }
+
+      // مهم جداً: الفحص الصامت عند الرجوع من التبويب لا يعيد تحميل بيانات المستخدم
+      // ولا يظهر شاشة loading ولا يطرد المستخدم عند بطء الشبكة.
+      if (silent && authenticatedRef.current && userRef.current) {
+        return { ok: true, authenticated: true, kept: true }
       }
 
       clearBase44Cache()
@@ -112,6 +120,12 @@ export const AuthProvider = ({ children }) => {
 
       if (checkId !== checkIdRef.current) return { ok: false, stale: true }
 
+      // مهم: عند الرجوع من التبويب أو token refresh لا نرجع المستخدم للوجين ولا نعرض Loader.
+      if (silent && authenticatedRef.current && userRef.current) {
+        setAuthError(null)
+        return { ok: false, silentError: true, kept: true }
+      }
+
       const msg     = error?.message || ''
       const isNoReg = msg.includes('registered') || msg.includes('not found') || msg.includes('user_profiles')
       const isConn  = isAbortLike(error)
@@ -129,21 +143,17 @@ export const AuthProvider = ({ children }) => {
     } finally {
       if (checkId === checkIdRef.current) {
         checkingRef.current = false
-        setIsLoadingAuth(false)
-        setIsLoadingPublicSettings(false)
+        if (!silent || bootstrappedRef.current) {
+          setIsLoadingAuth(false)
+          setIsLoadingPublicSettings(false)
+        }
       }
     }
   }, [clearBase44Cache, finishAsGuest])
 
-  const scheduleSilentRecheck = useCallback(() => {
-    window.clearTimeout(tabRecheckTimerRef.current)
-    tabRecheckTimerRef.current = window.setTimeout(() => {
-      clearBase44Cache()
-      checkAppState({ silent: true, force: true })
-    }, TAB_RECHECK_DEBOUNCE_MS)
-  }, [checkAppState, clearBase44Cache])
-
   useEffect(() => {
+    let cancelled = false
+
     const handleOAuthCallback = async () => {
       const hash   = window.location.hash
       const search = window.location.search
@@ -155,7 +165,10 @@ export const AuthProvider = ({ children }) => {
         window.history.replaceState({}, document.title, window.location.pathname)
       }
 
-      await checkAppState({ force: true })
+      if (!cancelled) {
+        await checkAppState({ force: true, silent: false })
+        bootstrappedRef.current = true
+      }
     }
 
     handleOAuthCallback()
@@ -163,13 +176,7 @@ export const AuthProvider = ({ children }) => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       console.log('[Auth] event:', event)
 
-      // مهم: لا نستدعي Supabase مباشرة داخل callback حتى لا يحدث تعليق عند الرجوع للتبويب.
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        window.setTimeout(() => {
-          clearBase44Cache()
-          checkAppState({ silent: event !== 'SIGNED_IN', force: true })
-        }, 0)
-      } else if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
         clearBase44Cache()
         setUser(null)
         setIsAuthenticated(false)
@@ -177,32 +184,23 @@ export const AuthProvider = ({ children }) => {
         setAuthError(null)
         setIsLoadingAuth(false)
         setIsLoadingPublicSettings(false)
+        return
+      }
+
+      // لا نعيد فحص المستخدم عند INITIAL_SESSION أو TOKEN_REFRESHED حتى لا تعود شاشة التحميل عند تغيير التبويب.
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        window.setTimeout(() => {
+          clearBase44Cache()
+          checkAppState({ silent: false, force: true })
+        }, 0)
       }
     })
 
     return () => {
-      window.clearTimeout(tabRecheckTimerRef.current)
+      cancelled = true
       sub?.subscription?.unsubscribe()
     }
   }, [checkAppState, clearBase44Cache])
-
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') scheduleSilentRecheck()
-    }
-    const handlePageShow = () => scheduleSilentRecheck()
-    const handleFocus = () => scheduleSilentRecheck()
-
-    document.addEventListener('visibilitychange', handleVisibility)
-    window.addEventListener('pageshow', handlePageShow)
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-      window.removeEventListener('pageshow', handlePageShow)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [scheduleSilentRecheck])
 
   const logout = async (shouldRedirect = true) => {
     clearBase44Cache()
@@ -250,7 +248,7 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error
       clearBase44Cache()
-      await checkAppState({ force: true })
+      await checkAppState({ force: true, silent: false })
       return { ok: true }
     } catch (err) {
       const message = err?.message?.includes('Invalid login credentials')
@@ -280,7 +278,7 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error
       clearBase44Cache()
-      await checkAppState({ force: true })
+      await checkAppState({ force: true, silent: false })
       return { ok: true }
     } catch (err) {
       const message = err?.message || 'تعذر إنشاء الحساب بالإيميل وكلمة المرور.'

@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const checkAppState = useCallback(async (options = {}) => {
-    const { silent = false, force = false } = options || {}
+    const { silent = false, force = false, refreshProfile = false } = options || {}
 
     if (checkingRef.current && !force) return { ok: false, skipped: true }
 
@@ -83,14 +83,16 @@ export const AuthProvider = ({ children }) => {
         return { ok: true, authenticated: false }
       }
 
-      // مهم جداً: الفحص الصامت عند الرجوع من التبويب لا يعيد تحميل بيانات المستخدم
-      // ولا يظهر شاشة loading ولا يطرد المستخدم عند بطء الشبكة.
-      if (silent && authenticatedRef.current && userRef.current) {
+      // عند الرجوع من تبويب آخر أو token refresh: لا تعمل reload كامل ولا تحميل بيانات من جديد.
+      // فقط تأكدنا أن session موجودة، ونحتفظ بنفس الصفحة ونفس state.
+      if (silent && authenticatedRef.current && userRef.current && !refreshProfile) {
         return { ok: true, authenticated: true, kept: true }
       }
 
-      clearBase44Cache()
-      if (!silent) setIsLoadingPublicSettings(true)
+      if (!silent) {
+        clearBase44Cache()
+        setIsLoadingPublicSettings(true)
+      }
 
       const currentUser = await withTimeout(
         base44.auth.me(),
@@ -120,7 +122,7 @@ export const AuthProvider = ({ children }) => {
 
       if (checkId !== checkIdRef.current) return { ok: false, stale: true }
 
-      // مهم: عند الرجوع من التبويب أو token refresh لا نرجع المستخدم للوجين ولا نعرض Loader.
+      // أي خطأ أثناء فحص صامت لا يمس الصفحة ولا يرجعك للوجين.
       if (silent && authenticatedRef.current && userRef.current) {
         setAuthError(null)
         return { ok: false, silentError: true, kept: true }
@@ -143,10 +145,9 @@ export const AuthProvider = ({ children }) => {
     } finally {
       if (checkId === checkIdRef.current) {
         checkingRef.current = false
-        if (!silent || bootstrappedRef.current) {
-          setIsLoadingAuth(false)
-          setIsLoadingPublicSettings(false)
-        }
+        // لا نظهر Loader في الفحص الصامت، لكن لو كان ظاهرًا من فحص سابق ننهيه.
+        setIsLoadingAuth(false)
+        setIsLoadingPublicSettings(false)
       }
     }
   }, [clearBase44Cache, finishAsGuest])
@@ -166,7 +167,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (!cancelled) {
-        await checkAppState({ force: true, silent: false })
+        await checkAppState({ force: true, silent: false, refreshProfile: true })
         bootstrappedRef.current = true
       }
     }
@@ -187,11 +188,16 @@ export const AuthProvider = ({ children }) => {
         return
       }
 
-      // لا نعيد فحص المستخدم عند INITIAL_SESSION أو TOKEN_REFRESHED حتى لا تعود شاشة التحميل عند تغيير التبويب.
-      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+      // Supabase قد يرسل SIGNED_IN / TOKEN_REFRESHED عند الرجوع للتاب.
+      // بعد أول تحميل ناجح نعالجها كفحص صامت حتى لا تظهر شاشة التحميل ولا تتفرمت الصفحة.
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
         window.setTimeout(() => {
-          clearBase44Cache()
-          checkAppState({ silent: false, force: true })
+          const shouldBeSilent = bootstrappedRef.current && authenticatedRef.current && Boolean(userRef.current)
+          checkAppState({
+            silent: shouldBeSilent,
+            force: true,
+            refreshProfile: !shouldBeSilent,
+          })
         }, 0)
       }
     })
@@ -248,7 +254,7 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error
       clearBase44Cache()
-      await checkAppState({ force: true, silent: false })
+      await checkAppState({ force: true, silent: false, refreshProfile: true })
       return { ok: true }
     } catch (err) {
       const message = err?.message?.includes('Invalid login credentials')
@@ -278,7 +284,7 @@ export const AuthProvider = ({ children }) => {
 
       if (error) throw error
       clearBase44Cache()
-      await checkAppState({ force: true, silent: false })
+      await checkAppState({ force: true, silent: false, refreshProfile: true })
       return { ok: true }
     } catch (err) {
       const message = err?.message || 'تعذر إنشاء الحساب بالإيميل وكلمة المرور.'

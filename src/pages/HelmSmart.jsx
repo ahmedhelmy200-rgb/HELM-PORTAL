@@ -8,6 +8,9 @@ import { getInvoiceTotals } from '@/lib/invoiceMath'
 const DEFAULT_HELM_SMART_URL = 'https://helm-smart.vercel.app/app?embedded=1&source=portal'
 const SYNC_MESSAGE_TYPE = 'HELM_PORTAL_SYNC_DATA'
 const ACK_MESSAGE_TYPE = 'HELM_SMART_SYNC_ACK'
+const SMART_CHANGED_MESSAGE_TYPE = 'HELM_SMART_DATA_CHANGED'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function buildSmartUrl(user) {
   const raw = import.meta.env.VITE_HELM_SMART_URL || DEFAULT_HELM_SMART_URL
@@ -30,6 +33,14 @@ function asMoney(value) {
 function smartDate(value) {
   if (!value) return new Date().toISOString().slice(0, 10)
   try { return new Date(value).toISOString().slice(0, 10) } catch { return String(value).slice(0, 10) }
+}
+
+function validUuid(value) {
+  return UUID_RE.test(String(value || ''))
+}
+
+function maybeId(value) {
+  return validUuid(value) ? String(value) : undefined
 }
 
 function mapClient(row) {
@@ -79,10 +90,21 @@ function mapInvoice(row) {
     clientId: String(row.client_id || row.client_name || ''),
     clientName: row.client_name || '',
     amount: asMoney(totals.total || row.amount || row.total),
-    date: smartDate(row.invoice_date || row.date || row.created_date),
+    date: smartDate(row.issue_date || row.invoice_date || row.date || row.created_date),
     status: row.status === 'مدفوعة' ? 'Paid' : row.status === 'جزئية' ? 'Partial' : 'Unpaid',
     description: row.description || row.notes || '',
     finalAmount: asMoney(totals.total || row.final_amount),
+  }
+}
+
+function mapExpense(row) {
+  return {
+    id: String(row.id || crypto.randomUUID()),
+    category: row.category || row.title || 'أخرى',
+    amount: asMoney(row.amount),
+    date: smartDate(row.expense_date || row.date || row.created_date),
+    description: row.notes || row.description || row.title || '',
+    status: row.status === 'معلق' || row.status === 'Pending' ? 'Pending' : 'Paid',
   }
 }
 
@@ -134,21 +156,129 @@ function buildConfig(settings) {
   }
 }
 
+function smartStatusToPortal(status) {
+  const s = String(status || '')
+  if (s === 'Paid') return 'مدفوعة'
+  if (s === 'Partial') return 'جزئية'
+  if (s === 'Unpaid') return 'غير مدفوعة'
+  if (s === 'Pending') return 'معلق'
+  if (s === 'نشط' || s === 'قيد الانتظار' || s === 'مغلق' || s === 'استئناف' || s === 'حكم' || s === 'مرافعة') return s
+  return s || 'مسودة'
+}
+
+function smartClientToPortal(client) {
+  const row = {
+    full_name: client.name || client.full_name || 'موكل بدون اسم',
+    client_type: client.type === 'Corporate' ? 'شركة' : 'فرد',
+    id_number: client.emiratesId || client.id_number || '',
+    phone: client.phone || '',
+    email: client.email || '',
+    address: client.address || '',
+    notes: client.notes || '',
+    status: 'نشط',
+  }
+  const id = maybeId(client.id)
+  return id ? { id, ...row } : row
+}
+
+function smartCaseToPortal(item) {
+  const row = {
+    case_number: item.caseNumber || item.case_number || '',
+    title: item.title || 'قضية بدون عنوان',
+    client_id: item.clientId || item.client_id || null,
+    client_name: item.clientName || item.client_name || '',
+    case_type: item.caseType || item.case_type || 'عام',
+    court: item.court || '',
+    status: smartStatusToPortal(item.status) || 'نشط',
+    next_session_date: item.nextHearingDate || item.next_session_date || null,
+    assigned_lawyer: item.assignedLawyer || item.assigned_lawyer || '',
+    opponent_name: item.opponentName || item.opponent_name || '',
+    fees: asMoney(item.totalFee || item.fees),
+    paid_amount: asMoney(item.paidAmount || item.paid_amount),
+  }
+  const id = maybeId(item.id)
+  return id ? { id, ...row } : row
+}
+
+function smartInvoiceToPortal(item) {
+  const amount = asMoney(item.finalAmount || item.amount || item.total_fees)
+  const paid = item.status === 'Paid' ? amount : asMoney(item.paid_amount)
+  const row = {
+    invoice_number: item.invoiceNumber || item.invoice_number || '',
+    client_name: item.clientName || item.client_name || '',
+    case_id: item.caseId || item.case_id || null,
+    case_title: item.caseTitle || item.case_title || '',
+    issue_date: item.date || item.issue_date || new Date().toISOString().slice(0, 10),
+    total_fees: amount,
+    paid_amount: paid,
+    discount: asMoney(item.discountValue || item.discount),
+    vat_rate: asMoney(item.vat_rate ?? 0),
+    status: smartStatusToPortal(item.status),
+    notes: item.description || item.notes || '',
+  }
+  const id = maybeId(item.id)
+  return id ? { id, ...row } : row
+}
+
+function smartExpenseToPortal(item) {
+  const row = {
+    title: item.description || item.category || 'مصروف',
+    amount: asMoney(item.amount),
+    category: item.category || 'أخرى',
+    expense_date: item.date || item.expense_date || new Date().toISOString().slice(0, 10),
+    notes: item.description || item.note || '',
+    status: item.status === 'Pending' ? 'معلق' : 'مدفوع',
+  }
+  const id = maybeId(item.id)
+  return id ? { id, ...row } : row
+}
+
+function smartReminderToTask(item) {
+  const row = {
+    title: item.title || 'تذكير',
+    description: item.note || '',
+    due_date: `${item.dueDate || new Date().toISOString().slice(0, 10)}T${item.dueTime || '09:00'}:00`,
+    priority: item.priority || 'متوسطة',
+    status: item.done ? 'مكتملة' : 'معلقة',
+  }
+  const id = maybeId(item.id)
+  return id ? { id, ...row } : row
+}
+
+async function upsertPortalRows(entity, rows, limit = 200) {
+  const api = base44.entities[entity]
+  if (!api || !Array.isArray(rows)) return 0
+  let count = 0
+  for (const row of rows.slice(0, limit)) {
+    if (!row || typeof row !== 'object') continue
+    try {
+      if (row.id && typeof api.upsert === 'function') await api.upsert(row)
+      else await api.create(row)
+      count += 1
+    } catch (error) {
+      console.warn(`[HelmSmart] ${entity} sync skipped:`, error?.message || error)
+    }
+  }
+  return count
+}
+
 export default function HelmSmart() {
   const { user } = useAuth()
   const smartUrl = useMemo(() => buildSmartUrl(user), [user?.role])
   const frameRef = useRef(null)
   const latestPayloadRef = useRef(null)
+  const applyingFromSmartRef = useRef(false)
   const [frameKey, setFrameKey] = useState(0)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState('لم يتم إرسال البيانات بعد')
 
   const buildPortalSnapshot = useCallback(async () => {
-    const [clients, cases, invoices, documents, tasks, settings] = await Promise.all([
+    const [clients, cases, invoices, expenses, documents, tasks, settings] = await Promise.all([
       base44.entities.Client.list('-created_date', 500),
       base44.entities.Case.list('-created_date', 500),
       base44.entities.Invoice.list('-created_date', 500),
+      base44.entities.Expense.list('-created_date', 300),
       base44.entities.Document.list('-created_date', 300),
       base44.entities.Task.list('-due_date', 300),
       base44.entities.OfficeSettings.list('-created_date', 1),
@@ -157,6 +287,7 @@ export default function HelmSmart() {
     const smartClients = clients.map(mapClient)
     const smartCases = cases.map(mapCase)
     const smartInvoices = invoices.map(mapInvoice)
+    const smartExpenses = expenses.map(mapExpense)
     const smartReminders = tasks.map(mapTaskToReminder)
     const smartNotes = documents.slice(0, 150).map(mapDocumentToNote)
 
@@ -173,7 +304,7 @@ export default function HelmSmart() {
       clients: smartClients.map(client => ({ ...client, totalCases: caseCountByClient[client.id] || client.totalCases || 0 })),
       cases: smartCases,
       invoices: smartInvoices,
-      expenses: [],
+      expenses: smartExpenses,
       receipts: [],
       logs: [],
       reminders: smartReminders,
@@ -189,6 +320,7 @@ export default function HelmSmart() {
 
   const syncPortalData = useCallback(async () => {
     if (!user?.email) return
+    if (applyingFromSmartRef.current) return
     setSyncing(true)
     setSyncStatus('جارٍ تجهيز بيانات حلم بروتال…')
     try {
@@ -206,6 +338,39 @@ export default function HelmSmart() {
     }
   }, [buildPortalSnapshot, sendPayloadToFrame, user?.email])
 
+  const applySmartPayloadToPortal = useCallback(async (payload) => {
+    if (!payload || applyingFromSmartRef.current) return
+    applyingFromSmartRef.current = true
+    setSyncing(true)
+    setSyncStatus('جارٍ حفظ تعديلات حلم سمارت داخل حلم بروتال…')
+    try {
+      const clients = (payload.clients || []).map(smartClientToPortal)
+      const cases = (payload.cases || []).map(smartCaseToPortal)
+      const invoices = (payload.invoices || []).map(smartInvoiceToPortal)
+      const expenses = (payload.expenses || []).map(smartExpenseToPortal)
+      const tasks = (payload.reminders || []).map(smartReminderToTask)
+
+      const [c1, c2, c3, c4, c5] = await Promise.all([
+        upsertPortalRows('Client', clients, 250),
+        upsertPortalRows('Case', cases, 250),
+        upsertPortalRows('Invoice', invoices, 250),
+        upsertPortalRows('Expense', expenses, 200),
+        upsertPortalRows('Task', tasks, 200),
+      ])
+
+      setSyncStatus(`تم حفظ تعديلات حلم سمارت داخل حلم بروتال: ${c1} موكل، ${c2} قضية، ${c3} فاتورة، ${c4} مصروف، ${c5} تذكير.`)
+      setTimeout(async () => {
+        const next = await buildPortalSnapshot()
+        latestPayloadRef.current = next
+      }, 1200)
+    } catch (error) {
+      setSyncStatus(error?.message || 'فشل حفظ تعديلات حلم سمارت داخل حلم بروتال.')
+    } finally {
+      applyingFromSmartRef.current = false
+      setSyncing(false)
+    }
+  }, [buildPortalSnapshot])
+
   useEffect(() => {
     syncPortalData()
   }, [syncPortalData, frameKey])
@@ -213,7 +378,14 @@ export default function HelmSmart() {
   useEffect(() => {
     const onMessage = (event) => {
       const data = event?.data
-      if (!data || data.type !== ACK_MESSAGE_TYPE) return
+      if (!data) return
+
+      if (data.type === SMART_CHANGED_MESSAGE_TYPE) {
+        applySmartPayloadToPortal(data.payload)
+        return
+      }
+
+      if (data.type !== ACK_MESSAGE_TYPE) return
       if (data.message === 'bridge-ready') {
         sendPayloadToFrame()
         return
@@ -223,7 +395,7 @@ export default function HelmSmart() {
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [sendPayloadToFrame])
+  }, [sendPayloadToFrame, applySmartPayloadToPortal])
 
   const reloadFrame = () => {
     setLoading(true)
@@ -239,17 +411,17 @@ export default function HelmSmart() {
               <Smartphone className="h-5 w-5 text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base md:text-lg font-black leading-tight truncate">حُلم سمارت — النسخة الحديثة</h1>
+              <h1 className="text-base md:text-lg font-black leading-tight truncate">حُلم سمارت — البيانات موحّدة مع البوابة</h1>
               <p className="text-[11px] md:text-xs text-white/45 leading-5 truncate">{syncStatus}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <span className="hidden md:inline-flex items-center gap-1.5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200">
-              <ShieldCheck className="h-4 w-4" /> بيانات البوابة مفعّلة
+              <ShieldCheck className="h-4 w-4" /> مزامنة ثنائية مفعّلة
             </span>
             <Button type="button" variant="outline" onClick={syncPortalData} disabled={syncing} className="h-9 gap-2 border-white/12 text-white/75 hover:bg-white/8">
-              <DatabaseZap className="h-4 w-4" /> مزامنة بيانات البوابة
+              <DatabaseZap className="h-4 w-4" /> مزامنة الآن
             </Button>
             <Button type="button" variant="outline" onClick={reloadFrame} className="h-9 gap-2 border-white/12 text-white/75 hover:bg-white/8">
               <RefreshCw className="h-4 w-4" /> تحديث
@@ -271,8 +443,8 @@ export default function HelmSmart() {
                 <RefreshCw className="h-6 w-6 text-sky-300 animate-spin" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">جارٍ تحميل النسخة الحديثة من حلم سمارت…</p>
-                <p className="text-xs text-white/40 mt-1">سيتم حقن بيانات حلم بروتال داخل النسخة المدمجة بعد التحميل.</p>
+                <p className="text-sm font-bold text-white">جارٍ تحميل حلم سمارت…</p>
+                <p className="text-xs text-white/40 mt-1">سيتم توحيد بيانات الموكلين والقضايا والفواتير مع حلم بروتال.</p>
               </div>
             </div>
           </div>

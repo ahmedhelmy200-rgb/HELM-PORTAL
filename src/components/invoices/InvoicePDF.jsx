@@ -3,6 +3,12 @@ import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { getInvoiceTotals } from "@/lib/invoiceMath";
 
+const FIXED_LOGO_URL = "/icon-192.png";
+const FIXED_OFFICE_NAME = "مكتب المستشار أحمد حلمي";
+const FIXED_OFFICE_NAME_EN = "Ahmed Helmy Legal Office";
+const FIXED_OFFICE_SLOGAN = "للاستشارات القانونية وإدارة الملفات";
+const FIXED_SIGNATURE_TEXT = "أحمد حلمي";
+
 function safeDate(value) {
   if (!value) return "---";
   try { return format(new Date(value), "yyyy/MM/dd"); } catch { return String(value); }
@@ -27,21 +33,20 @@ export default function InvoicePDF({ invoice, officeSettings }) {
   const remaining = Number(totals.remaining ?? Math.max(0, total - paid));
   const vat = Number(totals.vat ?? 0);
 
-  const officeName = settings?.office_name || invoice?.office_name || "مكتب المستشار أحمد حلمي";
-  const officeNameEn = settings?.office_name_en || "Ahmed Helmy Law Office";
-  const officePhone = settings?.phone || invoice?.office_phone || "";
-  const officeEmail = settings?.email || "";
-  const officeAddress = settings?.address || invoice?.office_address || "";
-  const officeWebsite = settings?.website || "";
-  const logoUrl = settings?.logo_url || null;
+  const officeName = FIXED_OFFICE_NAME;
+  const officeNameEn = FIXED_OFFICE_NAME_EN;
+  const officePhone = settings?.phone || invoice?.office_phone || "0544144149";
+  const officeEmail = settings?.email || "ahmedhelmy200@gmail.com";
+  const officeAddress = settings?.address || invoice?.office_address || "الإمارات العربية المتحدة";
+  const officeWebsite = settings?.website || "helm-portal.vercel.app";
+  const logoUrl = FIXED_LOGO_URL;
   const stampUrl = settings?.stamp_url || null;
-  const signatureUrl = settings?.signature_url || null;
   const bankName = settings?.bank_name || "";
   const bankAccount = settings?.bank_account || "";
   const iban = settings?.iban || "";
   const vatNumber = settings?.vat_number || "";
   const footerText = settings?.invoice_footer_text || "شكراً لثقتكم بنا · نسعى دائماً لتقديم أفضل خدمة قانونية";
-  const headerText = settings?.invoice_header_text || "للاستشارات القانونية وإدارة الملفات";
+  const headerText = FIXED_OFFICE_SLOGAN;
 
   const statusColors = {
     "مدفوعة": "#16a34a",
@@ -86,16 +91,16 @@ export default function InvoicePDF({ invoice, officeSettings }) {
           page-break-inside: avoid;
         }
         .helm-office-block { display:flex; align-items:center; gap:14px; min-width:0; }
-        .helm-logo-box { width:70px; height:70px; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; padding:7px; flex-shrink:0; }
+        .helm-logo-box { width:76px; height:76px; border-radius:20px; background:#fff; display:flex; align-items:center; justify-content:center; padding:7px; flex-shrink:0; box-shadow:0 14px 30px rgba(0,0,0,.18); }
         .helm-logo-box img { max-width:100%; max-height:100%; object-fit:contain; }
-        .helm-logo-fallback { width:70px; height:70px; border-radius:18px; background:#fff; color:${primaryColor}; display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:900; }
         .helm-contact-line { display:flex; gap:10px; flex-wrap:wrap; margin-top:7px; color:rgba(255,255,255,.82); font-size:11px; line-height:1.7; }
         .helm-invoice-label { text-align:left; flex-shrink:0; }
         .helm-invoice-label-card { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.13); border-radius:16px; padding:12px 18px; text-align:center; min-width:170px; }
         .helm-body { padding: 24px 34px 18px; position:relative; z-index:1; }
-        .helm-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:.055; transform:rotate(-30deg); z-index:0; }
-        .helm-watermark img { width:430px; max-width:70%; filter:grayscale(1); object-fit:contain; }
-        .helm-watermark span { font-size:58px; font-weight:900; color:${primaryColor}; letter-spacing:.08em; }
+        .helm-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:.065; transform:rotate(-28deg); z-index:0; }
+        .helm-watermark-inner { display:flex; flex-direction:column; align-items:center; gap:18px; }
+        .helm-watermark img { width:330px; max-width:62%; filter:grayscale(1); object-fit:contain; }
+        .helm-watermark span { font-size:40px; font-weight:900; color:${primaryColor}; letter-spacing:.03em; white-space:nowrap; }
         .helm-info-grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
         .helm-info-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px; }
         .helm-info-card small { display:block; color:#64748b; font-size:10px; font-weight:900; margin-bottom:6px; letter-spacing:.04em; }
@@ -113,11 +118,13 @@ export default function InvoicePDF({ invoice, officeSettings }) {
         .helm-remaining { display:flex; justify-content:space-between; gap:10px; margin-top:9px; padding:12px; border-radius:12px; font-weight:900; background:${remaining > 0 ? "#fef2f2" : "#f0fdf4"}; color:${remaining > 0 ? "#dc2626" : "#16a34a"}; }
         .helm-footer { border-top:4px solid ${secondaryColor}; background:linear-gradient(135deg, ${primaryColor}0f 0%, #fff 100%); padding:16px 34px 20px; position:relative; z-index:1; break-inside:avoid; page-break-inside:avoid; }
         .helm-footer-content { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; }
-        .helm-official-images { display:flex; align-items:flex-end; gap:16px; flex-shrink:0; min-width:200px; justify-content:flex-end; }
+        .helm-official-images { display:flex; align-items:flex-end; gap:16px; flex-shrink:0; min-width:220px; justify-content:flex-end; }
         .helm-official-images img { object-fit:contain; display:block; }
         .helm-stamp-img { max-width:100px; max-height:88px; opacity:.9; }
-        .helm-signature-img { max-width:165px; max-height:72px; }
-        .helm-signature-label { font-size:10px; color:#64748b; font-weight:800; margin-top:4px; text-align:center; }
+        .helm-signature-box { min-width:170px; text-align:center; transform:rotate(-5deg); }
+        .helm-signature-text { font-family:'Noto Nastaliq Urdu','Aref Ruqaa','Diwani Letter','Amiri','Scheherazade New','Cairo',serif; font-size:34px; font-weight:900; color:#111827; line-height:1.25; letter-spacing:-1px; }
+        .helm-signature-line { width:150px; height:2px; margin:0 auto 3px; background:linear-gradient(90deg, transparent, #111827, transparent); opacity:.78; }
+        .helm-signature-label { font-size:10px; color:#64748b; font-weight:800; margin-top:2px; text-align:center; transform:rotate(5deg); }
         @page { size: A4; margin: 10mm; }
         @media print {
           html, body { width:auto !important; min-height:auto !important; margin:0 !important; padding:0 !important; background:#fff !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; overflow:visible !important; }
@@ -125,7 +132,7 @@ export default function InvoicePDF({ invoice, officeSettings }) {
           .helm-letterhead { padding:16px 0 14px !important; margin-bottom:8px !important; }
           .helm-body { padding:14px 0 10px !important; }
           .helm-footer { padding:12px 0 0 !important; }
-          .helm-watermark { opacity:.045 !important; }
+          .helm-watermark { opacity:.05 !important; }
         }
         @media screen and (max-width: 760px) {
           .helm-invoice-sheet { max-width:100%; min-height:auto; border:0; }
@@ -142,20 +149,19 @@ export default function InvoicePDF({ invoice, officeSettings }) {
 
       <div className="helm-invoice-sheet">
         <div className="helm-watermark">
-          {logoUrl ? <img src={logoUrl} alt="watermark" /> : <span>{officeName}</span>}
+          <div className="helm-watermark-inner">
+            <img src={logoUrl} alt="watermark" />
+            <span>{officeName}</span>
+          </div>
         </div>
 
         <header className="helm-letterhead">
           <div className="helm-office-block">
-            {logoUrl ? (
-              <div className="helm-logo-box"><img src={logoUrl} alt="شعار المكتب" /></div>
-            ) : (
-              <div className="helm-logo-fallback">H</div>
-            )}
+            <div className="helm-logo-box"><img src={logoUrl} alt="شعار المكتب" /></div>
             <div>
               <h1 style={{ margin: 0, fontSize: 21, fontWeight: 900 }}>{officeName}</h1>
               <div style={{ marginTop: 3, color: "rgba(255,255,255,.82)", fontSize: 12, fontWeight: 700 }}>{officeNameEn}</div>
-              {headerText && <div style={{ marginTop: 4, color: "rgba(255,255,255,.78)", fontSize: 11 }}>{headerText}</div>}
+              <div style={{ marginTop: 4, color: "rgba(255,255,255,.78)", fontSize: 11 }}>{headerText}</div>
               <div className="helm-contact-line">
                 {officePhone && <span>📞 {officePhone}</span>}
                 {officeEmail && <span>✉️ {officeEmail}</span>}
@@ -254,9 +260,10 @@ export default function InvoicePDF({ invoice, officeSettings }) {
             </div>
             <div className="helm-official-images">
               {stampUrl && <img src={stampUrl} alt="ختم المكتب" className="helm-stamp-img" />}
-              <div>
-                {signatureUrl && <img src={signatureUrl} alt="توقيع المكتب" className="helm-signature-img" />}
-                <div className="helm-signature-label">التوقيع والختم</div>
+              <div className="helm-signature-box">
+                <div className="helm-signature-text">{FIXED_SIGNATURE_TEXT}</div>
+                <div className="helm-signature-line" />
+                <div className="helm-signature-label">التوقيع الثابت</div>
               </div>
             </div>
           </div>

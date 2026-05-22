@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Briefcase, Users, CalendarDays, FileText, CheckSquare,
   Bell, Menu, X, LogOut, Receipt, BookOpen, Settings, Wallet, BarChart2, MessageCircle,
   Archive, Search as SearchIcon,
-  MoonStar, SunMedium, Volume2, VolumeX, Zap, Landmark, ArrowRight, MonitorCog, BrainCircuit
+  MoonStar, SunMedium, Volume2, VolumeX, Zap, Landmark, ArrowRight, MonitorCog, BrainCircuit, Building2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,7 @@ const staffNavItems = [
   { label: "مركز التواصل", page: "Communications", icon: MessageCircle, fx: "nav-fx-breathe" },
   { label: "التقارير", page: "Reports", icon: BarChart2, fx: "nav-fx-pulse" },
   { label: "حُلم سمارت", page: "HelmSmart", icon: BrainCircuit, fx: "nav-fx-spark" },
+  { label: "بداية الخير", page: "BadayatAlKhair", icon: Building2, fx: "nav-fx-pulse" },
   { label: "الأرشيف", page: "Archive", icon: Archive, fx: "nav-fx-tilt" },
   { label: "الإعدادات", page: "Settings", icon: Settings, fx: "nav-fx-spin-soft" },
 ]
@@ -49,7 +50,7 @@ const mobileTabsForRole = {
     { label: "الرئيسية", page: "Dashboard", icon: LayoutDashboard },
     { label: "القضايا", page: "Cases", icon: Briefcase },
     { label: "المهام", page: "Tasks", icon: CheckSquare },
-    { label: "الإعدادات", page: "Settings", icon: Settings },
+    { label: "بداية الخير", page: "BadayatAlKhair", icon: Building2 },
   ],
   client: [
     { label: "الرئيسية", page: "Dashboard", icon: LayoutDashboard },

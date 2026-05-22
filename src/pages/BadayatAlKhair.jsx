@@ -1,105 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Building2, Users, FileText, BriefcaseBusiness, ShieldCheck, Printer, ClipboardCheck, Wallet, Plus, Search, Save, Bell, Award, Gavel } from "lucide-react";
-
-const STORAGE_KEY = "helm_badayat_al_khair_module_v1";
-
-const branches = [
-  { id: "dubai_mother", name: "بداية الخير دبي (الأم)", type: "الإدارة الأم", color: "from-amber-500 to-orange-600" },
-  { id: "showroom_1", name: "معرض سيارات بداية الخير 1", type: "معرض سيارات", color: "from-sky-500 to-blue-700" },
-  { id: "showroom_2", name: "معرض سيارات بداية الخير 2", type: "معرض سيارات", color: "from-emerald-500 to-teal-700" },
-  { id: "legal_sub", name: "قضايا فرعية", type: "متابعة قانونية", color: "from-violet-500 to-purple-700" },
-  { id: "templates", name: "النماذج الشاملة", type: "نماذج عمال وموظفين", color: "from-slate-600 to-slate-900" },
-];
-
-const defaultEmployees = [
-  {
-    id: "emp-001",
-    branchId: "dubai_mother",
-    photo: "",
-    fullName: "موظف تجريبي - الإدارة الأم",
-    nationality: "مصري",
-    emiratesId: "784-0000-0000000-0",
-    passportNo: "P0000000",
-    phone: "0500000000",
-    email: "employee@example.com",
-    jobTitle: "إداري",
-    department: "الإدارة",
-    workLocation: "دبي",
-    contractType: "دوام كامل",
-    contractStart: "2026-01-01",
-    contractEnd: "2028-01-01",
-    basicSalary: 3500,
-    allowances: 500,
-    deductions: 0,
-    residencyStatus: "سارية",
-    residencyExpiry: "2027-06-30",
-    workPermitExpiry: "2027-06-30",
-    passportHeldVoluntarily: "لا",
-    penalties: [{ date: "2026-02-10", title: "تنبيه إداري", amount: 0, note: "تأخير بسيط" }],
-    rewards: [{ date: "2026-03-01", title: "مكافأة انضباط", amount: 250, note: "التزام بالحضور" }],
-    rating: 86,
-    notes: "ملف موظف قابل للتعديل من الشؤون القانونية.",
-  },
-  {
-    id: "emp-002",
-    branchId: "showroom_1",
-    photo: "",
-    fullName: "موظف تجريبي - معرض 1",
-    nationality: "هندي",
-    emiratesId: "784-1111-1111111-1",
-    passportNo: "A1111111",
-    phone: "0550000000",
-    email: "sales@example.com",
-    jobTitle: "مندوب مبيعات سيارات",
-    department: "المبيعات",
-    workLocation: "معرض 1",
-    contractType: "عمولة وراتب",
-    contractStart: "2026-02-01",
-    contractEnd: "2028-02-01",
-    basicSalary: 2800,
-    allowances: 300,
-    deductions: 0,
-    residencyStatus: "تحتاج متابعة",
-    residencyExpiry: "2026-08-15",
-    workPermitExpiry: "2026-08-15",
-    passportHeldVoluntarily: "لا",
-    penalties: [],
-    rewards: [],
-    rating: 78,
-    notes: "يتم ربط العهد والسيارات المسلمة له لاحقاً.",
-  },
-];
-
-const templateGroups = [
-  {
-    group: "العقود والتعيين",
-    items: ["عقد عمل شامل", "عرض عمل", "تعديل مسمى وظيفي", "ترقية وظيفية", "إقرار مباشرة عمل"],
-  },
-  {
-    group: "الجزاءات والتحقيق",
-    items: ["إنذار أول", "إنذار نهائي", "نموذج تحقيق إداري", "نموذج خصم بسبب غياب", "نموذج خصم بسبب جزاء", "نموذج فصل", "إخطار مخالفة"],
-  },
-  {
-    group: "العهد والاستلام",
-    items: ["إقرار استلام مبلغ", "إقرار استلام عهدة", "استلام وتسليم عهدة", "تسليم جواز السفر للشركة طواعية بدلاً من سداد ضمان العهدة", "إقرار إرجاع عهدة"],
-  },
-  {
-    group: "الإجازات والمستحقات",
-    items: ["طلب إجازة", "نموذج موافقة إجازة", "إقرار استلام مستحقات نهاية الخدمة", "نموذج استقالة", "نموذج سلفة"],
-  },
-  {
-    group: "الإقرارات والسياسات",
-    items: ["نموذج تعهد بعدم التكرار", "نموذج تنبيه وتوجيه", "لائحة داخلية للعقوبات والخصومات", "إقرار اطلاع الموظف على موانع ومحظورات وسياسة الشركة"],
-  },
-];
-
-function loadState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (saved?.employees?.length) return saved;
-  } catch {}
-  return { employees: defaultEmployees, audit: [] };
-}
+import { Building2, Users, FileText, BriefcaseBusiness, ShieldCheck, Printer, ClipboardCheck, Wallet, Plus, Search, Save, Bell, Award, Gavel, Database } from "lucide-react";
+import {
+  badayatBranches as branches,
+  badayatTemplateGroups as templateGroups,
+  loadBadayatState,
+  saveBadayatLocal,
+  saveBadayatEmployee,
+  saveBadayatAudit,
+} from "@/lib/badayatAlKhairStore";
 
 function money(v) {
   return `${Number(v || 0).toLocaleString()} د.إ`;
@@ -114,15 +22,27 @@ function daysLeft(date) {
 
 export default function BadayatAlKhair() {
   const [activeBranch, setActiveBranch] = useState("dubai_mother");
-  const [state, setState] = useState(loadState);
+  const [state, setState] = useState({ employees: [], audit: [], source: "loading" });
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(state.employees[0]?.id || "");
+  const [selectedId, setSelectedId] = useState("");
   const [actionAmount, setActionAmount] = useState(250);
   const [legalNote, setLegalNote] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [syncSource, setSyncSource] = useState("loading");
+  const [lastSaved, setLastSaved] = useState("");
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    let alive = true;
+    loadBadayatState().then((next) => {
+      if (!alive) return;
+      const safeNext = { employees: next?.employees || [], audit: next?.audit || [], source: next?.source || "local" };
+      setState(safeNext);
+      setSyncSource(safeNext.source);
+      setSelectedId(safeNext.employees?.[0]?.id || "");
+      setIsLoading(false);
+    });
+    return () => { alive = false; };
+  }, []);
 
   const employees = state.employees || [];
   const branchEmployees = useMemo(() => {
@@ -144,13 +64,32 @@ export default function BadayatAlKhair() {
     return { count: relevant.length, expiring, penalties, rewards };
   }, [employees, activeBranch]);
 
-  const patchEmployee = (patch) => {
+  const persistState = async (nextState, employeeToSave = null, auditEntry = null) => {
+    saveBadayatLocal(nextState);
+    if (auditEntry) saveBadayatAudit(auditEntry);
+    if (employeeToSave) {
+      const result = await saveBadayatEmployee(employeeToSave);
+      setSyncSource(result?.source || "local");
+    }
+    setLastSaved(new Date().toLocaleTimeString("ar-AE", { hour: "2-digit", minute: "2-digit" }));
+  };
+
+  const patchEmployee = (patch, actionLabel = "تعديل بيانات") => {
     if (!selectedEmployee) return;
-    setState((prev) => ({
-      ...prev,
-      employees: prev.employees.map((e) => (e.id === selectedEmployee.id ? { ...e, ...patch } : e)),
-      audit: [{ at: new Date().toLocaleString("ar-AE"), employee: selectedEmployee.fullName, action: "تعديل بيانات", note: JSON.stringify(patch) }, ...(prev.audit || [])].slice(0, 100),
-    }));
+    const nextEmployee = { ...selectedEmployee, ...patch };
+    const auditEntry = {
+      at: new Date().toLocaleString("ar-AE"),
+      employee: selectedEmployee.fullName,
+      action: actionLabel,
+      note: JSON.stringify(patch),
+    };
+    const nextState = {
+      ...state,
+      employees: employees.map((e) => (e.id === selectedEmployee.id ? nextEmployee : e)),
+      audit: [auditEntry, ...(state.audit || [])].slice(0, 100),
+    };
+    setState(nextState);
+    persistState(nextState, nextEmployee, auditEntry);
   };
 
   const addEmployee = () => {
@@ -183,8 +122,11 @@ export default function BadayatAlKhair() {
       rating: 70,
       notes: "",
     };
-    setState((prev) => ({ ...prev, employees: [emp, ...prev.employees] }));
+    const auditEntry = { at: new Date().toLocaleString("ar-AE"), employee: emp.fullName, action: "إضافة موظف", note: branches.find((b) => b.id === branchId)?.name || branchId };
+    const nextState = { ...state, employees: [emp, ...employees], audit: [auditEntry, ...(state.audit || [])].slice(0, 100) };
+    setState(nextState);
     setSelectedId(emp.id);
+    persistState(nextState, emp, auditEntry);
   };
 
   const applyFinance = (type) => {
@@ -194,20 +136,24 @@ export default function BadayatAlKhair() {
     const patch = type === "allowance"
       ? { allowances: Number(selectedEmployee.allowances || 0) + amount, rewards: [{ date: new Date().toISOString().slice(0, 10), title: "علاوة / مكافأة", amount, note: "إضافة من الحسابات" }, ...(selectedEmployee.rewards || [])] }
       : { deductions: Number(selectedEmployee.deductions || 0) + amount, penalties: [{ date: new Date().toISOString().slice(0, 10), title: "خصم مالي", amount, note: "تطبيق خصم من الحسابات" }, ...(selectedEmployee.penalties || [])] };
-    patchEmployee(patch);
+    patchEmployee(patch, type === "allowance" ? "إضافة علاوة" : "تطبيق خصم");
   };
 
   const notifyEmployee = () => {
     if (!selectedEmployee) return;
-    setState((prev) => ({
-      ...prev,
-      audit: [{ at: new Date().toLocaleString("ar-AE"), employee: selectedEmployee.fullName, action: "إشعار موظف", note: legalNote || "تم إنشاء إشعار إداري" }, ...(prev.audit || [])],
-    }));
+    const auditEntry = { at: new Date().toLocaleString("ar-AE"), employee: selectedEmployee.fullName, action: "إشعار موظف", note: legalNote || "تم إنشاء إشعار إداري" };
+    const nextState = { ...state, audit: [auditEntry, ...(state.audit || [])].slice(0, 100) };
+    setState(nextState);
+    persistState(nextState, selectedEmployee, auditEntry);
     setLegalNote("");
   };
 
   const grossSalary = Number(selectedEmployee?.basicSalary || 0) + Number(selectedEmployee?.allowances || 0) - Number(selectedEmployee?.deductions || 0);
   const residencyLeft = daysLeft(selectedEmployee?.residencyExpiry);
+
+  if (isLoading) {
+    return <div dir="rtl" className="rounded-3xl border border-white/10 bg-slate-950/70 p-8 text-slate-100">جارٍ تحميل قسم بداية الخير...</div>;
+  }
 
   return (
     <div dir="rtl" className="space-y-6 text-slate-100">
@@ -218,6 +164,12 @@ export default function BadayatAlKhair() {
             <p className="text-amber-300 font-black text-sm">BADAYAT AL KHAIR CONTROL CENTER</p>
             <h1 className="text-3xl md:text-4xl font-black mt-2">قسم بداية الخير</h1>
             <p className="text-slate-300 mt-2 max-w-3xl leading-8">قسم مستقل لإدارة فروع بداية الخير، الموظفين، الإقامات، العقود، الجزاءات، المكافآت، الحسابات، الشؤون القانونية، المطبعة، المهام الخاصة، والنماذج الشاملة للعمال والموظفين.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-black ${syncSource === "supabase" ? "bg-emerald-500/15 text-emerald-200" : "bg-amber-500/15 text-amber-200"}`}>
+                <Database className="h-3.5 w-3.5" /> {syncSource === "supabase" ? "متصل بـ Supabase" : "حفظ محلي احتياطي"}
+              </span>
+              {lastSaved && <span className="rounded-full bg-white/10 px-3 py-1 text-slate-300">آخر حفظ: {lastSaved}</span>}
+            </div>
           </div>
           <button onClick={addEmployee} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 font-black text-slate-950 shadow-lg hover:bg-amber-300">
             <Plus className="h-4 w-4" /> إضافة موظف
@@ -335,7 +287,7 @@ function EmployeeWorkspace({ emp, patchEmployee, grossSalary, residencyLeft, act
         <Panel title="الشؤون القانونية والتحكم" icon={BriefcaseBusiness}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3"><Field label="المسمى الوظيفي" value={emp.jobTitle} onChange={(v) => patchEmployee({ jobTitle: v })} /><Field label="القسم" value={emp.department} onChange={(v) => patchEmployee({ department: v })} /></div>
           <textarea value={legalNote} onChange={(e) => setLegalNote(e.target.value)} placeholder="إشعار / ملاحظة قانونية للموظف" className="w-full min-h-[92px] rounded-2xl border border-white/10 bg-white/5 p-3 outline-none" />
-          <div className="flex gap-2 mt-2"><button onClick={notifyEmployee} className="inline-flex items-center gap-2 rounded-2xl bg-blue-500 px-4 py-2 font-black"><Bell className="h-4 w-4" /> إشعار الموظف</button><button onClick={() => patchEmployee({ jobTitle: `${emp.jobTitle || "موظف"} - تمت ترقيته` })} className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2 font-black text-slate-950"><Save className="h-4 w-4" /> ترقية / تعديل</button></div>
+          <div className="flex gap-2 mt-2"><button onClick={notifyEmployee} className="inline-flex items-center gap-2 rounded-2xl bg-blue-500 px-4 py-2 font-black"><Bell className="h-4 w-4" /> إشعار الموظف</button><button onClick={() => patchEmployee({ jobTitle: `${emp.jobTitle || "موظف"} - تمت ترقيته` }, "ترقية / تعديل مسمى")} className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2 font-black text-slate-950"><Save className="h-4 w-4" /> ترقية / تعديل</button></div>
         </Panel>
       </div>
 

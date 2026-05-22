@@ -18,6 +18,8 @@ const Sessions = lazy(() => import('./pages/Sessions'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Tasks = lazy(() => import('./pages/Tasks'));
 const Expenses = lazy(() => import('./pages/Expenses'));
+const Income = lazy(() => import('./pages/Income'));
+const BankImport = lazy(() => import('./pages/BankImport'));
 const Reports        = lazy(() => import('./pages/Reports'));
 const Communications = lazy(() => import('./pages/Communications'));
 const Archive  = lazy(() => import('./pages/Archive'));
@@ -44,6 +46,8 @@ export const PAGES = {
   Settings,
   Tasks,
   Expenses,
+  Income,
+  BankImport,
   Reports,
   Communications,
   Archive,

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Scale } from 'lucide-react'
 import PublicEntry from './PublicEntry'
 import { appParams } from '@/lib/app-params'
+import BadayatPortalShortcut from '@/components/BadayatPortalShortcut'
 
 const LOGO_SOURCES = [
   '/icons/icon-192.png',
@@ -25,16 +26,9 @@ function ProgramLogoMark() {
       <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/55 px-3 py-2 shadow-2xl shadow-blue-900/25 backdrop-blur-2xl">
         <div className="relative h-12 w-12 shrink-0 rounded-2xl border border-blue-300/20 bg-gradient-to-br from-blue-600/80 to-slate-950 p-1.5 shadow-[0_0_35px_rgba(59,130,246,.22)]">
           {!failed ? (
-            <img
-              src={src}
-              alt="شعار حلم بروتال"
-              className="h-full w-full rounded-xl object-contain drop-shadow-lg"
-              onError={handleError}
-            />
+            <img src={src} alt="شعار حلم بروتال" className="h-full w-full rounded-xl object-contain drop-shadow-lg" onError={handleError} />
           ) : (
-            <div className="flex h-full w-full items-center justify-center rounded-xl bg-blue-600/30">
-              <Scale className="h-6 w-6 text-white" />
-            </div>
+            <div className="flex h-full w-full items-center justify-center rounded-xl bg-blue-600/30"><Scale className="h-6 w-6 text-white" /></div>
           )}
         </div>
         <div className="hidden sm:block text-right">
@@ -50,6 +44,7 @@ export default function PublicEntryWithLogo() {
   return (
     <>
       <ProgramLogoMark />
+      <BadayatPortalShortcut />
       <PublicEntry />
     </>
   )

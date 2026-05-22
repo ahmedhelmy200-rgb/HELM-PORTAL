@@ -175,6 +175,41 @@ a:not(.sidebar-nav-item):not(.mobile-tab-link) {
   color: inherit;
 }
 
+/* بداية الخير: معاينة النماذج على خلفية بيضاء واضحة */
+.bg-white pre.whitespace-pre-wrap,
+.bg-white pre,
+[class*="bg-white"] pre.whitespace-pre-wrap,
+[class*="bg-white"] pre {
+  color: #050505 !important;
+  font-family: 'Cairo', 'Tajawal', 'IBM Plex Sans Arabic', Arial, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  line-height: 2.25 !important;
+  letter-spacing: 0 !important;
+  text-shadow: none !important;
+}
+
+.bg-white h1,
+.bg-white h2,
+.bg-white h3,
+[class*="bg-white"] h1,
+[class*="bg-white"] h2,
+[class*="bg-white"] h3 {
+  color: #020617 !important;
+  font-weight: 950 !important;
+  text-shadow: none !important;
+}
+
+/* محرر نماذج بداية الخير في الوضع الداكن */
+textarea.min-h-\[270px\] {
+  color: #ffffff !important;
+  background: rgba(2, 6, 23, .72) !important;
+  border-color: rgba(251, 191, 36, .28) !important;
+  font-size: 16px !important;
+  font-weight: 750 !important;
+  line-height: 2.1 !important;
+}
+
 /* استثناءات ألوان الحالات حتى لا تختلط الأخضر/الأحمر/الأصفر */
 .text-red-100, .text-red-200, .text-red-300, .text-red-400,
 .text-emerald-100, .text-emerald-200, .text-emerald-300, .text-emerald-400,

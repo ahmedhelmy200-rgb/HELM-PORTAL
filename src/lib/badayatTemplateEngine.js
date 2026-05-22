@@ -1,6 +1,19 @@
 export const BADAYAT_TEMPLATE_DRAFTS_KEY = 'helm_badayat_template_drafts_v1'
+export const BADAYAT_PRINT_HEADER_KEY = 'helm_badayat_print_header_v1'
 
 const todayAr = () => new Date().toLocaleDateString('ar-AE')
+
+export const defaultBadayatPrintHeader = {
+  companyName: 'شركة بداية الخير',
+  companyNameEn: 'BADAYAT AL KHAIR',
+  subtitle: 'إدارة شؤون الموظفين والعهد والنماذج الداخلية',
+  logoUrl: '/icon-192.png',
+  address: 'دبي - الإمارات العربية المتحدة',
+  phone: '',
+  email: '',
+  licenseNo: '',
+  footerNote: 'هذا المستند صادر إلكترونياً من نظام HELM Portal - قسم بداية الخير',
+}
 
 export const badayatTemplatePlaceholders = [
   'companyName', 'branchName', 'today',
@@ -288,6 +301,10 @@ export const defaultBadayatTemplateBodies = {
 توقيع الموظف: ............................`,
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[ch]))
+}
+
 export function loadBadayatTemplateDrafts() {
   try {
     return JSON.parse(localStorage.getItem(BADAYAT_TEMPLATE_DRAFTS_KEY) || '{}') || {}
@@ -313,6 +330,21 @@ export function resetBadayatTemplateDraft(templateName) {
 export function getBadayatTemplateBody(templateName) {
   const drafts = loadBadayatTemplateDrafts()
   return drafts[templateName] || defaultBadayatTemplateBodies[templateName] || ''
+}
+
+export function loadBadayatPrintHeader() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BADAYAT_PRINT_HEADER_KEY) || '{}') || {}
+    return { ...defaultBadayatPrintHeader, ...saved }
+  } catch {
+    return defaultBadayatPrintHeader
+  }
+}
+
+export function saveBadayatPrintHeader(settings = {}) {
+  const next = { ...loadBadayatPrintHeader(), ...settings }
+  localStorage.setItem(BADAYAT_PRINT_HEADER_KEY, JSON.stringify(next))
+  return next
 }
 
 export function getEmployeeTemplateValues(employee = {}, branchName = 'بداية الخير') {
@@ -358,12 +390,226 @@ export function renderBadayatTemplate(body, employee, branchName) {
   return String(body || '').replace(/{{\s*([\w]+)\s*}}/g, (_, key) => values[key] ?? `{{${key}}}`)
 }
 
-export function printBadayatDocument(title, renderedBody) {
-  const win = window.open('', '_blank', 'width=900,height=1100')
+export function printBadayatDocument(title, renderedBody, printSettings = {}) {
+  const win = window.open('', '_blank', 'width=960,height=1100')
   if (!win) return false
-  const safeTitle = String(title || 'مستند بداية الخير')
-  const safeBody = String(renderedBody || '').replace(/[<>&]/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[ch]))
-  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${safeTitle}</title><style>body{font-family:Arial,Tahoma,sans-serif;direction:rtl;text-align:right;line-height:2;color:#111;margin:38px}.paper{max-width:820px;margin:0 auto}.head{border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:22px}.office{font-weight:800;font-size:20px}.title{text-align:center;font-size:24px;font-weight:900;margin:18px 0;white-space:pre-wrap}.body{font-size:16px;white-space:pre-wrap}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:42px}.sig{border-top:1px solid #111;padding-top:8px;text-align:center}@media print{button{display:none}body{margin:24px}}</style></head><body><button onclick="window.print()" style="padding:10px 18px;margin-bottom:18px;cursor:pointer">طباعة</button><main class="paper"><div class="head"><div class="office">شركة بداية الخير</div><div>نظام HELM Portal - نماذج الموظفين</div></div><div class="title">${safeTitle}</div><div class="body">${safeBody}</div><div class="signatures"><div class="sig">توقيع الموظف</div><div class="sig">توقيع الشركة</div></div></main></body></html>`)
+
+  const settings = { ...loadBadayatPrintHeader(), ...printSettings }
+  const safeTitle = escapeHtml(title || 'مستند بداية الخير')
+  const safeBody = escapeHtml(renderedBody || '')
+  const safeLogoUrl = escapeHtml(settings.logoUrl || defaultBadayatPrintHeader.logoUrl)
+  const safeCompanyName = escapeHtml(settings.companyName || defaultBadayatPrintHeader.companyName)
+  const safeCompanyNameEn = escapeHtml(settings.companyNameEn || defaultBadayatPrintHeader.companyNameEn)
+  const safeSubtitle = escapeHtml(settings.subtitle || defaultBadayatPrintHeader.subtitle)
+  const safeAddress = escapeHtml(settings.address || '')
+  const safePhone = escapeHtml(settings.phone || '')
+  const safeEmail = escapeHtml(settings.email || '')
+  const safeLicenseNo = escapeHtml(settings.licenseNo || '')
+  const safeFooterNote = escapeHtml(settings.footerNote || defaultBadayatPrintHeader.footerNote)
+  const issuedAt = escapeHtml(new Date().toLocaleString('ar-AE'))
+
+  win.document.write(`<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>${safeTitle}</title>
+  <style>
+    @page { size: A4; margin: 14mm 13mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #eef1f5;
+      color: #111827;
+      font-family: Arial, Tahoma, 'Segoe UI', sans-serif;
+      direction: rtl;
+      text-align: right;
+      line-height: 1.9;
+    }
+    .print-actions {
+      max-width: 900px;
+      margin: 16px auto 10px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-start;
+    }
+    .print-actions button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-weight: 800;
+      cursor: pointer;
+      background: #111827;
+      color: #fff;
+    }
+    .paper {
+      width: 210mm;
+      min-height: 297mm;
+      max-width: 900px;
+      margin: 0 auto 24px;
+      background: #fff;
+      padding: 22mm 18mm 18mm;
+      position: relative;
+      box-shadow: 0 20px 48px rgba(15, 23, 42, .18);
+      overflow: hidden;
+    }
+    .paper::before {
+      content: '';
+      position: absolute;
+      inset-inline-start: 0;
+      top: 0;
+      width: 100%;
+      height: 7px;
+      background: linear-gradient(90deg, #111827, #b45309, #111827);
+    }
+    .letterhead {
+      display: grid;
+      grid-template-columns: 95px 1fr 170px;
+      align-items: center;
+      gap: 18px;
+      border-bottom: 2px solid #111827;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .letterhead::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      right: 0;
+      width: 38%;
+      height: 3px;
+      background: #b45309;
+    }
+    .logo-box {
+      width: 86px;
+      height: 86px;
+      border: 1.5px solid #111827;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      background: #fff;
+    }
+    .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .brand h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: -.5px; }
+    .brand .en { margin-top: 2px; font-size: 13px; letter-spacing: 2.5px; color: #92400e; font-weight: 900; direction: ltr; text-align: right; }
+    .brand .sub { margin-top: 5px; color: #4b5563; font-size: 12.5px; font-weight: 700; }
+    .meta {
+      border: 1px solid #d1d5db;
+      border-radius: 16px;
+      padding: 10px 12px;
+      font-size: 11.5px;
+      color: #374151;
+      line-height: 1.7;
+      background: #f9fafb;
+    }
+    .doc-title {
+      text-align: center;
+      margin: 22px auto 20px;
+      font-size: 25px;
+      font-weight: 900;
+      color: #111827;
+      width: fit-content;
+      min-width: 220px;
+      border: 2px solid #111827;
+      border-radius: 18px;
+      padding: 8px 28px;
+      background: linear-gradient(180deg, #fff, #f8fafc);
+    }
+    .body {
+      white-space: pre-wrap;
+      font-size: 16px;
+      color: #111827;
+      min-height: 520px;
+      padding: 4px 2px;
+    }
+    .watermark {
+      position: absolute;
+      top: 47%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-28deg);
+      font-size: 64px;
+      font-weight: 900;
+      color: rgba(180, 83, 9, .055);
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 0;
+    }
+    .body, .letterhead, .doc-title, .signatures, .footer { position: relative; z-index: 1; }
+    .signatures {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-top: 46px;
+      page-break-inside: avoid;
+    }
+    .sig {
+      min-height: 92px;
+      border: 1.5px solid #111827;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+      font-weight: 800;
+    }
+    .sig .line { margin-top: 35px; border-top: 1px solid #111827; padding-top: 6px; color: #374151; font-size: 12px; }
+    .footer {
+      margin-top: 28px;
+      border-top: 1px solid #d1d5db;
+      padding-top: 9px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: #6b7280;
+      font-size: 11px;
+    }
+    @media print {
+      body { background: #fff; }
+      .print-actions { display: none; }
+      .paper { width: auto; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+      .paper::before { top: -14mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-actions">
+    <button onclick="window.print()">طباعة النموذج</button>
+    <button onclick="window.close()">إغلاق</button>
+  </div>
+  <main class="paper">
+    <div class="watermark">${safeCompanyName}</div>
+    <header class="letterhead">
+      <div class="logo-box"><img src="${safeLogoUrl}" alt="${safeCompanyName}" onerror="this.style.display='none'" /></div>
+      <div class="brand">
+        <h1>${safeCompanyName}</h1>
+        <div class="en">${safeCompanyNameEn}</div>
+        <div class="sub">${safeSubtitle}</div>
+      </div>
+      <div class="meta">
+        <div><b>التاريخ:</b> ${escapeHtml(todayAr())}</div>
+        ${safeLicenseNo ? `<div><b>الرخصة:</b> ${safeLicenseNo}</div>` : ''}
+        ${safeAddress ? `<div><b>العنوان:</b> ${safeAddress}</div>` : ''}
+        ${safePhone ? `<div><b>هاتف:</b> ${safePhone}</div>` : ''}
+        ${safeEmail ? `<div><b>بريد:</b> ${safeEmail}</div>` : ''}
+      </div>
+    </header>
+
+    <h2 class="doc-title">${safeTitle}</h2>
+    <section class="body">${safeBody}</section>
+
+    <section class="signatures">
+      <div class="sig">توقيع الموظف<div class="line">الاسم والتوقيع</div></div>
+      <div class="sig">الشؤون الإدارية / القانونية<div class="line">الاسم والتوقيع</div></div>
+      <div class="sig">ختم الشركة<div class="line">الختم الرسمي</div></div>
+    </section>
+
+    <footer class="footer">
+      <span>${safeFooterNote}</span>
+      <span>وقت الإصدار: ${issuedAt}</span>
+    </footer>
+  </main>
+</body>
+</html>`)
   win.document.close()
   win.focus()
   return true

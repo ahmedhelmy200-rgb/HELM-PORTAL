@@ -2,8 +2,9 @@ import React from "react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { getInvoiceTotals } from "@/lib/invoiceMath";
+import { BADAYAT_APPROVED_LOGO_DATA_URI } from "@/lib/badayatLogoData";
 
-const FIXED_LOGO_URL = "/badayat-logo.svg?v=approved-accf2f75";
+const FIXED_LOGO_URL = BADAYAT_APPROVED_LOGO_DATA_URI;
 const FIXED_OFFICE_NAME = "شركة بداية الخير";
 const FIXED_OFFICE_NAME_EN = "BADAYAT AL KHAIR";
 const FIXED_OFFICE_SLOGAN = "للسيارات وإدارة المعاملات والخدمات";

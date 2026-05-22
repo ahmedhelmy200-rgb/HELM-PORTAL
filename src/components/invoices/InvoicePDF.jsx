@@ -3,11 +3,11 @@ import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { getInvoiceTotals } from "@/lib/invoiceMath";
 
-const FIXED_LOGO_URL = "/icon-192.png";
-const FIXED_OFFICE_NAME = "مكتب المستشار أحمد حلمي";
-const FIXED_OFFICE_NAME_EN = "Ahmed Helmy Legal Office";
-const FIXED_OFFICE_SLOGAN = "للاستشارات القانونية وإدارة الملفات";
-const FIXED_SIGNATURE_TEXT = "أحمد حلمي";
+const FIXED_LOGO_URL = "/badayat-logo.svg?v=approved-accf2f75";
+const FIXED_OFFICE_NAME = "شركة بداية الخير";
+const FIXED_OFFICE_NAME_EN = "BADAYAT AL KHAIR";
+const FIXED_OFFICE_SLOGAN = "للسيارات وإدارة المعاملات والخدمات";
+const FIXED_SIGNATURE_TEXT = "بداية الخير";
 
 function safeDate(value) {
   if (!value) return "---";
@@ -19,12 +19,18 @@ function money(value, currency = "د.إ") {
   return `${n.toLocaleString()} ${currency}`;
 }
 
+function markLogoFailed(event) {
+  const img = event.currentTarget;
+  img.style.display = "none";
+  if (img.parentElement) img.parentElement.setAttribute("data-logo-failed", "true");
+}
+
 export default function InvoicePDF({ invoice, officeSettings }) {
   const { appPublicSettings } = useAuth();
   const settings = { ...(appPublicSettings || {}), ...(officeSettings || {}) };
 
   const primaryColor = settings?.primary_color || "#0f172a";
-  const secondaryColor = settings?.secondary_color || "#d4af37";
+  const secondaryColor = settings?.secondary_color || "#b45309";
   const currency = settings?.currency || "د.إ";
   const totals = getInvoiceTotals(invoice || {});
   const subtotal = Number(totals.subtotal ?? invoice?.total_fees ?? invoice?.amount ?? 0);
@@ -35,17 +41,17 @@ export default function InvoicePDF({ invoice, officeSettings }) {
 
   const officeName = FIXED_OFFICE_NAME;
   const officeNameEn = FIXED_OFFICE_NAME_EN;
-  const officePhone = settings?.phone || invoice?.office_phone || "0544144149";
-  const officeEmail = settings?.email || "ahmedhelmy200@gmail.com";
+  const officePhone = settings?.phone || invoice?.office_phone || "";
+  const officeEmail = settings?.email || "";
   const officeAddress = settings?.address || invoice?.office_address || "الإمارات العربية المتحدة";
-  const officeWebsite = settings?.website || "helm-portal.vercel.app";
+  const officeWebsite = settings?.website || "";
   const logoUrl = FIXED_LOGO_URL;
   const stampUrl = settings?.stamp_url || null;
   const bankName = settings?.bank_name || "";
   const bankAccount = settings?.bank_account || "";
   const iban = settings?.iban || "";
   const vatNumber = settings?.vat_number || "";
-  const footerText = settings?.invoice_footer_text || "شكراً لثقتكم بنا · نسعى دائماً لتقديم أفضل خدمة قانونية";
+  const footerText = settings?.invoice_footer_text || "شكراً لثقتكم بنا";
   const headerText = FIXED_OFFICE_SLOGAN;
 
   const statusColors = {
@@ -60,7 +66,7 @@ export default function InvoicePDF({ invoice, officeSettings }) {
 
   const items = Array.isArray(invoice?.items) && invoice.items.length
     ? invoice.items
-    : [{ description: invoice?.description || "أتعاب وخدمات قانونية", amount: invoice?.total_fees || invoice?.amount || total }];
+    : [{ description: invoice?.description || "خدمات ومعاملات", amount: invoice?.total_fees || invoice?.amount || total }];
 
   return (
     <div id="invoice-print-area" dir="rtl" className="helm-invoice-print-root">
@@ -91,8 +97,36 @@ export default function InvoicePDF({ invoice, officeSettings }) {
           page-break-inside: avoid;
         }
         .helm-office-block { display:flex; align-items:center; gap:14px; min-width:0; }
-        .helm-logo-box { width:76px; height:76px; border-radius:20px; background:#fff; display:flex; align-items:center; justify-content:center; padding:7px; flex-shrink:0; box-shadow:0 14px 30px rgba(0,0,0,.18); }
-        .helm-logo-box img { max-width:100%; max-height:100%; object-fit:contain; }
+        .helm-logo-box {
+          width:92px;
+          height:92px;
+          border-radius:22px;
+          background:#fff;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          padding:4px;
+          flex-shrink:0;
+          box-shadow:0 14px 30px rgba(0,0,0,.18);
+          border:2px solid rgba(180,83,9,.55);
+          position:relative;
+          overflow:hidden;
+        }
+        .helm-logo-box img { width:100%; height:100%; object-fit:contain; display:block; }
+        .helm-logo-box::after {
+          content:'BK';
+          display:none;
+          align-items:center;
+          justify-content:center;
+          position:absolute;
+          inset:0;
+          font-size:34px;
+          font-weight:900;
+          color:#92400e;
+          background:#fff;
+          font-family:Georgia,serif;
+        }
+        .helm-logo-box[data-logo-failed="true"]::after { display:flex; }
         .helm-contact-line { display:flex; gap:10px; flex-wrap:wrap; margin-top:7px; color:rgba(255,255,255,.82); font-size:11px; line-height:1.7; }
         .helm-invoice-label { text-align:left; flex-shrink:0; }
         .helm-invoice-label-card { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.13); border-radius:16px; padding:12px 18px; text-align:center; min-width:170px; }
@@ -133,6 +167,7 @@ export default function InvoicePDF({ invoice, officeSettings }) {
           .helm-body { padding:14px 0 10px !important; }
           .helm-footer { padding:12px 0 0 !important; }
           .helm-watermark { opacity:.05 !important; }
+          .helm-logo-box { print-color-adjust:exact !important; -webkit-print-color-adjust:exact !important; }
         }
         @media screen and (max-width: 760px) {
           .helm-invoice-sheet { max-width:100%; min-height:auto; border:0; }
@@ -150,23 +185,23 @@ export default function InvoicePDF({ invoice, officeSettings }) {
       <div className="helm-invoice-sheet">
         <div className="helm-watermark">
           <div className="helm-watermark-inner">
-            <img src={logoUrl} alt="watermark" />
+            <img src={logoUrl} alt="watermark" onError={(event) => { event.currentTarget.style.display = "none"; }} />
             <span>{officeName}</span>
           </div>
         </div>
 
         <header className="helm-letterhead">
           <div className="helm-office-block">
-            <div className="helm-logo-box"><img src={logoUrl} alt="شعار المكتب" /></div>
+            <div className="helm-logo-box"><img src={logoUrl} alt="شعار بداية الخير" onError={markLogoFailed} /></div>
             <div>
               <h1 style={{ margin: 0, fontSize: 21, fontWeight: 900 }}>{officeName}</h1>
               <div style={{ marginTop: 3, color: "rgba(255,255,255,.82)", fontSize: 12, fontWeight: 700 }}>{officeNameEn}</div>
               <div style={{ marginTop: 4, color: "rgba(255,255,255,.78)", fontSize: 11 }}>{headerText}</div>
               <div className="helm-contact-line">
-                {officePhone && <span>📞 {officePhone}</span>}
-                {officeEmail && <span>✉️ {officeEmail}</span>}
-                {officeWebsite && <span>🌐 {officeWebsite}</span>}
-                {officeAddress && <span>📍 {officeAddress}</span>}
+                {officePhone && <span>هاتف: {officePhone}</span>}
+                {officeEmail && <span>بريد: {officeEmail}</span>}
+                {officeWebsite && <span>موقع: {officeWebsite}</span>}
+                {officeAddress && <span>العنوان: {officeAddress}</span>}
               </div>
             </div>
           </div>
@@ -184,20 +219,20 @@ export default function InvoicePDF({ invoice, officeSettings }) {
         <main className="helm-body">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 12 }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: primaryColor }}>فاتورة خدمات قانونية</h2>
-              <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 12 }}>Tax / Professional Invoice</p>
+              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: primaryColor }}>فاتورة</h2>
+              <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: 12 }}>Invoice</p>
             </div>
             <div style={{ padding: "7px 17px", borderRadius: 999, fontSize: 13, fontWeight: 900, color: statusColor, background: `${statusColor}14`, border: `2px solid ${statusColor}33` }}>{invoice?.status || "صادرة"}</div>
           </div>
 
           <section className="helm-info-grid">
             <div className="helm-info-card">
-              <small>بيانات الموكل</small>
+              <small>بيانات العميل</small>
               <div style={{ fontSize: 17, fontWeight: 900 }}>{invoice?.client_name || "—"}</div>
             </div>
             <div className="helm-info-card">
-              <small>القضية / الملف</small>
-              <div style={{ fontSize: 14, fontWeight: 800 }}>{invoice?.case_title || "—"}</div>
+              <small>الملف / البيان</small>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>{invoice?.case_title || invoice?.title || "—"}</div>
               {invoice?.case_number && <div style={{ marginTop: 4, color: "#64748b", fontSize: 12 }}>رقم: {invoice.case_number}</div>}
             </div>
           </section>
@@ -214,7 +249,7 @@ export default function InvoicePDF({ invoice, officeSettings }) {
               {items.map((item, index) => (
                 <tr key={index} style={{ background: index % 2 ? "#f8fafc" : "#fff" }}>
                   <td>{index + 1}</td>
-                  <td>{item.description || "أتعاب وخدمات قانونية"}</td>
+                  <td>{item.description || "خدمات ومعاملات"}</td>
                   <td style={{ textAlign: "left", fontWeight: 800 }}>{Number(item.amount || 0).toLocaleString()}</td>
                 </tr>
               ))}
@@ -259,7 +294,7 @@ export default function InvoicePDF({ invoice, officeSettings }) {
               {(officePhone || officeEmail || officeWebsite) && <p style={{ margin: "5px 0 0", fontSize: 11, color: "#64748b" }}>{[officePhone, officeEmail, officeWebsite].filter(Boolean).join(" · ")}</p>}
             </div>
             <div className="helm-official-images">
-              {stampUrl && <img src={stampUrl} alt="ختم المكتب" className="helm-stamp-img" />}
+              {stampUrl && <img src={stampUrl} alt="ختم الشركة" className="helm-stamp-img" />}
               <div className="helm-signature-box">
                 <div className="helm-signature-text">{FIXED_SIGNATURE_TEXT}</div>
                 <div className="helm-signature-line" />

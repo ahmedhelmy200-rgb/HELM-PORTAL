@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Building2, Users, FileText, BriefcaseBusiness, ShieldCheck, Printer, ClipboardCheck, Wallet, Plus, Search, Save, Bell, Award, Gavel, Database } from "lucide-react";
+import { Building2, Users, FileText, BriefcaseBusiness, ShieldCheck, Printer, ClipboardCheck, Wallet, Plus, Search, Save, Bell, Award, Gavel, Database, RotateCcw, Eye } from "lucide-react";
 import {
   badayatBranches as branches,
   badayatTemplateGroups as templateGroups,
@@ -8,6 +8,14 @@ import {
   saveBadayatEmployee,
   saveBadayatAudit,
 } from "@/lib/badayatAlKhairStore";
+import {
+  badayatTemplatePlaceholders,
+  getBadayatTemplateBody,
+  renderBadayatTemplate,
+  saveBadayatTemplateDraft,
+  resetBadayatTemplateDraft,
+  printBadayatDocument,
+} from "@/lib/badayatTemplateEngine";
 
 function money(v) {
   return `${Number(v || 0).toLocaleString()} د.إ`;
@@ -195,7 +203,7 @@ export default function BadayatAlKhair() {
       </section>
 
       {activeBranch === "templates" ? (
-        <TemplatesPanel />
+        <TemplatesPanel employees={employees} selectedEmployee={selectedEmployee} />
       ) : (
         <section className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4">
           <aside className="rounded-3xl border border-white/10 bg-slate-950/65 p-4">
@@ -308,12 +316,83 @@ function ListPanel({ title, items, empty }) {
   return <Panel title={title} icon={ClipboardCheck}>{items?.length ? <div className="space-y-2">{items.map((it, i) => <div key={i} className="rounded-2xl bg-white/5 p-3"><b>{it.title}</b><p className="text-xs text-slate-400 mt-1">{it.date} · {money(it.amount)}</p><p className="text-sm text-slate-300 mt-1">{it.note}</p></div>)}</div> : <p className="text-slate-400">{empty}</p>}</Panel>;
 }
 
-function TemplatesPanel() {
+function TemplatesPanel({ employees = [], selectedEmployee }) {
+  const allTemplateNames = templateGroups.flatMap((group) => group.items);
+  const [templateName, setTemplateName] = useState(allTemplateNames[0] || "عقد عمل شامل");
+  const [employeeId, setEmployeeId] = useState(selectedEmployee?.id || employees[0]?.id || "");
+  const [body, setBody] = useState(() => getBadayatTemplateBody(templateName));
+  const [savedAt, setSavedAt] = useState("");
+
+  useEffect(() => {
+    if (!employeeId && employees[0]?.id) setEmployeeId(employees[0].id);
+  }, [employees, employeeId]);
+
+  useEffect(() => {
+    setBody(getBadayatTemplateBody(templateName));
+  }, [templateName]);
+
+  const employee = employees.find((emp) => emp.id === employeeId) || selectedEmployee || employees[0] || {};
+  const branchName = branches.find((branch) => branch.id === employee.branchId)?.name || "بداية الخير";
+  const rendered = renderBadayatTemplate(body, employee, branchName);
+
+  const handleSaveTemplate = () => {
+    saveBadayatTemplateDraft(templateName, body);
+    setSavedAt(new Date().toLocaleTimeString("ar-AE", { hour: "2-digit", minute: "2-digit" }));
+  };
+
+  const handleResetTemplate = () => {
+    resetBadayatTemplateDraft(templateName);
+    setBody(getBadayatTemplateBody(templateName));
+    setSavedAt(new Date().toLocaleTimeString("ar-AE", { hour: "2-digit", minute: "2-digit" }));
+  };
+
+  const insertPlaceholder = (key) => {
+    setBody((current) => `${current}\n{{${key}}}`);
+  };
+
   return (
     <section className="rounded-3xl border border-white/10 bg-slate-950/65 p-5">
-      <div className="flex items-start justify-between gap-3 mb-5"><div><p className="text-amber-300 text-sm font-black">النماذج الشاملة</p><h2 className="text-2xl font-black mt-1">نماذج العمال والموظفين</h2><p className="text-slate-400 mt-2">قائمة مركزية للنماذج المطلوب تجهيزها وطباعتها وربطها لاحقاً بملف كل موظف.</p></div><FileText className="h-10 w-10 text-amber-300" /></div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {templateGroups.map((group) => <div key={group.group} className="rounded-3xl border border-white/10 bg-white/5 p-4"><h3 className="font-black text-lg mb-3">{group.group}</h3><div className="space-y-2">{group.items.map((item) => <div key={item} className="rounded-2xl bg-slate-950/50 px-3 py-2 text-sm flex items-center justify-between gap-2"><span>{item}</span><button onClick={() => window.print()} className="text-amber-300 font-black text-xs">طباعة</button></div>)}</div></div>)}
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between mb-5">
+        <div>
+          <p className="text-amber-300 text-sm font-black">النماذج الشاملة الذكية</p>
+          <h2 className="text-2xl font-black mt-1">نماذج قابلة للتعديل وتولد مباشرة من بيانات الموظف</h2>
+          <p className="text-slate-400 mt-2 leading-7">اختار الموظف مرة واحدة، ثم اختار النموذج. سيتم سحب الاسم والهوية والجواز والوظيفة والراتب والإقامة وباقي البيانات تلقائياً داخل المستند.</p>
+          {savedAt && <p className="text-xs text-emerald-300 mt-2">تم حفظ قالب النموذج الساعة {savedAt}</p>}
+        </div>
+        <FileText className="h-10 w-10 text-amber-300" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
+        <aside className="space-y-4">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <label className="block mb-3"><span className="text-xs text-slate-400 font-bold">الموظف</span><select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 outline-none">{employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.fullName} - {branches.find((b) => b.id === emp.branchId)?.name || emp.branchId}</option>)}</select></label>
+            <label className="block"><span className="text-xs text-slate-400 font-bold">النموذج</span><select value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 outline-none">{templateGroups.map((group) => <optgroup key={group.group} label={group.group}>{group.items.map((item) => <option key={item} value={item}>{item}</option>)}</optgroup>)}</select></label>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <h3 className="font-black mb-3">حقول الدمج السريع</h3>
+            <div className="flex flex-wrap gap-2 max-h-[220px] overflow-y-auto">
+              {badayatTemplatePlaceholders.map((key) => <button key={key} onClick={() => insertPlaceholder(key)} className="rounded-xl bg-slate-950/70 px-2.5 py-1.5 text-xs text-amber-200 hover:bg-amber-400 hover:text-slate-950">{`{{${key}}}`}</button>)}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2">
+            <button onClick={handleSaveTemplate} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 font-black"><Save className="h-4 w-4" /> حفظ تعديل النموذج</button>
+            <button onClick={handleResetTemplate} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/10 px-4 py-3 font-black hover:bg-white/15"><RotateCcw className="h-4 w-4" /> استعادة الأصل</button>
+            <button onClick={() => printBadayatDocument(templateName, rendered)} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-3 font-black text-slate-950"><Printer className="h-4 w-4" /> توليد وطباعة</button>
+          </div>
+        </aside>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <h3 className="flex items-center gap-2 font-black mb-3"><FileText className="h-5 w-5 text-amber-300" /> تحرير قالب النموذج</h3>
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[620px] w-full resize-y rounded-2xl border border-white/10 bg-slate-950/80 p-4 leading-8 outline-none focus:border-amber-300" />
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+            <h3 className="flex items-center gap-2 font-black mb-3"><Eye className="h-5 w-5 text-amber-300" /> معاينة بعد سحب بيانات الموظف</h3>
+            <div className="min-h-[620px] whitespace-pre-wrap rounded-2xl border border-white/10 bg-white text-slate-950 p-6 leading-9 text-[15px] overflow-y-auto">{rendered}</div>
+          </div>
+        </div>
       </div>
     </section>
   );

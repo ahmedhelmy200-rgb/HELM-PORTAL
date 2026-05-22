@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
 import PublicEntryWithLogo from './pages/PublicEntryWithLogo'
 import PublicLegalLibrary from './pages/PublicLegalLibrary'
+import BadayatFeedback from './pages/BadayatFeedback'
 import PasswordReset from './pages/PasswordReset'
 import Payment from './pages/Payment'
 import { createPageUrl } from '@/utils'
@@ -31,38 +32,21 @@ const PageFallback = () => (
       <div className="relative mx-auto h-20 w-20">
         <div className="absolute inset-0 rounded-3xl bg-white/5 border border-blue-400/25 shadow-2xl shadow-blue-500/20"/>
         <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-blue-600/90 to-slate-950 flex items-center justify-center overflow-hidden">
-          <img
-            src="/icon-192.png"
-            alt="HELM Portal"
-            className="h-12 w-12 rounded-xl object-contain drop-shadow-lg"
-            onError={(e) => { e.currentTarget.style.display = 'none' }}
-          />
+          <img src="/icon-192.png" alt="HELM Portal" className="h-12 w-12 rounded-xl object-contain drop-shadow-lg" onError={(e) => { e.currentTarget.style.display = 'none' }} />
         </div>
         <div className="absolute inset-0 rounded-3xl border border-blue-400/30 animate-ping"/>
       </div>
       <div className="space-y-2">
-        <div className="h-1.5 w-32 mx-auto rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full bg-blue-500 rounded-full animate-[loading_1.5s_ease-in-out_infinite]"/>
-        </div>
+        <div className="h-1.5 w-32 mx-auto rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-blue-500 rounded-full animate-[loading_1.5s_ease-in-out_infinite]"/></div>
         <p className="text-xs text-white/40">جارٍ تحميل HELM Portal…</p>
       </div>
     </div>
   </div>
 )
 
-const LayoutWrapper = ({ children, currentPageName }) => Layout ? (
-  <Suspense fallback={<PageFallback />}>
-    <Layout currentPageName={currentPageName}>{children}</Layout>
-  </Suspense>
-) : <>{children}</>
+const LayoutWrapper = ({ children, currentPageName }) => Layout ? <Suspense fallback={<PageFallback />}><Layout currentPageName={currentPageName}>{children}</Layout></Suspense> : <>{children}</>
 
-function RealtimeBridge() {
-  useEffect(() => {
-    const stop = base44.realtime.subscribe()
-    return stop
-  }, [])
-  return null
-}
+function RealtimeBridge() { useEffect(() => { const stop = base44.realtime.subscribe(); return stop }, []); return null }
 
 function OnboardingRoute() {
   const { user, isAuthenticated } = useAuth()
@@ -77,6 +61,7 @@ function PublicRoutes() {
     <Routes>
       <Route path="/" element={<PublicEntryWithLogo />} />
       <Route path="/Payment" element={<Payment />} />
+      <Route path="/BadayatFeedback" element={<BadayatFeedback />} />
       <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />
       <Route path="/PasswordReset" element={<PasswordReset />} />
       <Route path={createPageUrl('ClientOnboarding')} element={<Navigate to="/" replace />} />
@@ -87,24 +72,13 @@ function PublicRoutes() {
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, user, isAuthenticated } = useAuth()
-
   if (isLoadingPublicSettings || isLoadingAuth) return <PageFallback />
   if (!isAuthenticated || !user) return <PublicRoutes />
 
   const renderPage = (path, Page) => {
-    if (user?.role === 'pending_client' && !PENDING_CLIENT_ALLOWED_PAGES.has(path)) {
-      return <Navigate to={createPageUrl('ClientOnboarding')} replace />
-    }
-    if (user?.role === 'client' && !CLIENT_ALLOWED_PAGES.has(path)) {
-      return <Navigate to={createPageUrl('Dashboard')} replace />
-    }
-    return (
-      <LayoutWrapper currentPageName={path}>
-        <Suspense fallback={<PageFallback />}>
-          <Page />
-        </Suspense>
-      </LayoutWrapper>
-    )
+    if (user?.role === 'pending_client' && !PENDING_CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('ClientOnboarding')} replace />
+    if (user?.role === 'client' && !CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Dashboard')} replace />
+    return <LayoutWrapper currentPageName={path}><Suspense fallback={<PageFallback />}><Page /></Suspense></LayoutWrapper>
   }
 
   return (
@@ -114,11 +88,10 @@ const AuthenticatedApp = () => {
         <Route path="/" element={user?.role === 'pending_client' ? <Navigate to={createPageUrl('ClientOnboarding')} replace /> : renderPage(mainPageKey, MainPage)} />
         <Route path={createPageUrl('ClientOnboarding')} element={<OnboardingRoute />} />
         <Route path="/Payment" element={<Payment />} />
+        <Route path="/BadayatFeedback" element={<BadayatFeedback />} />
         <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />
         <Route path="/PasswordReset" element={<PasswordReset />} />
-        {Object.entries(Pages).map(([path, Page]) => (
-          <Route key={path} path={`/${path}`} element={renderPage(path, Page)} />
-        ))}
+        {Object.entries(Pages).map(([path, Page]) => <Route key={path} path={`/${path}`} element={renderPage(path, Page)} />)}
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </>
@@ -131,11 +104,7 @@ function App() {
       <SupabaseConfigGate>
         <AuthProvider>
           <QueryClientProvider client={queryClientInstance}>
-            <Router>
-              <AppStatusBar />
-              <KeyboardShortcutsModal />
-              <AuthenticatedApp />
-            </Router>
+            <Router><AppStatusBar /><KeyboardShortcutsModal /><AuthenticatedApp /></Router>
             <Toaster />
           </QueryClientProvider>
         </AuthProvider>

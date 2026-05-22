@@ -1,0 +1,185 @@
+/* HELM Portal readability layer
+   معالجة عامة لبهتان الخطوط بدون تغيير هيكل الشاشات أو المكونات. */
+
+:root {
+  --helm-readable-dark: #0b1120;
+  --helm-readable-mid: #111827;
+  --helm-readable-soft: #1f2937;
+  --helm-readable-light: rgba(255,255,255,.96);
+  --helm-readable-light-soft: rgba(255,255,255,.88);
+  --helm-readable-shadow: 0 1px 2px rgba(0,0,0,.38);
+}
+
+body {
+  font-weight: 600;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6,
+.font-black, .font-extrabold, .font-bold, b, strong {
+  letter-spacing: -.01em;
+}
+
+/* النصوص الباهتة في الوضع الداكن */
+.theme-dark .text-white\/20,
+.theme-dark .text-white\/22,
+.theme-dark .text-white\/25,
+.theme-dark .text-white\/28,
+.theme-dark .text-white\/30,
+.theme-dark .text-white\/35,
+.theme-dark .text-white\/38,
+.theme-dark .text-white\/40,
+.theme-dark .text-white\/45,
+.theme-dark .text-white\/50,
+.theme-dark .text-white\/55,
+.theme-dark .text-white\/60,
+.theme-dark .text-white\/65,
+.theme-dark .text-white\/70,
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-400,
+.theme-dark .text-slate-300,
+.theme-dark .text-muted-foreground,
+.theme-dark .text-zinc-400,
+.theme-dark .text-gray-400 {
+  color: var(--helm-readable-light-soft) !important;
+  text-shadow: var(--helm-readable-shadow);
+  font-weight: 650;
+}
+
+.theme-dark .text-white,
+.theme-dark .text-slate-100,
+.theme-dark .text-slate-200,
+.theme-dark .text-foreground {
+  color: var(--helm-readable-light) !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.32);
+}
+
+/* الوضع الفاتح: اجعل الخط أسود/كحلي واضح بدل الرمادي الباهت */
+.theme-light body,
+.theme-light .text-foreground,
+.theme-light .text-muted-foreground,
+.theme-light .text-slate-300,
+.theme-light .text-slate-400,
+.theme-light .text-slate-500,
+.theme-light .text-slate-600,
+.theme-light .text-gray-400,
+.theme-light .text-gray-500,
+.theme-light .text-zinc-400,
+.theme-light p,
+.theme-light label,
+.theme-light td,
+.theme-light th,
+.theme-light small {
+  color: var(--helm-readable-mid) !important;
+  text-shadow: none;
+  font-weight: 650;
+}
+
+.theme-light h1,
+.theme-light h2,
+.theme-light h3,
+.theme-light h4,
+.theme-light h5,
+.theme-light h6,
+.theme-light b,
+.theme-light strong {
+  color: var(--helm-readable-dark) !important;
+  font-weight: 900;
+}
+
+/* حافظ على وضوح النص الأبيض داخل البطاقات الداكنة حتى في الوضع الفاتح */
+.theme-light .sidebar-shell,
+.theme-light .mobile-topbar,
+.theme-light .mobile-bottom-tabs,
+.theme-light .hero-electric-panel,
+.theme-light [class*="bg-slate-950"],
+.theme-light [class*="bg-slate-900"],
+.theme-light [class*="bg-slate-800"],
+.theme-light [class*="from-slate-950"],
+.theme-light [class*="from-blue-600"],
+.theme-light [class*="from-amber-400"] {
+  color: var(--helm-readable-light) !important;
+}
+
+.theme-light .sidebar-shell *,
+.theme-light .mobile-topbar *,
+.theme-light .mobile-bottom-tabs *,
+.theme-light [class*="bg-slate-950"] *,
+.theme-light [class*="bg-slate-900"] *,
+.theme-light [class*="bg-slate-800"] * {
+  color: var(--helm-readable-light) !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+
+/* المدخلات والجداول */
+input, textarea, select, button {
+  font-weight: 650;
+}
+
+.theme-dark input,
+.theme-dark textarea,
+.theme-dark select {
+  color: #f8fafc !important;
+  caret-color: #f8fafc;
+}
+
+.theme-light input,
+.theme-light textarea,
+.theme-light select {
+  color: #0f172a !important;
+  caret-color: #0f172a;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(148,163,184,.95) !important;
+  font-weight: 650;
+}
+
+.theme-light input::placeholder,
+.theme-light textarea::placeholder {
+  color: #475569 !important;
+}
+
+/* كروت وقوائم القراءة */
+.card-readable,
+.rounded-2xl,
+.rounded-3xl {
+  text-shadow: none;
+}
+
+.theme-dark .rounded-2xl,
+.theme-dark .rounded-3xl {
+  color: inherit;
+}
+
+/* تقوية الروابط والأزرار النصية */
+a, button, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:not(.sidebar-nav-item):not(.mobile-tab-link) {
+  font-weight: 700;
+}
+
+/* طباعة أو مساحات بيضاء: النص أسود عريق */
+.bg-white,
+[class*="bg-white"] {
+  color: #0b1120;
+}
+
+.bg-white *,
+[class*="bg-white"] * {
+  color: inherit;
+}
+
+/* استثناءات ألوان الحالات حتى لا تختلط الأخضر/الأحمر/الأصفر */
+.text-red-100, .text-red-200, .text-red-300, .text-red-400,
+.text-emerald-100, .text-emerald-200, .text-emerald-300, .text-emerald-400,
+.text-amber-100, .text-amber-200, .text-amber-300, .text-amber-400,
+.text-blue-100, .text-blue-200, .text-blue-300, .text-blue-400,
+.text-sky-100, .text-sky-200, .text-sky-300, .text-sky-400 {
+  font-weight: 800;
+}

@@ -1,0 +1,2 @@
+const x='\u0639\u0642\u062f \u0639\u0645\u0644 \u0645\u0628\u062f\u0626\u064a'
+export default x

@@ -1,0 +1,166 @@
+/* HELM Portal polish layer
+   تحسين عام للشكل، اللوجو، الأزرار، والكروت بدون تغيير الوظائف. */
+
+:root {
+  --helm-polish-shadow: 0 18px 46px rgba(15, 23, 42, .12);
+  --helm-polish-shadow-dark: 0 18px 48px rgba(0, 0, 0, .28);
+}
+
+/* اللوجو يملأ الإطار بالكامل */
+.sidebar-shell img[alt="HELM Portal"],
+.mobile-topbar img[alt="HELM Portal"],
+.helm-logo-box img,
+.brand-preview img,
+.invoice-brand-preview img,
+img[src*="icon-192"],
+img[src*="logo"] {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  padding: 0 !important;
+  border-radius: inherit;
+}
+
+/* إطار اللوجو أوضح وأفخم */
+.sidebar-shell .overflow-hidden:has(img),
+.mobile-topbar .overflow-hidden:has(img),
+.helm-logo-box {
+  background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(226,232,240,.92)) !important;
+  border: 1px solid rgba(255,255,255,.28) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.55),
+    0 14px 34px rgba(15,23,42,.22),
+    0 0 0 1px rgba(59,130,246,.12) !important;
+}
+
+/* الهيدر العلوي */
+.mobile-topbar,
+.sidebar-shell,
+.hidden.md\:flex.items-center.justify-between.gap-3.mb-4 {
+  backdrop-filter: blur(24px) saturate(1.15);
+  -webkit-backdrop-filter: blur(24px) saturate(1.15);
+}
+
+.hidden.md\:flex.items-center.justify-between.gap-3.mb-4 {
+  border-radius: 1.35rem !important;
+  border: 1px solid rgba(148, 163, 184, .20) !important;
+  background:
+    linear-gradient(135deg, rgba(15,23,42,.72), rgba(30,41,59,.46)),
+    radial-gradient(circle at 12% 0%, rgba(59,130,246,.20), transparent 30%) !important;
+  box-shadow: var(--helm-polish-shadow-dark) !important;
+}
+
+.theme-light .hidden.md\:flex.items-center.justify-between.gap-3.mb-4 {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.94), rgba(239,246,255,.86)),
+    radial-gradient(circle at 12% 0%, rgba(59,130,246,.12), transparent 30%) !important;
+  border-color: rgba(30,64,175,.14) !important;
+  box-shadow: var(--helm-polish-shadow) !important;
+}
+
+/* كروت عامة أكثر نظافة */
+.rounded-2xl,
+.rounded-3xl,
+.card-readable,
+[class*="border border-border"],
+[class*="bg-card"] {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.card-readable:hover,
+[class*="border border-border"]:hover,
+[class*="bg-card"]:hover {
+  border-color: hsl(var(--primary) / .24) !important;
+  box-shadow: 0 14px 34px hsl(var(--primary) / .09);
+}
+
+/* الأزرار الجانبية */
+.sidebar-nav-item {
+  min-height: 2.9rem;
+  border-radius: 1rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -.01em;
+}
+.sidebar-nav-item:hover {
+  transform: translateX(-3px) scale(1.01) !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.11), rgba(125,211,252,.06)) !important;
+}
+.sidebar-nav-item-active {
+  background: linear-gradient(135deg, rgba(37,99,235,.34), rgba(6,182,212,.20)) !important;
+  box-shadow: 0 14px 28px rgba(37,99,235,.22), inset 0 1px 0 rgba(255,255,255,.14) !important;
+}
+.sidebar-nav-icon,
+.mobile-tab-icon {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 8px 18px rgba(2,8,23,.16);
+}
+
+/* أزرار الزجاج */
+.control-chip,
+.icon-glass-btn {
+  border-radius: 1rem !important;
+  font-weight: 850 !important;
+  border-color: rgba(255,255,255,.12) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.045)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 10px 22px rgba(2,8,23,.16);
+}
+.control-chip:hover,
+.icon-glass-btn:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.07)) !important;
+}
+
+/* تحسين المدخلات */
+input,
+textarea,
+select,
+[role="combobox"] {
+  border-radius: .9rem !important;
+  border-color: hsl(var(--border) / .85) !important;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+input:focus,
+textarea:focus,
+select:focus,
+[role="combobox"]:focus {
+  border-color: hsl(var(--primary) / .55) !important;
+  box-shadow: 0 0 0 3px hsl(var(--primary) / .12) !important;
+}
+
+/* الجداول والفواتير */
+table {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+th {
+  font-weight: 900 !important;
+}
+
+/* بوابة بداية الخير تمييز هادئ */
+.badayat-invoice .helm-letterhead,
+[class*="border-amber"] {
+  box-shadow: 0 16px 38px rgba(146,64,14,.10);
+}
+
+/* الحركة أخف لتسريع الإحساس العام */
+* {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter { animation-duration: .18s !important; }
+}
+
+/* الموبايل: أزرار أكبر ولمس أسهل */
+@media (max-width: 767px) {
+  .mobile-tab-link {
+    border-radius: 1.1rem !important;
+    min-height: 3.85rem !important;
+  }
+  .icon-glass-btn {
+    width: 2.55rem !important;
+    height: 2.55rem !important;
+  }
+  .mobile-topbar img[alt="HELM Portal"] {
+    object-fit: cover !important;
+  }
+}

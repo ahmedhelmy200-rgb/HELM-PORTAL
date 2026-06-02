@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { buildPaymentUrl, buildPaymentWhatsAppMessage } from "@/lib/paymentLinks";
+import { getInvoiceBrand } from "@/lib/portalScopes";
 
 const STATUS_STYLES = {
   "مدفوعة":         "bg-green-100  text-green-700  border-green-200  dark:bg-green-900/30  dark:text-green-300",
@@ -38,6 +39,7 @@ export default function InvoiceCard({
   readOnly = false,
 }) {
   const [linkCopied, setLinkCopied] = useState(false);
+  const brand = getInvoiceBrand(invoice || {}, officeSettings || {});
 
   const subtotal    = (invoice.total_fees || 0) - (invoice.discount || 0);
   const vat         = subtotal * ((invoice.vat_rate || 0) / 100);
@@ -70,7 +72,7 @@ export default function InvoiceCard({
   };
 
   return (
-    <Card className="p-4 hover:shadow-lg transition-all hover:-translate-y-0.5 border border-border">
+    <Card className={`p-4 hover:shadow-lg transition-all hover:-translate-y-0.5 border ${brand.isBadayat ? "border-amber-200/70 bg-amber-50/35 dark:bg-amber-950/10" : "border-border"}`}>
       {/* ── رأس البطاقة ─────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -81,6 +83,7 @@ export default function InvoiceCard({
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className="font-bold text-sm text-foreground">{invoice.invoice_number || "فاتورة"}</span>
               <Badge className={`text-xs border ${STATUS_STYLES[invoice.status] || STATUS_STYLES["مسودة"]}`}>{invoice.status}</Badge>
+              <Badge variant="outline" className={brand.isBadayat ? "text-[10px] border-amber-300 text-amber-700 dark:text-amber-300" : "text-[10px]"}>{brand.label}</Badge>
             </div>
             <p className="font-semibold text-foreground leading-tight">{invoice.client_name}</p>
             {invoice.case_title && <p className="text-xs text-muted-foreground mt-0.5">⚖️ {invoice.case_title}</p>}

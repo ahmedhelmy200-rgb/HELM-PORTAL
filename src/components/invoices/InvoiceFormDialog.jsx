@@ -8,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import ChoiceInput from "@/components/shared/ChoiceInput";
 import DateSmartInput from "@/components/shared/DateSmartInput";
+import { PORTAL_SCOPE_HELM, PORTAL_SCOPE_BADAYAT, getInvoicePortalScope, invoiceScopeFields } from "@/lib/portalScopes";
 
 const emptyForm = {
   invoice_number: "",
@@ -28,10 +29,26 @@ const emptyForm = {
   office_name: "",
   office_phone: "",
   office_address: "",
+  portal_scope: PORTAL_SCOPE_HELM,
+  business_unit: PORTAL_SCOPE_HELM,
 };
 
 const STATUSES = ["مسودة", "صادرة", "مدفوعة جزئياً", "مدفوعة", "متأخرة", "ملغاة"];
 const PAYMENT_METHODS = ["نقداً", "تحويل بنكي", "شيك", "بطاقة ائتمان", "رابط دفع", "أخرى"];
+const PORTAL_SCOPE_OPTIONS = [
+  { value: PORTAL_SCOPE_HELM, label: "حلمي بروتال" },
+  { value: PORTAL_SCOPE_BADAYAT, label: "بداية الخير" },
+];
+
+function stripScopeFields(payload) {
+  const { portal_scope, business_unit, ...rest } = payload;
+  return rest;
+}
+
+function isMissingScopeColumn(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return message.includes("portal_scope") || message.includes("business_unit") || message.includes("schema cache");
+}
 
 export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved }) {
   const [form, setForm] = useState(emptyForm);
@@ -56,17 +73,42 @@ export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved
 
   useEffect(() => {
     if (invoice) {
-      setForm({ ...emptyForm, ...invoice, items: invoice.items || [] });
+      const scope = getInvoicePortalScope(invoice);
+      setForm({ ...emptyForm, ...invoice, ...invoiceScopeFields(scope), items: invoice.items || [] });
       return;
     }
     setForm({
       ...emptyForm,
+      ...invoiceScopeFields(PORTAL_SCOPE_HELM),
       invoice_number: `INV-${Date.now().toString().slice(-6)}`,
       office_name: officeSettings?.office_name || "",
       office_phone: officeSettings?.phone || "",
       office_address: officeSettings?.address || "",
     });
   }, [invoice, open, officeSettings]);
+
+  const setScope = (scope) => {
+    setForm((prev) => {
+      const nextScope = scope === PORTAL_SCOPE_BADAYAT ? PORTAL_SCOPE_BADAYAT : PORTAL_SCOPE_HELM;
+      const scopeFields = invoiceScopeFields(nextScope);
+      if (nextScope === PORTAL_SCOPE_BADAYAT) {
+        return {
+          ...prev,
+          ...scopeFields,
+          office_name: "شركة بداية الخير",
+          office_phone: prev.office_phone || officeSettings?.phone || "",
+          office_address: prev.office_address || "الإمارات العربية المتحدة",
+        };
+      }
+      return {
+        ...prev,
+        ...scopeFields,
+        office_name: officeSettings?.office_name || prev.office_name || "أحمد حلمي للاستشارات القانونية",
+        office_phone: officeSettings?.phone || prev.office_phone || "",
+        office_address: officeSettings?.address || prev.office_address || "",
+      };
+    });
+  };
 
   const handleCaseSelect = (caseTitle) => {
     const selected = cases.find((item) => item.title === caseTitle || item.id === caseTitle);
@@ -97,16 +139,25 @@ export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved
   const handleSave = async () => {
     setSaving(true);
     try {
+      const scope = form.portal_scope === PORTAL_SCOPE_BADAYAT ? PORTAL_SCOPE_BADAYAT : PORTAL_SCOPE_HELM;
       const payload = {
         ...form,
+        ...invoiceScopeFields(scope),
         total_fees: form.items.length > 0 ? itemsTotal : (Number(form.total_fees) || 0),
         paid_amount: Number(form.paid_amount) || 0,
         discount: Number(form.discount) || 0,
         vat_rate: Number(form.vat_rate) || 0,
         items: form.items.map((item) => ({ ...item, amount: Number(item.amount) || 0 })),
       };
-      if (invoice) await base44.entities.Invoice.update(invoice.id, payload);
-      else await base44.entities.Invoice.create(payload);
+      try {
+        if (invoice) await base44.entities.Invoice.update(invoice.id, payload);
+        else await base44.entities.Invoice.create(payload);
+      } catch (error) {
+        if (!isMissingScopeColumn(error)) throw error;
+        const legacyPayload = stripScopeFields(payload);
+        if (invoice) await base44.entities.Invoice.update(invoice.id, legacyPayload);
+        else await base44.entities.Invoice.create(legacyPayload);
+      }
       onSaved();
       onOpenChange(false);
     } finally {
@@ -122,6 +173,24 @@ export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved
         </DialogHeader>
 
         <div className="space-y-5 mt-2">
+          <div className="rounded-2xl border border-primary/15 bg-primary/5 p-3">
+            <Label className="mb-2 block">بوابة الفاتورة</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {PORTAL_SCOPE_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={form.portal_scope === option.value ? "default" : "outline"}
+                  className={form.portal_scope === option.value ? "bg-primary text-white" : ""}
+                  onClick={() => setScope(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">هذا الاختيار يفصل الهيدر والطباعة والتصنيف المالي بين حلمي بروتال وبداية الخير.</p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1"><Label>رقم الفاتورة</Label><Input value={form.invoice_number} onChange={e => setForm(f => ({ ...f, invoice_number: e.target.value }))} className="h-11" /></div>
             <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={v => setForm(f => ({ ...f, status: v }))} options={STATUSES} listId="invoice-statuses" /></div>
@@ -139,9 +208,9 @@ export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-1"><Label>اسم المكتب</Label><Input value={form.office_name} onChange={e => setForm(f => ({ ...f, office_name: e.target.value }))} className="h-11" /></div>
-            <div className="space-y-1"><Label>هاتف المكتب</Label><Input value={form.office_phone} onChange={e => setForm(f => ({ ...f, office_phone: e.target.value }))} className="h-11" /></div>
-            <div className="space-y-1"><Label>عنوان المكتب</Label><Input value={form.office_address} onChange={e => setForm(f => ({ ...f, office_address: e.target.value }))} className="h-11" /></div>
+            <div className="space-y-1"><Label>اسم الجهة المطبوعة</Label><Input value={form.office_name} onChange={e => setForm(f => ({ ...f, office_name: e.target.value }))} className="h-11" /></div>
+            <div className="space-y-1"><Label>هاتف الجهة</Label><Input value={form.office_phone} onChange={e => setForm(f => ({ ...f, office_phone: e.target.value }))} className="h-11" /></div>
+            <div className="space-y-1"><Label>عنوان الجهة</Label><Input value={form.office_address} onChange={e => setForm(f => ({ ...f, office_address: e.target.value }))} className="h-11" /></div>
           </div>
 
           <div>

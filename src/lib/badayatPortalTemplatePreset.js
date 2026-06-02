@@ -6,56 +6,88 @@ import {
 } from '@/lib/badayatTemplateEngine'
 
 const VERSION_KEY = 'helm_badayat_portal_template_preset_version'
-const RAW = [
-  'eyJ2ZXJzaW9uIjoiMjAyNi0wNi0wMi1iYWRheWF0LWVtcGxveW1lbnQtdGVtcGxhdGUtdjEiLCJncm91cE5hbWUiOiLY',
-  'p9mE2LnZgtmI2K8g2YjYp9mE2KrYudmK2YrZhiIsIm9yZGVyIjpbIti52YLYryDYudmF2YQg2YXYqNiv2KbZiiIsIti5',
-  '2YLYryDYudmF2YQg2LTYp9mF2YQiXSwicHJpbnRIZWFkZXIiOnsiY29tcGFueU5hbWUiOiLYqNiv2KfZitin2Kkg2KfZhNiu2YrYs',
-  'SDZhNiq2KzYp9ix2Kkg2KfZhNiz2YrYp9ix2KfYqiDYp9mE2YXZg9iq2LnZhdmE2KkiLCJjb21wYW55TmFtZUVuIjoiQkRBWVQgQUxL',
-  'SElSIiwic3VidGl0bGUiOiLZhdmE2LHYtiDYs9mK2KfYsdin2KoiLCJsb2dvVXJsIjoiL2JhZGF5YXQtbG9nby5zdmciLCJhZGRy',
-  'ZXNzIjoiNTgg2YXYudix2LYg2KjYr9in2YrYqSDYp9mE2K7Zitix2Iwg2LPZiNmCINiz2YrYp9ix2KfYqiDYp9mE2K3YsdinY',
-  'jCDYp9mE2LTYp9ix2YLYqSIsImZvb3Rlck5vdGUiOiLZh9iw2Kcg2KfZhNi52YLZryDYtdinYr9ixINmF2YYgSEVMTSBQb3J0YWwgLS',
-  'DZgtiz2YUg2KjYr9in2YrYqSDYp9mE2K7ZitixIC0g2KfZhNmG2YXYp9iw2KwiLCJib2RpZXMiOnsi2LnZgtivINi52YXZhCDZhdio',
-  '2K/YptmKIjoi2LnZgtivINi52YXZhCDZhdio2K/YptmKXG5cbuiq2YUg2YfYsNinINin2YTYudmC2K8g2YHZiiDZitmI2YUge3t0',
-  'b2RheX19INio2YrZhiDYqNmEINmF2YY6XG5cbtin2YTYt9ix2YEg2KfZhNij2YjZhDorbqNiv2KfZitin2Kkg2KfZhNiu2YrYsSDZhNiq2KzY',
-  'p9ix2Kkg2KfZhNiz2YrYp9ix2KfYqiDYp9mE2YXZg9iq2LnZhdmE2Kkg2YjYudinm2YjYp9mG2YfYp9mEIDU4INmF2LHYu',
-  'NmGINio2K/Yp9mK2Kkg2KfZhNiu2YrYs2Iwg2LPZiNmCINiz2YrYp9ix2KfYqiDYp9mE2K3YsdinYrCDYp9mE2LTYp9ix2YLY',
-  'qSDYp9mE2LTYp9ix2YLYqSIsImZvcm1zIjoiZXhwbG9yZSIsInh4IjoiIn0=' 
-].join('')
+const GROUP_NAME = 'العقود والتعيين'
+const PRELIMINARY_NAME = 'عقد عمل مبدئي'
+const COMPREHENSIVE_NAME = 'عقد عمل شامل'
 
-function decodePayload() {
-  const binary = atob(RAW)
-  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
-  return JSON.parse(new TextDecoder('utf-8').decode(bytes))
+const companyHeader = {
+  companyName: 'بداية الخير لتجارة السيارات المستعملة',
+  companyNameEn: 'BDAYT ALKHIR',
+  subtitle: 'معرض سيارات',
+  logoUrl: '/badayat-logo.svg',
+  address: '58 معرض بداية الخير، سوق سيارات الحراج، الشارقة',
+  footerNote: 'هذا العقد صادر من HELM Portal - قسم بداية الخير - النماذج',
 }
+
+const employmentContractBody = `عقد عمل مبدئي
+
+تم هذا العقد في يوم {{today}} بين كل من:
+
+الطرف الأول:
+بداية الخير لتجارة السيارات المستعملة، وعنوانها: 58 معرض بداية الخير، سوق سيارات الحراج، الشارقة، ويمثلها المفوض بالتوقيع أدناه.
+
+الطرف الثاني:
+السيد/ {{fullName}}، الجنسية: {{nationality}}، رقم الهوية الإماراتية: {{emiratesId}}، رقم جواز السفر: {{passportNo}}، هاتف: {{phone}}، بريد إلكتروني: {{email}}.
+
+أولاً: بيانات الوظيفة والأجر
+1. يعمل الطرف الثاني لدى الطرف الأول بوظيفة: {{jobTitle}}، بقسم: {{department}}، في مقر العمل: {{workLocation}}.
+2. مدة العقد سنتان تبدأ من: {{contractStart}} وتنتهي في: {{contractEnd}}، ما لم يتم تجديدها أو تعديلها كتابة.
+3. فترة التجربة ستة أشهر من تاريخ مباشرة العمل، ويجوز تقييم أداء الطرف الثاني خلالها وفقاً للقانون واللوائح الداخلية.
+4. الراتب الأساسي/الإجمالي: {{basicSalary}} درهم.
+5. العلاوات أو البدلات: {{allowances}} درهم.
+6. صافي الثابت الشهري بعد الخصومات الحالية: {{netSalary}} درهم.
+7. العمولة: نسبة متغيرة بحسب كل بيعة ووفق سياسة الشركة واعتماد الإدارة، ولا تستحق إلا بعد إتمام البيع والتحصيل وإقفال العملية.
+
+ثانياً: طبيعة العمل والالتزام
+يلتزم الطرف الثاني بأداء عمله بجدية وأمانة وحسن نية، وباتباع تعليمات الإدارة، واحترام مواعيد العمل، والمحافظة على سمعة الشركة وعملائها ومركباتها ومستنداتها، وعدم استعمال أي أموال أو صلاحيات أو بيانات إلا في حدود مصلحة العمل.
+
+ثالثاً: مدة الإنذار
+يتفق الطرفان على أن مدة الإنذار في حال إنهاء العقد من أي من الطرفين هي ثلاثة أشهر كاملة، تبدأ من تاريخ تسليم إشعار الإنهاء للطرف الآخر، ما لم يقرر القانون أو اتفاق كتابي مدة أكثر ملاءمة للطرفين.
+
+رابعاً: شرط عدم المنافسة وعدم الاستقطاب
+نظراً لطبيعة عمل الشركة وما قد يطلع عليه الطرف الثاني من بيانات عملاء وأسعار وموردين وسياسات بيع ومعلومات تجارية، يلتزم الطرف الثاني بعد انتهاء العلاقة بعدم منافسة الطرف الأول أو العمل لدى جهة منافسة أو لحسابه الخاص في ذات النشاط، وعدم استقطاب عملاء أو موظفي أو موردي الشركة، وذلك لمدة سنتين من تاريخ انتهاء العلاقة، أو الحد الأقصى الجائز قانوناً أيهما أقصر، وفي الحدود اللازمة لحماية مصالح الشركة المشروعة دون تعسف.
+
+خامساً: التدريب ورد تكاليفه
+يقر الطرف الثاني بأن الشركة قد تتحمل لصالحه تكاليف تدريب وتأهيل ومتابعة خلال السنة الأولى من العمل. فإذا ترك العمل بإرادته أو امتنع عن الاستمرار خلال السنة الأولى دون سبب مشروع، أو تسبب بخطئه في إنهاء العلاقة، التزم برد تكاليف التدريب الفعلية والمثبتة أو المتفق عليها في هذا العقد، وبما يتوافق مع القانون.
+
+سادساً: السرية والعهد
+يلتزم الطرف الثاني بالمحافظة على سرية جميع البيانات والمستندات والأسعار وملفات العملاء والموردين وأي معلومات يطلع عليها بسبب العمل، وعدم استعمالها إلا لمصلحة الشركة، سواء أثناء سريان العقد أو بعد انتهائه. كما يلتزم برد جميع العهد والأدوات والمفاتيح والمستندات والصلاحيات عند طلب الشركة أو عند انتهاء العلاقة.
+
+سابعاً: اللوائح الداخلية وحل النزاعات
+يلتزم الطرف الثاني بجميع اللوائح الداخلية وتعليمات الإدارة، ويخضع هذا العقد لأحكام قانون العمل الاتحادي لدولة الإمارات العربية المتحدة والقرارات المنفذة له. ويتم حل أي نزاع ودياً، فإن تعذر ذلك تختص الجهات والمحاكم المختصة في إمارة الشارقة بنظره.
+
+توقيع الطرف الأول / الشركة: ............................
+توقيع الطرف الثاني / الموظف: ............................
+الشاهد الأول: ............................
+الشاهد الثاني: ............................`
 
 function readDrafts() {
   try { return JSON.parse(localStorage.getItem(BADAYAT_TEMPLATE_DRAFTS_KEY) || '{}') || {} } catch { return {} }
 }
 
 export function installBadayatPortalTemplatePreset() {
-  const payload = decodePayload()
-  Object.assign(defaultBadayatPrintHeader, payload.printHeader || {})
-  Object.assign(defaultBadayatTemplateBodies, payload.bodies || {})
+  Object.assign(defaultBadayatPrintHeader, companyHeader)
+  defaultBadayatTemplateBodies[PRELIMINARY_NAME] = employmentContractBody
+  defaultBadayatTemplateBodies[COMPREHENSIVE_NAME] = employmentContractBody
 
-  const targetGroup = badayatTemplateGroups.find((group) => group.group === payload.groupName)
-  if (targetGroup && Array.isArray(payload.order)) {
+  const targetGroup = badayatTemplateGroups.find((group) => group.group === GROUP_NAME)
+  if (targetGroup) {
     const current = Array.isArray(targetGroup.items) ? targetGroup.items : []
     targetGroup.items = [
-      ...payload.order,
-      ...current.filter((item) => !payload.order.includes(item)),
+      PRELIMINARY_NAME,
+      COMPREHENSIVE_NAME,
+      ...current.filter((item) => item !== PRELIMINARY_NAME && item !== COMPREHENSIVE_NAME),
     ]
   }
 
   if (typeof window === 'undefined') return
   try {
     const drafts = readDrafts()
-    const version = localStorage.getItem(VERSION_KEY)
-    if (version !== payload.version) {
-      Object.entries(payload.bodies || {}).forEach(([name, body]) => {
-        drafts[name] = body
-      })
+    if (localStorage.getItem(VERSION_KEY) !== '2026-06-02-v2') {
+      drafts[PRELIMINARY_NAME] = employmentContractBody
+      drafts[COMPREHENSIVE_NAME] = employmentContractBody
       localStorage.setItem(BADAYAT_TEMPLATE_DRAFTS_KEY, JSON.stringify(drafts))
-      localStorage.setItem(VERSION_KEY, payload.version)
+      localStorage.setItem(VERSION_KEY, '2026-06-02-v2')
     }
   } catch (error) {
     console.warn('[Badayat templates] preset install failed:', error)

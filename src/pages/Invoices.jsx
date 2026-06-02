@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Plus, Search, FileText, TrendingUp, DollarSign, AlertCircle, MessageCircle, Mail, Send } from "lucide-react";
+import { Plus, Search, FileText, TrendingUp, DollarSign, AlertCircle, MessageCircle, Mail, Send, Building2, Scale } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import EmptyState from "../components/helm/EmptyState";
 import InvoiceCard from "../components/invoices/InvoiceCard";
@@ -18,6 +18,7 @@ import { PageErrorState } from "@/components/app/AppStatusBar";
 import PaginationControls from "@/components/shared/PaginationControls";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
+import { PORTAL_SCOPE_HELM, PORTAL_SCOPE_BADAYAT, getInvoicePortalScope } from "@/lib/portalScopes";
 
 export default function Invoices() {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ export default function Invoices() {
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("الكل");
+  const [portalFilter, setPortalFilter] = useState(PORTAL_SCOPE_HELM);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [previewInvoice, setPreviewInvoice] = useState(null);
@@ -41,7 +43,7 @@ export default function Invoices() {
 
   const loadInvoices = useCallback(async () => {
     setLoading(true);
-    setLoadError('');
+    setLoadError("");
     try {
       const [{ data: invoiceRows, total: totalRows }, clientRows, officeRows] = await Promise.all([
         base44.entities.Invoice.listPage("-created_date", { page, pageSize }),
@@ -53,22 +55,27 @@ export default function Invoices() {
       setOfficeSettings(officeRows?.[0] || null);
       setTotal(totalRows);
     } catch (error) {
-      setLoadError(error.message || 'تعذر تحميل الفواتير.');
+      setLoadError(error.message || "تعذر تحميل الفواتير.");
     } finally {
       setLoading(false);
     }
   }, [page]);
 
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
-  usePageRefresh(loadInvoices, ['invoices', 'clients', 'office_settings']);
+  usePageRefresh(loadInvoices, ["invoices", "clients", "office_settings"]);
 
   useEffect(() => {
-    const offNew = subscribeAppEvent(APP_SHORTCUT_NEW, ({ page: p }) => !isClient && p === 'Invoices' && handleCreate());
-    const offSearch = subscribeAppEvent(APP_SHORTCUT_SEARCH, ({ page: p }) => p === 'Invoices' && searchRef.current?.focus());
+    const offNew = subscribeAppEvent(APP_SHORTCUT_NEW, ({ page: p }) => !isClient && p === "Invoices" && handleCreate());
+    const offSearch = subscribeAppEvent(APP_SHORTCUT_SEARCH, ({ page: p }) => p === "Invoices" && searchRef.current?.focus());
     return () => { offNew(); offSearch(); };
   }, [isClient]);
 
   const clientLookup = useMemo(() => Object.fromEntries(clients.map((client) => [client.full_name, client])), [clients]);
+  const portalCounts = useMemo(() => invoices.reduce((acc, inv) => {
+    const scope = getInvoicePortalScope(inv);
+    acc[scope] = (acc[scope] || 0) + 1;
+    return acc;
+  }, { [PORTAL_SCOPE_HELM]: 0, [PORTAL_SCOPE_BADAYAT]: 0 }), [invoices]);
 
   const handleEdit = (inv) => { setEditing(inv); setShowForm(true); };
   const handleCreate = () => { setEditing(null); setShowForm(true); };
@@ -89,12 +96,12 @@ export default function Invoices() {
 
   const buildInvoiceMessage = (invoice) => {
     const { total, remaining, paid } = getInvoiceTotals(invoice);
-    return `مرحباً ${invoice.client_name || ''},\n\nبخصوص الفاتورة رقم ${invoice.invoice_number || ''}:\nإجمالي الفاتورة: ${total.toLocaleString()} د.إ\nالمدفوع: ${paid.toLocaleString()} د.إ\nالمتبقي: ${remaining.toLocaleString()} د.إ\n${invoice.due_date ? `تاريخ الاستحقاق: ${invoice.due_date}\n` : ''}\nنرجو السداد أو التواصل معنا عند الحاجة.`;
+    return `مرحباً ${invoice.client_name || ""},\n\nبخصوص الفاتورة رقم ${invoice.invoice_number || ""}:\nإجمالي الفاتورة: ${total.toLocaleString()} د.إ\nالمدفوع: ${paid.toLocaleString()} د.إ\nالمتبقي: ${remaining.toLocaleString()} د.إ\n${invoice.due_date ? `تاريخ الاستحقاق: ${invoice.due_date}\n` : ""}\nنرجو السداد أو التواصل معنا عند الحاجة.`;
   };
 
   const handleSendWhatsApp = (invoice) => {
     const client = clientLookup[invoice.client_name] || {};
-    const phone = String(client.phone || '').replace(/\D+/g, '');
+    const phone = String(client.phone || "").replace(/\D+/g, "");
     const text = encodeURIComponent(buildInvoiceMessage(invoice));
     if (phone) {
       window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
@@ -105,20 +112,20 @@ export default function Invoices() {
 
   const handleSendEmail = (invoice) => {
     const client = clientLookup[invoice.client_name] || {};
-    const subject = encodeURIComponent(`فاتورة ${invoice.invoice_number || ''}`);
-    const body = encodeURIComponent(`${buildInvoiceMessage(invoice)}\n\n${officeSettings?.office_name || ''}\n${officeSettings?.phone || ''}`);
-    window.location.href = `mailto:${client.email || ''}?subject=${subject}&body=${body}`;
+    const subject = encodeURIComponent(`فاتورة ${invoice.invoice_number || ""}`);
+    const body = encodeURIComponent(`${buildInvoiceMessage(invoice)}\n\n${officeSettings?.office_name || ""}\n${officeSettings?.phone || ""}`);
+    window.location.href = `mailto:${client.email || ""}?subject=${subject}&body=${body}`;
   };
 
   const handleSendReminder = async (invoice) => {
     const officeEmail = officeSettings?.email;
     if (officeEmail) {
       await base44.entities.Notification.create({
-        title: 'تذكير متابعة فاتورة',
-        message: `متابعة الفاتورة ${invoice.invoice_number || ''} للموكل ${invoice.client_name || ''}`,
-        type: 'عام',
+        title: "تذكير متابعة فاتورة",
+        message: `متابعة الفاتورة ${invoice.invoice_number || ""} للموكل ${invoice.client_name || ""}`,
+        type: "عام",
         reference_id: invoice.id,
-        reference_type: 'Invoice',
+        reference_type: "Invoice",
         user_email: officeEmail,
       });
     }
@@ -144,7 +151,7 @@ export default function Invoices() {
             body { font-family:'Cairo', Arial, sans-serif; }
             .print-actions { padding:12px; background:#0f172a; color:#fff; display:flex; justify-content:center; gap:8px; position:sticky; top:0; z-index:99999; }
             .print-actions button { border:0; border-radius:12px; padding:10px 16px; font-weight:900; cursor:pointer; }
-            @page { size:A4; margin:10mm; }
+            @page { size:A4; margin:9mm; }
             @media print { .print-actions { display:none !important; } html, body { width:auto !important; height:auto !important; overflow:visible !important; } }
           </style>
         </head>
@@ -155,7 +162,7 @@ export default function Invoices() {
           </div>
           ${printContent.outerHTML}
           <script>
-            window.onload = function(){ setTimeout(function(){ window.focus(); window.print(); }, 700); };
+            window.onload = function(){ setTimeout(function(){ window.focus(); window.print(); }, 450); };
           </script>
         </body>
       </html>
@@ -163,18 +170,19 @@ export default function Invoices() {
     win.document.close();
   };
 
-  const filtered = invoices.filter(inv => {
-    const matchSearch = searchInFields(inv, ['client_name', 'invoice_number', 'case_title'], search);
+  const scopedInvoices = invoices.filter((inv) => getInvoicePortalScope(inv) === portalFilter);
+  const filtered = scopedInvoices.filter(inv => {
+    const matchSearch = searchInFields(inv, ["client_name", "invoice_number", "case_title", "office_name"], search);
     const matchStatus = statusFilter === "الكل" || inv.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
-  const totals = invoices.reduce((acc, inv) => {
+  const totals = scopedInvoices.reduce((acc, inv) => {
     const { total, paid, remaining } = getInvoiceTotals(inv);
     acc.totalFees += total;
     acc.totalPaid += paid;
     acc.totalRemaining += remaining;
-    if (inv.status === 'متأخرة') acc.overdueCount += 1;
+    if (inv.status === "متأخرة") acc.overdueCount += 1;
     return acc;
   }, { totalFees: 0, totalPaid: 0, totalRemaining: 0, overdueCount: 0 });
 
@@ -182,9 +190,32 @@ export default function Invoices() {
     <div className="space-y-6">
       <PageHeader
         title="الفواتير"
-        subtitle={`${total} فاتورة`}
+        subtitle={`${filtered.length} فاتورة ظاهرة من أصل ${total}`}
         action={!isClient ? <Button onClick={handleCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4" /> إنشاء فاتورة</Button> : undefined}
       />
+
+      {!isClient && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Button
+            type="button"
+            variant={portalFilter === PORTAL_SCOPE_HELM ? "default" : "outline"}
+            onClick={() => setPortalFilter(PORTAL_SCOPE_HELM)}
+            className={`h-14 justify-start gap-3 ${portalFilter === PORTAL_SCOPE_HELM ? "bg-primary text-white" : ""}`}
+          >
+            <Scale className="h-5 w-5" />
+            <span className="text-right"><b>حلمي بروتال</b><br /><span className="text-xs opacity-80">{portalCounts[PORTAL_SCOPE_HELM] || 0} فاتورة</span></span>
+          </Button>
+          <Button
+            type="button"
+            variant={portalFilter === PORTAL_SCOPE_BADAYAT ? "default" : "outline"}
+            onClick={() => setPortalFilter(PORTAL_SCOPE_BADAYAT)}
+            className={`h-14 justify-start gap-3 ${portalFilter === PORTAL_SCOPE_BADAYAT ? "bg-amber-700 text-white hover:bg-amber-800" : "border-amber-200 text-amber-800 hover:bg-amber-50"}`}
+          >
+            <Building2 className="h-5 w-5" />
+            <span className="text-right"><b>بداية الخير</b><br /><span className="text-xs opacity-80">{portalCounts[PORTAL_SCOPE_BADAYAT] || 0} فاتورة</span></span>
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card className="p-4"><div className="flex items-center gap-3"><div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-primary" /></div><div><p className="text-xs text-muted-foreground">إجمالي الأتعاب</p><p className="text-lg font-bold text-foreground">{totals.totalFees.toLocaleString()} <span className="text-xs font-normal">د.إ</span></p></div></div></Card>
@@ -198,7 +229,7 @@ export default function Invoices() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
               <h3 className="font-semibold text-foreground">إرسال سريع للموكلين</h3>
-              <p className="text-sm text-muted-foreground">الأزرار مفعّلة على كل فاتورة: واتساب، بريد، وتذكير متابعة.</p>
+              <p className="text-sm text-muted-foreground">الأزرار مفعّلة على كل فاتورة: واتساب، بريد، وتذكير متابعة. الفلترة الحالية لا تخلط بين حلمي بروتال وبداية الخير.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" className="gap-2"><MessageCircle className="h-4 w-4" /> واتساب</Button>
@@ -228,7 +259,7 @@ export default function Invoices() {
       ) : loadError ? (
         <PageErrorState message={loadError} onRetry={loadInvoices} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={FileText} title="لا توجد فواتير" description="ابدأ بإنشاء أول فاتورة للموكلين" action={!isClient ? <Button onClick={handleCreate}>إنشاء فاتورة</Button> : undefined} />
+        <EmptyState icon={FileText} title="لا توجد فواتير" description="لا توجد فواتير مطابقة لهذا القسم أو الفلتر الحالي" action={!isClient ? <Button onClick={handleCreate}>إنشاء فاتورة</Button> : undefined} />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

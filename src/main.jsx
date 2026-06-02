@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
 import '@/index.css'
 import '@/readability.css'
+import '@/polish.css'
 import { installGlobalImageRecovery } from '@/lib/imageRecovery'
 
 installGlobalImageRecovery()

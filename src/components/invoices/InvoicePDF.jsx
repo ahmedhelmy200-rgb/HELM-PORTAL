@@ -2,13 +2,7 @@ import React from "react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { getInvoiceTotals } from "@/lib/invoiceMath";
-import { BADAYAT_APPROVED_LOGO_DATA_URI } from "@/lib/badayatLogoData";
-
-const FIXED_LOGO_URL = BADAYAT_APPROVED_LOGO_DATA_URI;
-const FIXED_OFFICE_NAME = "شركة بداية الخير";
-const FIXED_OFFICE_NAME_EN = "BADAYAT AL KHAIR";
-const FIXED_OFFICE_SLOGAN = "للسيارات وإدارة المعاملات والخدمات";
-const FIXED_SIGNATURE_TEXT = "بداية الخير";
+import { getInvoiceBrand } from "@/lib/portalScopes";
 
 function safeDate(value) {
   if (!value) return "---";
@@ -17,7 +11,7 @@ function safeDate(value) {
 
 function money(value, currency = "د.إ") {
   const n = Number(value || 0);
-  return `${n.toLocaleString()} ${currency}`;
+  return `${n.toLocaleString("ar-AE", { maximumFractionDigits: 2 })} ${currency}`;
 }
 
 function markLogoFailed(event) {
@@ -29,10 +23,11 @@ function markLogoFailed(event) {
 export default function InvoicePDF({ invoice, officeSettings }) {
   const { appPublicSettings } = useAuth();
   const settings = { ...(appPublicSettings || {}), ...(officeSettings || {}) };
+  const brand = getInvoiceBrand(invoice || {}, settings);
 
-  const primaryColor = settings?.primary_color || "#0f172a";
-  const secondaryColor = settings?.secondary_color || "#b45309";
-  const currency = settings?.currency || "د.إ";
+  const primaryColor = brand.primaryColor;
+  const secondaryColor = brand.secondaryColor;
+  const currency = brand.currency;
   const totals = getInvoiceTotals(invoice || {});
   const subtotal = Number(totals.subtotal ?? invoice?.total_fees ?? invoice?.amount ?? 0);
   const total = Number(totals.total ?? subtotal);
@@ -40,20 +35,21 @@ export default function InvoicePDF({ invoice, officeSettings }) {
   const remaining = Number(totals.remaining ?? Math.max(0, total - paid));
   const vat = Number(totals.vat ?? 0);
 
-  const officeName = FIXED_OFFICE_NAME;
-  const officeNameEn = FIXED_OFFICE_NAME_EN;
-  const officePhone = settings?.phone || invoice?.office_phone || "";
-  const officeEmail = settings?.email || "";
-  const officeAddress = settings?.address || invoice?.office_address || "الإمارات العربية المتحدة";
-  const officeWebsite = settings?.website || "";
-  const logoUrl = FIXED_LOGO_URL;
-  const stampUrl = settings?.stamp_url || null;
-  const bankName = settings?.bank_name || "";
-  const bankAccount = settings?.bank_account || "";
-  const iban = settings?.iban || "";
-  const vatNumber = settings?.vat_number || "";
-  const footerText = settings?.invoice_footer_text || "شكراً لثقتكم بنا";
-  const headerText = FIXED_OFFICE_SLOGAN;
+  const officeName = brand.officeName;
+  const officeNameEn = brand.officeNameEn;
+  const officePhone = brand.phone;
+  const officeEmail = brand.email;
+  const officeAddress = brand.address;
+  const officeWebsite = brand.website;
+  const logoUrl = brand.logoUrl;
+  const stampUrl = brand.stampUrl;
+  const signatureUrl = brand.signatureUrl;
+  const bankName = brand.bankName;
+  const bankAccount = brand.bankAccount;
+  const iban = brand.iban;
+  const vatNumber = brand.vatNumber;
+  const footerText = brand.footerText;
+  const headerText = brand.slogan;
 
   const statusColors = {
     "مدفوعة": "#16a34a",
@@ -67,10 +63,10 @@ export default function InvoicePDF({ invoice, officeSettings }) {
 
   const items = Array.isArray(invoice?.items) && invoice.items.length
     ? invoice.items
-    : [{ description: invoice?.description || "خدمات ومعاملات", amount: invoice?.total_fees || invoice?.amount || total }];
+    : [{ description: invoice?.description || invoice?.case_title || "خدمات قانونية وإدارية", amount: invoice?.total_fees || invoice?.amount || total }];
 
   return (
-    <div id="invoice-print-area" dir="rtl" className="helm-invoice-print-root">
+    <div id="invoice-print-area" dir="rtl" className={`helm-invoice-print-root ${brand.isBadayat ? "badayat-invoice" : "helm-portal-invoice"}`}>
       <style>{`
         .helm-invoice-print-root, .helm-invoice-print-root * { box-sizing: border-box; }
         .helm-invoice-sheet {
@@ -84,69 +80,72 @@ export default function InvoicePDF({ invoice, officeSettings }) {
           position: relative;
           overflow: visible;
           border: 1px solid #e5e7eb;
+          box-shadow: 0 18px 60px rgba(15,23,42,.12);
         }
         .helm-letterhead {
           background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}e6 100%);
           color: #fff;
-          padding: 26px 34px 22px;
+          padding: 22px 30px 18px;
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 18px;
-          border-bottom: 6px solid ${secondaryColor};
+          border-bottom: 5px solid ${secondaryColor};
           break-inside: avoid;
           page-break-inside: avoid;
         }
         .helm-office-block { display:flex; align-items:center; gap:14px; min-width:0; }
         .helm-logo-box {
-          width:92px;
-          height:92px;
-          border-radius:22px;
+          width:86px;
+          height:86px;
+          border-radius:20px;
           background:#fff;
           display:flex;
           align-items:center;
           justify-content:center;
-          padding:4px;
+          padding:6px;
           flex-shrink:0;
-          box-shadow:0 14px 30px rgba(0,0,0,.18);
-          border:2px solid rgba(180,83,9,.55);
+          box-shadow:0 12px 24px rgba(0,0,0,.16);
+          border:2px solid rgba(255,255,255,.45);
           position:relative;
           overflow:hidden;
         }
         .helm-logo-box img { width:100%; height:100%; object-fit:contain; display:block; }
         .helm-logo-box::after {
-          content:'BK';
-          display:none;
+          content:'${brand.initials}';
+          display:flex;
           align-items:center;
           justify-content:center;
           position:absolute;
           inset:0;
-          font-size:34px;
+          font-size:30px;
           font-weight:900;
-          color:#92400e;
+          color:${secondaryColor};
           background:#fff;
           font-family:Georgia,serif;
         }
+        .helm-logo-box:has(img:not([style*="display: none"]))::after { display:none; }
         .helm-logo-box[data-logo-failed="true"]::after { display:flex; }
-        .helm-contact-line { display:flex; gap:10px; flex-wrap:wrap; margin-top:7px; color:rgba(255,255,255,.82); font-size:11px; line-height:1.7; }
+        .helm-contact-line { display:flex; gap:10px; flex-wrap:wrap; margin-top:7px; color:rgba(255,255,255,.84); font-size:11px; line-height:1.7; }
         .helm-invoice-label { text-align:left; flex-shrink:0; }
         .helm-invoice-label-card { border:1px solid rgba(255,255,255,.35); background:rgba(255,255,255,.13); border-radius:16px; padding:12px 18px; text-align:center; min-width:170px; }
+        .helm-scope-chip { display:inline-flex; margin-top:7px; padding:3px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.28); font-size:10px; font-weight:900; color:rgba(255,255,255,.84); }
         .helm-body { padding: 24px 34px 18px; position:relative; z-index:1; }
-        .helm-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:.065; transform:rotate(-28deg); z-index:0; }
+        .helm-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:.045; transform:rotate(-28deg); z-index:0; }
         .helm-watermark-inner { display:flex; flex-direction:column; align-items:center; gap:18px; }
-        .helm-watermark img { width:330px; max-width:62%; filter:grayscale(1); object-fit:contain; }
-        .helm-watermark span { font-size:40px; font-weight:900; color:${primaryColor}; letter-spacing:.03em; white-space:nowrap; }
+        .helm-watermark img { width:300px; max-width:58%; filter:grayscale(1); object-fit:contain; }
+        .helm-watermark span { font-size:38px; font-weight:900; color:${primaryColor}; letter-spacing:.03em; white-space:nowrap; }
         .helm-info-grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
         .helm-info-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:14px; }
         .helm-info-card small { display:block; color:#64748b; font-size:10px; font-weight:900; margin-bottom:6px; letter-spacing:.04em; }
-        .helm-table { width:100%; border-collapse:collapse; margin:14px 0 18px; table-layout:fixed; }
+        .helm-table { width:100%; border-collapse:collapse; margin:14px 0 18px; table-layout:fixed; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; }
         .helm-table thead { display:table-header-group; }
         .helm-table tr { break-inside:avoid; page-break-inside:avoid; }
         .helm-table th { background:${primaryColor}; color:#fff; padding:11px 12px; font-size:12px; text-align:right; }
         .helm-table td { border-bottom:1px solid #e2e8f0; padding:10px 12px; font-size:12px; vertical-align:top; overflow-wrap:anywhere; }
         .helm-summary-row { display:grid; grid-template-columns: 1fr 300px; gap:18px; align-items:start; break-inside:avoid; page-break-inside:avoid; }
         .helm-payment-box { background:#f0f9ff; border:1px solid #bae6fd; border-radius:16px; padding:13px; font-size:12px; line-height:1.8; }
-        .helm-notes-box { background:#fffbeb; border:1px solid #fde68a; border-radius:16px; padding:13px; font-size:12px; line-height:1.8; margin-top:10px; }
+        .helm-notes-box { background:#fffbeb; border:1px solid #fde68a; border-radius:16px; padding:13px; font-size:12px; line-height:1.8; margin-top:10px; white-space:pre-line; }
         .helm-total-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:13px; }
         .helm-total-line { display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid #e2e8f0; font-size:12px; }
         .helm-total-final { display:flex; justify-content:space-between; gap:10px; padding:11px 0; border-bottom:2px solid ${primaryColor}; font-size:15px; font-weight:900; color:${primaryColor}; }
@@ -155,19 +154,20 @@ export default function InvoicePDF({ invoice, officeSettings }) {
         .helm-footer-content { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; }
         .helm-official-images { display:flex; align-items:flex-end; gap:16px; flex-shrink:0; min-width:220px; justify-content:flex-end; }
         .helm-official-images img { object-fit:contain; display:block; }
-        .helm-stamp-img { max-width:100px; max-height:88px; opacity:.9; }
+        .helm-stamp-img { max-width:100px; max-height:88px; opacity:.92; }
         .helm-signature-box { min-width:170px; text-align:center; transform:rotate(-5deg); }
-        .helm-signature-text { font-family:'Noto Nastaliq Urdu','Aref Ruqaa','Diwani Letter','Amiri','Scheherazade New','Cairo',serif; font-size:34px; font-weight:900; color:#111827; line-height:1.25; letter-spacing:-1px; }
+        .helm-signature-img { max-width:150px; max-height:58px; object-fit:contain; margin:0 auto 4px; }
+        .helm-signature-text { font-family:'Noto Nastaliq Urdu','Aref Ruqaa','Diwani Letter','Amiri','Scheherazade New','Cairo',serif; font-size:32px; font-weight:900; color:#111827; line-height:1.25; letter-spacing:-1px; }
         .helm-signature-line { width:150px; height:2px; margin:0 auto 3px; background:linear-gradient(90deg, transparent, #111827, transparent); opacity:.78; }
         .helm-signature-label { font-size:10px; color:#64748b; font-weight:800; margin-top:2px; text-align:center; transform:rotate(5deg); }
-        @page { size: A4; margin: 10mm; }
+        @page { size: A4; margin: 9mm; }
         @media print {
           html, body { width:auto !important; min-height:auto !important; margin:0 !important; padding:0 !important; background:#fff !important; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; overflow:visible !important; }
           .helm-invoice-sheet { width:100% !important; max-width:none !important; min-height:auto !important; border:0 !important; box-shadow:none !important; overflow:visible !important; }
-          .helm-letterhead { padding:16px 0 14px !important; margin-bottom:8px !important; }
-          .helm-body { padding:14px 0 10px !important; }
+          .helm-letterhead { padding:15px 0 13px !important; margin-bottom:8px !important; }
+          .helm-body { padding:13px 0 10px !important; }
           .helm-footer { padding:12px 0 0 !important; }
-          .helm-watermark { opacity:.05 !important; }
+          .helm-watermark { opacity:.04 !important; }
           .helm-logo-box { print-color-adjust:exact !important; -webkit-print-color-adjust:exact !important; }
         }
         @media screen and (max-width: 760px) {
@@ -186,14 +186,16 @@ export default function InvoicePDF({ invoice, officeSettings }) {
       <div className="helm-invoice-sheet">
         <div className="helm-watermark">
           <div className="helm-watermark-inner">
-            <img src={logoUrl} alt="watermark" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+            {logoUrl && <img src={logoUrl} alt="watermark" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
             <span>{officeName}</span>
           </div>
         </div>
 
         <header className="helm-letterhead">
           <div className="helm-office-block">
-            <div className="helm-logo-box"><img src={logoUrl} alt="شعار بداية الخير" onError={markLogoFailed} /></div>
+            <div className="helm-logo-box">
+              {logoUrl && <img src={logoUrl} alt={`شعار ${officeName}`} onError={markLogoFailed} />}
+            </div>
             <div>
               <h1 style={{ margin: 0, fontSize: 21, fontWeight: 900 }}>{officeName}</h1>
               <div style={{ marginTop: 3, color: "rgba(255,255,255,.82)", fontSize: 12, fontWeight: 700 }}>{officeNameEn}</div>
@@ -204,6 +206,7 @@ export default function InvoicePDF({ invoice, officeSettings }) {
                 {officeWebsite && <span>موقع: {officeWebsite}</span>}
                 {officeAddress && <span>العنوان: {officeAddress}</span>}
               </div>
+              <span className="helm-scope-chip">{brand.label}</span>
             </div>
           </div>
 
@@ -250,8 +253,8 @@ export default function InvoicePDF({ invoice, officeSettings }) {
               {items.map((item, index) => (
                 <tr key={index} style={{ background: index % 2 ? "#f8fafc" : "#fff" }}>
                   <td>{index + 1}</td>
-                  <td>{item.description || "خدمات ومعاملات"}</td>
-                  <td style={{ textAlign: "left", fontWeight: 800 }}>{Number(item.amount || 0).toLocaleString()}</td>
+                  <td>{item.description || "خدمات قانونية وإدارية"}</td>
+                  <td style={{ textAlign: "left", fontWeight: 800 }}>{Number(item.amount || 0).toLocaleString("ar-AE")}</td>
                 </tr>
               ))}
             </tbody>
@@ -295,11 +298,11 @@ export default function InvoicePDF({ invoice, officeSettings }) {
               {(officePhone || officeEmail || officeWebsite) && <p style={{ margin: "5px 0 0", fontSize: 11, color: "#64748b" }}>{[officePhone, officeEmail, officeWebsite].filter(Boolean).join(" · ")}</p>}
             </div>
             <div className="helm-official-images">
-              {stampUrl && <img src={stampUrl} alt="ختم الشركة" className="helm-stamp-img" />}
+              {stampUrl && <img src={stampUrl} alt="ختم" className="helm-stamp-img" />}
               <div className="helm-signature-box">
-                <div className="helm-signature-text">{FIXED_SIGNATURE_TEXT}</div>
+                {signatureUrl ? <img src={signatureUrl} alt="توقيع" className="helm-signature-img" /> : <div className="helm-signature-text">{brand.signatureText}</div>}
                 <div className="helm-signature-line" />
-                <div className="helm-signature-label">التوقيع الثابت</div>
+                <div className="helm-signature-label">التوقيع</div>
               </div>
             </div>
           </div>

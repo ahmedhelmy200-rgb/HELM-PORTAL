@@ -5,8 +5,10 @@
 ## المطلوب قبل التشغيل
 1. أنشئ مشروع Supabase.
 2. فعّل Google provider من Auth > Providers.
-3. نفّذ ملف SQL:
+3. نفّذ ملفات SQL بالترتيب:
    - `supabase/migrations/001_init.sql`
+   - `supabase/migrations/002_client_portal_security.sql`
+   - `supabase/migrations/003_portal_scope_separation.sql`
 4. أنشئ Storage bucket باسم:
    - `uploads`
 5. ضع القيم داخل `.env.local`:
@@ -34,9 +36,14 @@ npm run dev
 - `UploadFile` يعمل عبر Supabase Storage.
 - `ExtractDataFromUploadedFile` يعمل عبر Supabase Edge Function اسمها الافتراضي `extract-ocr`.
 
-
-## تحديث مهم
-شغّل ملفي الهجرة بالترتيب:
-1. `supabase/migrations/001_init.sql`
-2. `supabase/migrations/002_client_portal_security.sql`
-
+## تحديث فصل البوابات
+- تم فصل فواتير `حلمي بروتال` عن فواتير `بداية الخير` عبر حقلي:
+  - `portal_scope`
+  - `business_unit`
+- القيم المعتمدة حالياً:
+  - `helm_portal`
+  - `badayat_al_khair`
+- فواتير حلمي بروتال تطبع بهيدر المكتب القانوني.
+- فواتير بداية الخير تطبع بهيدر بداية الخير فقط.
+- يجب تشغيل ملف الهجرة الثالث حتى يتم حفظ الفصل داخل Supabase:
+  - `supabase/migrations/003_portal_scope_separation.sql`

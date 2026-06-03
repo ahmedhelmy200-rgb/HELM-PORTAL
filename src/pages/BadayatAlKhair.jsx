@@ -86,8 +86,16 @@ function employeeBranchName(branchId) {
   return branches.find((b) => b.id === branchId)?.name || "بداية الخير";
 }
 
+function employeeNet(emp) {
+  return Number(emp?.basicSalary || 0) + Number(emp?.allowances || 0) - Number(emp?.deductions || 0);
+}
+
+function employeeFollowDays(emp) {
+  return daysLeft(emp?.residencyExpiry || emp?.workPermitExpiry);
+}
+
 function buildEmployeeProfileText(emp, grossSalary, branchName) {
-  return `ملف موظف
+  return `ملف موظف رسمي
 
 الفرع: ${branchName}
 الاسم: ${emp.fullName || "................"}
@@ -116,7 +124,7 @@ function buildEmployeeProfileText(emp, grossSalary, branchName) {
 الخصومات: ${money(emp.deductions)}
 الصافي الحالي: ${money(grossSalary)}
 
-ملاحظات
+الملاحظات
 ${emp.notes || "لا توجد ملاحظات مسجلة."}`;
 }
 
@@ -177,12 +185,12 @@ export default function BadayatAlKhair() {
   const stats = useMemo(() => {
     const branchRows = isTemplates ? employees : employees.filter((e) => e.branchId === activeBranch);
     const expiring = branchRows.filter((e) => {
-      const left = daysLeft(e.residencyExpiry || e.workPermitExpiry);
+      const left = employeeFollowDays(e);
       return left !== null && left <= 60;
     }).length;
     const penalties = branchRows.reduce((sum, e) => sum + safeArray(e.penalties).length, 0);
     const rewards = branchRows.reduce((sum, e) => sum + safeArray(e.rewards).length, 0);
-    const payroll = branchRows.reduce((sum, e) => sum + Number(e.basicSalary || 0) + Number(e.allowances || 0) - Number(e.deductions || 0), 0);
+    const payroll = branchRows.reduce((sum, e) => sum + employeeNet(e), 0);
     return { count: branchRows.length, expiring, penalties, rewards, payroll };
   }, [employees, activeBranch, isTemplates]);
 
@@ -310,120 +318,200 @@ export default function BadayatAlKhair() {
     setTaskForm({ title: "", due_date: todayDateTime(), priority: "متوسطة" });
   };
 
-  const grossSalary = Number(selectedEmployee?.basicSalary || 0) + Number(selectedEmployee?.allowances || 0) - Number(selectedEmployee?.deductions || 0);
-  const residencyLeft = daysLeft(selectedEmployee?.residencyExpiry || selectedEmployee?.workPermitExpiry);
+  const grossSalary = employeeNet(selectedEmployee);
+  const residencyLeft = employeeFollowDays(selectedEmployee);
 
   if (isLoading) {
-    return <div dir="rtl" className="rounded-[2rem] border border-amber-300/20 bg-slate-950/80 p-8 text-slate-100 shadow-2xl">جارٍ تحميل قسم بداية الخير...</div>;
+    return <div dir="rtl" className="rounded-[2rem] border border-amber-300/20 bg-stone-950 p-8 text-stone-50 shadow-2xl">جارٍ تحميل قسم بداية الخير...</div>;
   }
 
   return (
-    <div dir="rtl" className="space-y-6 text-slate-100">
-      <section className="relative overflow-hidden rounded-[2.25rem] border border-amber-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-black p-6 shadow-2xl">
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_15%_15%,#f59e0b,transparent_31%),radial-gradient(circle_at_88%_18%,#ffffff,transparent_20%)]" />
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="text-xs font-black tracking-[.35em] text-amber-300">BDAYT ALKHIR CAR SHOWROOM</p>
-            <h1 className="mt-2 text-3xl font-black md:text-5xl">قسم بداية الخير</h1>
-            <p className="mt-3 max-w-4xl leading-8 text-slate-300">لوحة تشغيل مطورة لإدارة الموظفين، العقود، الإقامات، العهد، الحسابات، الجزاءات، الإشعارات، والطباعات الرسمية بهيدر العقد النهائي.</p>
-            <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
-              <StatusPill tone={syncSource === "supabase" ? "green" : "amber"} icon={Database}>{syncSource === "supabase" ? "متصل بـ Supabase" : "حفظ محلي احتياطي"}</StatusPill>
-              {lastSaved && <StatusPill>آخر حفظ: {lastSaved}</StatusPill>}
-              <StatusPill>إجمالي الموظفين: {employees.length}</StatusPill>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
-            <ActionButton onClick={() => setActiveBranch("templates")} icon={FileText} variant="ghost">النماذج</ActionButton>
-            <ActionButton onClick={addEmployee} icon={Plus}>إضافة موظف</ActionButton>
-          </div>
-        </div>
-      </section>
+    <div dir="rtl" className="min-h-screen space-y-6 rounded-[2rem] bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,.16),transparent_34%),linear-gradient(135deg,#070707,#111827_45%,#1c1917)] p-3 text-stone-50 md:p-5">
+      <TopCommandBar syncSource={syncSource} lastSaved={lastSaved} employeeCount={employees.length} onAdd={addEmployee} onTemplates={() => setActiveBranch("templates")} />
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-5">
-        {branches.map((branch) => (
-          <button key={branch.id} onClick={() => setActiveBranch(branch.id)} className={`group rounded-[1.75rem] border p-4 text-right transition-all duration-200 ${activeBranch === branch.id ? "border-amber-300 bg-amber-300/10 shadow-xl shadow-amber-950/20" : "border-white/10 bg-white/[0.055] hover:-translate-y-0.5 hover:border-amber-300/40 hover:bg-white/10"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${branch.color} shadow-lg`}><Building2 className="h-6 w-6" /></div>
-              {activeBranch === branch.id && <span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black text-slate-950">محدد</span>}
-            </div>
-            <h3 className="mt-4 text-sm font-black leading-6">{branch.name}</h3>
-            <p className="mt-1 text-xs text-slate-400">{branch.type}</p>
-          </button>
-        ))}
-      </section>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
+        <aside className="space-y-3">
+          <BrandCard />
+          <BranchRail activeBranch={activeBranch} setActiveBranch={setActiveBranch} />
+          <QuickActions onAdd={addEmployee} onTemplates={() => setActiveBranch("templates")} selectedEmployee={selectedEmployee} grossSalary={grossSalary} activeBranchInfo={activeBranchInfo} />
+        </aside>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Stat icon={Users} label="الموظفون" value={stats.count} />
-        <Stat icon={ShieldCheck} label="متابعة خلال 60 يوم" value={stats.expiring} danger={stats.expiring > 0} />
-        <Stat icon={Gavel} label="الجزاءات" value={stats.penalties} />
-        <Stat icon={Award} label="المكافآت" value={stats.rewards} />
-        <Stat icon={Wallet} label="إجمالي الرواتب" value={money(stats.payroll)} />
-      </section>
+        <main className="space-y-4">
+          <DashboardHero activeBranchInfo={activeBranchInfo} isTemplates={isTemplates} stats={stats} />
+          <StatsGrid stats={stats} />
 
-      {isTemplates ? (
-        <TemplatesPanel employees={employees} selectedEmployee={selectedEmployee} />
-      ) : (
-        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[390px_1fr]">
-          <aside className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 shadow-xl">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div>
-                <h2 className="font-black">{activeBranchInfo.name}</h2>
-                <p className="text-xs text-slate-400">{branchEmployees.length} موظف داخل الفرع</p>
+          {isTemplates ? (
+            <TemplatesStudio employees={employees} selectedEmployee={selectedEmployee} selectedId={selectedId} setSelectedId={setSelectedId} />
+          ) : (
+            <section className="grid grid-cols-1 gap-4 2xl:grid-cols-[430px_1fr]">
+              <EmployeeDirectory query={query} setQuery={setQuery} employees={branchEmployees} selectedEmployee={selectedEmployee} setSelectedId={setSelectedId} activeBranchInfo={activeBranchInfo} />
+              <div className="space-y-4">
+                {selectedEmployee ? <EmployeeWorkspace emp={selectedEmployee} patchEmployee={patchEmployee} grossSalary={grossSalary} residencyLeft={residencyLeft} actionAmount={actionAmount} setActionAmount={setActionAmount} applyFinance={applyFinance} legalNote={legalNote} setLegalNote={setLegalNote} notifyEmployee={notifyEmployee} activeBranchInfo={activeBranchInfo} taskForm={taskForm} setTaskForm={setTaskForm} createSpecialTask={createSpecialTask} /> : <EmptyEmployee />}
+                <AuditPanel audit={state.audit} />
               </div>
-              <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-300">HR</span>
-            </div>
-            <div className="mb-4 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 focus-within:border-amber-300/70">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="بحث بالاسم، الوظيفة، الجواز، البطاقة..." className="w-full bg-transparent text-sm outline-none placeholder:text-slate-500" />
-            </div>
-            <div className="max-h-[720px] space-y-2 overflow-y-auto pr-1">
-              {branchEmployees.map((emp) => <EmployeeCard key={emp.id} emp={emp} selected={selectedEmployee?.id === emp.id} onClick={() => setSelectedId(emp.id)} />)}
-              {!branchEmployees.length && <p className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-sm text-slate-400">لا توجد بيانات موظفين داخل هذا الفرع.</p>}
-            </div>
-          </aside>
-          <div className="space-y-4">
-            {selectedEmployee ? <EmployeeWorkspace emp={selectedEmployee} patchEmployee={patchEmployee} grossSalary={grossSalary} residencyLeft={residencyLeft} actionAmount={actionAmount} setActionAmount={setActionAmount} applyFinance={applyFinance} legalNote={legalNote} setLegalNote={setLegalNote} notifyEmployee={notifyEmployee} activeBranchInfo={activeBranchInfo} taskForm={taskForm} setTaskForm={setTaskForm} createSpecialTask={createSpecialTask} /> : <EmptyEmployee />}
-            <AuditPanel audit={state.audit} />
-          </div>
-        </section>
-      )}
+            </section>
+          )}
+        </main>
+      </section>
     </div>
   );
 }
 
+function TopCommandBar({ syncSource, lastSaved, employeeCount, onAdd, onTemplates }) {
+  return <section className="sticky top-3 z-30 rounded-[1.8rem] border border-amber-300/20 bg-black/55 p-3 shadow-2xl shadow-black/30 backdrop-blur-xl">
+    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-stone-900 text-lg font-black text-black shadow-lg">BK</div>
+        <div>
+          <p className="text-[11px] font-black tracking-[.32em] text-amber-300">BDAYT ALKHIR DASHBOARD</p>
+          <h1 className="text-xl font-black md:text-2xl">لوحة تشغيل بداية الخير</h1>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <StatusPill tone={syncSource === "supabase" ? "green" : "amber"} icon={Database}>{syncSource === "supabase" ? "Supabase متصل" : "حفظ محلي"}</StatusPill>
+        <StatusPill>الموظفون: {employeeCount}</StatusPill>
+        {lastSaved && <StatusPill>آخر حفظ: {lastSaved}</StatusPill>}
+        <ActionButton onClick={onTemplates} icon={FileText} variant="ghost">استوديو النماذج</ActionButton>
+        <ActionButton onClick={onAdd} icon={Plus}>موظف جديد</ActionButton>
+      </div>
+    </div>
+  </section>;
+}
+
+function BrandCard() {
+  return <section className="overflow-hidden rounded-[2rem] border border-amber-300/20 bg-gradient-to-br from-stone-950 via-black to-stone-900 p-5 shadow-2xl">
+    <div className="mb-5 flex items-center justify-between">
+      <div className="text-4xl font-black text-amber-200">BK</div>
+      <Sparkles className="h-6 w-6 text-amber-300" />
+    </div>
+    <h2 className="text-xl font-black leading-8">بداية الخير لتجارة السيارات المستعملة</h2>
+    <p className="mt-2 text-sm leading-7 text-stone-400">58 معرض بداية الخير، سوق سيارات الحراج، الشارقة</p>
+    <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-xs leading-6 text-stone-300">الهيدر النهائي مثبت على كل نماذج الطباعة الرسمية داخل القسم.</div>
+  </section>;
+}
+
+function BranchRail({ activeBranch, setActiveBranch }) {
+  return <section className="rounded-[2rem] border border-white/10 bg-white/[0.055] p-3 shadow-xl">
+    <h3 className="mb-3 px-2 text-sm font-black text-stone-300">الأقسام التشغيلية</h3>
+    <div className="space-y-2">
+      {branches.map((branch) => (
+        <button key={branch.id} onClick={() => setActiveBranch(branch.id)} className={`group flex w-full items-center gap-3 rounded-2xl border p-3 text-right transition-all ${activeBranch === branch.id ? "border-amber-300 bg-amber-300/12 shadow-lg" : "border-white/10 bg-black/20 hover:border-amber-300/40 hover:bg-white/10"}`}>
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${branch.color}`}><Building2 className="h-5 w-5" /></div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black">{branch.name}</p>
+            <p className="truncate text-[11px] text-stone-400">{branch.type}</p>
+          </div>
+          {activeBranch === branch.id && <span className="h-2 w-2 rounded-full bg-amber-300" />}
+        </button>
+      ))}
+    </div>
+  </section>;
+}
+
+function QuickActions({ onAdd, onTemplates, selectedEmployee, grossSalary, activeBranchInfo }) {
+  const printProfile = () => {
+    if (!selectedEmployee) return;
+    printBadayatDocument("ملف موظف", buildEmployeeProfileText(selectedEmployee, grossSalary, activeBranchInfo.name));
+  };
+  return <section className="rounded-[2rem] border border-white/10 bg-white/[0.055] p-3 shadow-xl">
+    <h3 className="mb-3 px-2 text-sm font-black text-stone-300">أوامر سريعة</h3>
+    <div className="grid grid-cols-1 gap-2">
+      <ActionButton onClick={onAdd} icon={Plus} className="w-full">إضافة موظف</ActionButton>
+      <ActionButton onClick={onTemplates} icon={FileText} variant="ghost" className="w-full">فتح استوديو النماذج</ActionButton>
+      <ActionButton onClick={printProfile} icon={Printer} variant="ghost" className="w-full">طباعة ملف الموظف</ActionButton>
+    </div>
+  </section>;
+}
+
+function DashboardHero({ activeBranchInfo, isTemplates, stats }) {
+  return <section className="relative overflow-hidden rounded-[2.4rem] border border-amber-300/20 bg-gradient-to-br from-stone-950 via-zinc-950 to-black p-6 shadow-2xl">
+    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_8%_20%,#f59e0b,transparent_30%),radial-gradient(circle_at_92%_10%,#ffffff,transparent_18%)]" />
+    <div className="relative grid grid-cols-1 gap-6 xl:grid-cols-[1fr_310px] xl:items-center">
+      <div>
+        <p className="text-xs font-black tracking-[.3em] text-amber-300">{isTemplates ? "DOCUMENT STUDIO" : "OPERATIONS CENTER"}</p>
+        <h2 className="mt-2 text-3xl font-black md:text-5xl">{isTemplates ? "استوديو النماذج الرسمية" : activeBranchInfo.name}</h2>
+        <p className="mt-3 max-w-4xl text-sm leading-8 text-stone-300">{isTemplates ? "مركز مستقل لصناعة العقود والخطابات والإقرارات وربطها بالموظف ثم طباعتها بالهيدر النهائي المعتمد." : "لوحة موظفين عملية: متابعة، عقود، رواتب، تصاريح، إشعارات، مهام، وطباعة رسمية من نفس المكان."}</p>
+      </div>
+      <div className="rounded-[1.8rem] border border-white/10 bg-white/[0.06] p-4">
+        <div className="grid grid-cols-2 gap-3 text-center">
+          <MiniMetric label="موظفون" value={stats.count} />
+          <MiniMetric label="متابعة" value={stats.expiring} danger={stats.expiring > 0} />
+          <MiniMetric label="جزاءات" value={stats.penalties} />
+          <MiniMetric label="رواتب" value={money(stats.payroll)} />
+        </div>
+      </div>
+    </div>
+  </section>;
+}
+
+function MiniMetric({ label, value, danger }) {
+  return <div className={`rounded-2xl border p-3 ${danger ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-white/10 bg-black/25"}`}><p className="text-lg font-black">{value}</p><p className="mt-1 text-[11px] text-stone-400">{label}</p></div>;
+}
+
+function StatsGrid({ stats }) {
+  return <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <Stat icon={Users} label="الموظفون" value={stats.count} />
+    <Stat icon={ShieldCheck} label="متابعة خلال 60 يوم" value={stats.expiring} danger={stats.expiring > 0} />
+    <Stat icon={Gavel} label="الجزاءات" value={stats.penalties} />
+    <Stat icon={Award} label="المكافآت" value={stats.rewards} />
+    <Stat icon={Wallet} label="إجمالي الرواتب" value={money(stats.payroll)} />
+  </section>;
+}
+
+function EmployeeDirectory({ query, setQuery, employees, selectedEmployee, setSelectedId, activeBranchInfo }) {
+  return <aside className="rounded-[2rem] border border-white/10 bg-black/35 p-4 shadow-2xl backdrop-blur">
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div>
+        <p className="text-xs font-black text-amber-300">قائمة الموظفين</p>
+        <h3 className="mt-1 text-xl font-black">{activeBranchInfo.name}</h3>
+        <p className="mt-1 text-xs text-stone-400">{employees.length} ملف داخل القسم الحالي</p>
+      </div>
+      <Users className="h-7 w-7 text-amber-300" />
+    </div>
+    <div className="mb-4 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-3 focus-within:border-amber-300/70">
+      <Search className="h-4 w-4 text-stone-400" />
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="بحث بالاسم، الوظيفة، الجواز، البطاقة..." className="w-full bg-transparent text-sm outline-none placeholder:text-stone-500" />
+    </div>
+    <div className="max-h-[780px] space-y-2 overflow-y-auto pr-1">
+      {employees.map((emp) => <EmployeeCard key={emp.id} emp={emp} selected={selectedEmployee?.id === emp.id} onClick={() => setSelectedId(emp.id)} />)}
+      {!employees.length && <p className="rounded-2xl border border-dashed border-white/10 py-12 text-center text-sm text-stone-400">لا توجد بيانات موظفين داخل هذا القسم.</p>}
+    </div>
+  </aside>;
+}
+
 function StatusPill({ children, tone = "slate", icon: Icon }) {
-  const map = { green: "bg-emerald-500/15 text-emerald-200", amber: "bg-amber-500/15 text-amber-200", slate: "bg-white/10 text-slate-300" };
+  const map = { green: "bg-emerald-500/15 text-emerald-200", amber: "bg-amber-500/15 text-amber-200", slate: "bg-white/10 text-stone-300" };
   return <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-black ${map[tone] || map.slate}`}>{Icon && <Icon className="h-3.5 w-3.5" />}{children}</span>;
 }
 
 function ActionButton({ children, onClick, icon: Icon, variant = "solid", className = "" }) {
   const base = "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition-all duration-200 active:scale-[.98]";
-  const styles = variant === "ghost" ? "border border-white/10 bg-white/10 text-white hover:bg-white/15" : "bg-amber-400 text-slate-950 shadow-lg shadow-amber-950/20 hover:bg-amber-300";
+  const styles = variant === "ghost" ? "border border-white/10 bg-white/10 text-white hover:border-amber-300/40 hover:bg-white/15" : "bg-amber-400 text-black shadow-lg shadow-amber-950/20 hover:bg-amber-300";
   return <button onClick={onClick} className={`${base} ${styles} ${className}`}>{Icon && <Icon className="h-4 w-4" />}{children}</button>;
 }
 
 function Stat({ icon: Icon, label, value, danger }) {
-  return <div className={`rounded-[1.6rem] border p-4 shadow-lg ${danger ? "border-red-400/40 bg-red-500/10" : "border-white/10 bg-white/[0.055]"}`}><Icon className="mb-3 h-5 w-5 text-amber-300" /><p className="text-2xl font-black">{value}</p><p className="mt-1 text-xs text-slate-400">{label}</p></div>;
+  return <div className={`rounded-[1.6rem] border p-4 shadow-lg ${danger ? "border-red-400/40 bg-red-500/10" : "border-white/10 bg-white/[0.055]"}`}><Icon className="mb-3 h-5 w-5 text-amber-300" /><p className="text-2xl font-black">{value}</p><p className="mt-1 text-xs text-stone-400">{label}</p></div>;
 }
 
 function Avatar({ emp, size = "md" }) {
   const dim = size === "lg" ? "h-20 w-20 rounded-[1.6rem]" : "h-12 w-12 rounded-2xl";
-  return <div className={`flex ${dim} shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-300 via-stone-600 to-slate-950 ring-1 ring-white/10`}>{emp.photo ? <img src={emp.photo} alt={emp.fullName} className="h-full w-full object-cover" /> : <Users className="h-6 w-6 text-white" />}</div>;
+  return <div className={`flex ${dim} shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-amber-300 via-stone-600 to-black ring-1 ring-white/10`}>{emp.photo ? <img src={emp.photo} alt={emp.fullName} className="h-full w-full object-cover" /> : <Users className="h-6 w-6 text-white" />}</div>;
 }
 
 function EmployeeCard({ emp, selected, onClick }) {
-  const left = daysLeft(emp.residencyExpiry || emp.workPermitExpiry);
-  const net = Number(emp.basicSalary || 0) + Number(emp.allowances || 0) - Number(emp.deductions || 0);
+  const left = employeeFollowDays(emp);
+  const net = employeeNet(emp);
   const needsFollow = left !== null && left <= 60;
   return <button onClick={onClick} className={`w-full rounded-[1.35rem] border p-3 text-right transition-all ${selected ? "border-amber-300 bg-amber-300/10 shadow-lg" : "border-white/10 bg-white/[0.055] hover:border-amber-300/40 hover:bg-white/10"}`}>
     <div className="flex items-center gap-3">
       <Avatar emp={emp} />
       <div className="min-w-0 flex-1">
         <h4 className="truncate font-black">{emp.fullName}</h4>
-        <p className="truncate text-xs text-slate-400">{emp.jobTitle || "بدون مسمى"} · {emp.department || "بدون قسم"}</p>
+        <p className="truncate text-xs text-stone-400">{emp.jobTitle || "بدون مسمى"} · {emp.department || "بدون قسم"}</p>
         <div className="mt-2 flex flex-wrap gap-1 text-[10px]">
-          <span className="rounded-full bg-white/10 px-2 py-1 text-slate-300">{money(net)}</span>
-          {emp.workPermitExpiry && <span className="rounded-full bg-white/10 px-2 py-1 text-slate-300">تصريح: {emp.workPermitExpiry}</span>}
+          <span className="rounded-full bg-white/10 px-2 py-1 text-stone-300">{money(net)}</span>
+          {emp.workPermitExpiry && <span className="rounded-full bg-white/10 px-2 py-1 text-stone-300">تصريح: {emp.workPermitExpiry}</span>}
         </div>
       </div>
       {needsFollow && <span className="rounded-full bg-red-500/15 px-2 py-1 text-[10px] font-black text-red-200">متابعة</span>}
@@ -432,16 +520,16 @@ function EmployeeCard({ emp, selected, onClick }) {
 }
 
 function Field({ label, value, onChange, type = "text", className = "" }) {
-  return <label className={`block ${className}`}><span className="text-xs font-bold text-slate-400">{label}</span><input type={type} value={value ?? ""} onChange={(e) => onChange(type === "number" ? Number(e.target.value) : e.target.value)} className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2 outline-none transition focus:border-amber-300" /></label>;
+  return <label className={`block ${className}`}><span className="text-xs font-bold text-stone-400">{label}</span><input type={type} value={value ?? ""} onChange={(e) => onChange(type === "number" ? Number(e.target.value) : e.target.value)} className="mt-1 w-full rounded-2xl border border-white/10 bg-black/35 px-3 py-2 outline-none transition focus:border-amber-300" /></label>;
 }
 
 function Panel({ title, icon: Icon, children, className = "" }) {
-  return <section className={`rounded-[2rem] border border-white/10 bg-slate-950/65 p-5 shadow-xl ${className}`}><h3 className="mb-4 flex items-center gap-2 text-lg font-black"><span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-300/10"><Icon className="h-5 w-5 text-amber-300" /></span>{title}</h3>{children}</section>;
+  return <section className={`rounded-[2rem] border border-white/10 bg-black/35 p-5 shadow-xl backdrop-blur ${className}`}><h3 className="mb-4 flex items-center gap-2 text-lg font-black"><span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-300/10"><Icon className="h-5 w-5 text-amber-300" /></span>{title}</h3>{children}</section>;
 }
 
 function ListPanel({ title, items, empty, icon = ClipboardCheck }) {
   const Icon = icon;
-  return <Panel title={title} icon={Icon}>{items?.length ? <div className="space-y-2">{items.map((it, i) => <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.055] p-3"><b>{it.title}</b><p className="mt-1 text-xs text-slate-400">{it.date} · {money(it.amount)}</p>{it.note && <p className="mt-1 text-sm text-slate-300">{it.note}</p>}</div>)}</div> : <p className="rounded-2xl border border-dashed border-white/10 p-4 text-slate-400">{empty}</p>}</Panel>;
+  return <Panel title={title} icon={Icon}>{items?.length ? <div className="space-y-2">{items.map((it, i) => <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.055] p-3"><b>{it.title}</b><p className="mt-1 text-xs text-stone-400">{it.date} · {money(it.amount)}</p>{it.note && <p className="mt-1 text-sm text-stone-300">{it.note}</p>}</div>)}</div> : <p className="rounded-2xl border border-dashed border-white/10 p-4 text-stone-400">{empty}</p>}</Panel>;
 }
 
 function EmployeeWorkspace({ emp, patchEmployee, grossSalary, residencyLeft, actionAmount, setActionAmount, applyFinance, legalNote, setLegalNote, notifyEmployee, activeBranchInfo, taskForm, setTaskForm, createSpecialTask }) {
@@ -455,14 +543,14 @@ function EmployeeWorkspace({ emp, patchEmployee, grossSalary, residencyLeft, act
   const printProfile = () => printBadayatDocument("ملف موظف", buildEmployeeProfileText(emp, grossSalary, activeBranchInfo.name));
 
   return <div className="space-y-4">
-    <div className="rounded-[2rem] border border-amber-300/20 bg-gradient-to-l from-slate-950 via-slate-900 to-slate-950 p-5 shadow-xl">
+    <section className="rounded-[2rem] border border-amber-300/20 bg-gradient-to-l from-black via-stone-950 to-zinc-950 p-5 shadow-xl">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4"><Avatar emp={emp} size="lg" /><div><p className="text-xs font-black text-amber-300">{activeBranchInfo.name}</p><h2 className="mt-1 text-2xl font-black md:text-3xl">{emp.fullName}</h2><p className="text-slate-400">{emp.jobTitle || "بدون مسمى"} · {emp.department || "بدون قسم"}</p></div></div>
+        <div className="flex items-center gap-4"><Avatar emp={emp} size="lg" /><div><p className="text-xs font-black text-amber-300">{activeBranchInfo.name}</p><h2 className="mt-1 text-2xl font-black md:text-3xl">{emp.fullName}</h2><p className="text-stone-400">{emp.jobTitle || "بدون مسمى"} · {emp.department || "بدون قسم"}</p></div></div>
         <div className="grid grid-cols-2 gap-2 text-sm"><span className="rounded-2xl bg-white/10 px-3 py-2">الصافي: <b>{money(grossSalary)}</b></span><span className={`rounded-2xl px-3 py-2 ${residencyLeft !== null && residencyLeft <= 60 ? "bg-red-500/15 text-red-200" : "bg-emerald-500/10 text-emerald-200"}`}>المتابعة: {residencyLeft === null ? "غير محدد" : `${residencyLeft} يوم`}</span></div>
       </div>
-    </div>
+    </section>
 
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Panel title="بيانات الموظف" icon={Users}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field label="الاسم الكامل" value={emp.fullName} onChange={(v) => patchEmployee({ fullName: v })} />
@@ -472,7 +560,7 @@ function EmployeeWorkspace({ emp, patchEmployee, grossSalary, residencyLeft, act
           <Field label="الهاتف" value={emp.phone} onChange={(v) => patchEmployee({ phone: v })} />
           <Field label="البريد الإلكتروني" value={emp.email} onChange={(v) => patchEmployee({ email: v })} />
           <Field label="مكان العمل" value={emp.workLocation} onChange={(v) => patchEmployee({ workLocation: v })} />
-          <label className="block"><span className="text-xs font-bold text-slate-400">صورة الموظف من الجهاز</span><input type="file" accept="image/*" onChange={(e) => handlePhotoUpload(e.target.files?.[0])} className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm" /></label>
+          <label className="block"><span className="text-xs font-bold text-stone-400">صورة الموظف</span><input type="file" accept="image/*" onChange={(e) => handlePhotoUpload(e.target.files?.[0])} className="mt-1 w-full rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-sm" /></label>
         </div>
       </Panel>
 
@@ -491,63 +579,91 @@ function EmployeeWorkspace({ emp, patchEmployee, grossSalary, residencyLeft, act
 
       <Panel title="الحسابات" icon={Wallet}>
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3"><Field label="الراتب الأساسي" type="number" value={emp.basicSalary} onChange={(v) => patchEmployee({ basicSalary: v })} /><Field label="العلاوات" type="number" value={emp.allowances} onChange={(v) => patchEmployee({ allowances: v })} /><Field label="الخصومات" type="number" value={emp.deductions} onChange={(v) => patchEmployee({ deductions: v })} /></div>
-        <div className="flex flex-col gap-2 md:flex-row"><input type="number" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} className="rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2 outline-none" /><ActionButton onClick={() => applyFinance("allowance")} variant="ghost">إضافة علاوة</ActionButton><button onClick={() => applyFinance("deduction")} className="rounded-2xl bg-red-500 px-4 py-2 font-black text-white">تطبيق خصم</button></div>
+        <div className="flex flex-col gap-2 md:flex-row"><input type="number" value={actionAmount} onChange={(e) => setActionAmount(e.target.value)} className="rounded-2xl border border-white/10 bg-black/35 px-3 py-2 outline-none" /><ActionButton onClick={() => applyFinance("allowance")} variant="ghost">إضافة علاوة</ActionButton><button onClick={() => applyFinance("deduction")} className="rounded-2xl bg-red-500 px-4 py-2 font-black text-white">تطبيق خصم</button></div>
       </Panel>
 
       <Panel title="الشؤون القانونية والإشعارات" icon={BriefcaseBusiness}>
         <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2"><Field label="المسمى الوظيفي" value={emp.jobTitle} onChange={(v) => patchEmployee({ jobTitle: v })} /><Field label="القسم" value={emp.department} onChange={(v) => patchEmployee({ department: v })} /></div>
-        <textarea value={legalNote} onChange={(e) => setLegalNote(e.target.value)} placeholder="إشعار / ملاحظة قانونية للموظف" className="min-h-[105px] w-full rounded-2xl border border-white/10 bg-slate-950/40 p-3 outline-none focus:border-amber-300" />
+        <textarea value={legalNote} onChange={(e) => setLegalNote(e.target.value)} placeholder="إشعار / ملاحظة قانونية للموظف" className="min-h-[105px] w-full rounded-2xl border border-white/10 bg-black/35 p-3 outline-none focus:border-amber-300" />
         <div className="mt-3 flex flex-wrap gap-2"><ActionButton onClick={() => notifyEmployee("audit")} icon={Bell} variant="ghost">تسجيل إشعار</ActionButton><ActionButton onClick={() => notifyEmployee("whatsapp")} icon={MessageCircle} variant="ghost">واتساب</ActionButton><ActionButton onClick={() => notifyEmployee("email")} icon={Mail} variant="ghost">إيميل</ActionButton></div>
       </Panel>
-    </div>
+    </section>
 
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
       <ListPanel title="الجزاءات والخصومات" items={safeArray(emp.penalties)} empty="لا توجد جزاءات" icon={Gavel} />
       <ListPanel title="المكافآت والتقييم" items={safeArray(emp.rewards)} empty="لا توجد مكافآت" icon={Award} />
       <Panel title="الطباعة والمهام الخاصة" icon={Printer}>
         <div className="space-y-3">
           <ActionButton onClick={printProfile} icon={Printer} className="w-full">طباعة ملف الموظف الرسمي</ActionButton>
-          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.055] p-3"><input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} placeholder="عنوان المهمة الخاصة" className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 outline-none" /><input type="datetime-local" value={taskForm.due_date} onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 outline-none" /><select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2"><option>عالية</option><option>متوسطة</option><option>منخفضة</option></select><ActionButton onClick={createSpecialTask} icon={CheckSquare} className="w-full">إنشاء مهمة خاصة</ActionButton></div>
+          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.055] p-3"><input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} placeholder="عنوان المهمة الخاصة" className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 outline-none" /><input type="datetime-local" value={taskForm.due_date} onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })} className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 outline-none" /><select value={taskForm.priority} onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })} className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2"><option>عالية</option><option>متوسطة</option><option>منخفضة</option></select><ActionButton onClick={createSpecialTask} icon={CheckSquare} className="w-full">إنشاء مهمة خاصة</ActionButton></div>
         </div>
       </Panel>
-    </div>
+    </section>
   </div>;
 }
 
 function AuditPanel({ audit = [] }) {
-  return <Panel title="سجل الحركة داخل قسم بداية الخير" icon={CalendarClock}><div className="max-h-72 space-y-2 overflow-y-auto">{audit.length ? audit.slice(0, 40).map((item, i) => <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.055] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><b>{item.action}</b><span className="text-xs text-slate-400">{item.at}</span></div><p className="mt-1 text-sm text-slate-300">{item.employee}</p>{item.note && <p className="mt-1 text-xs leading-6 text-slate-400">{String(item.note).slice(0, 260)}</p>}</div>) : <p className="text-slate-400">لا يوجد سجل حركة بعد.</p>}</div></Panel>;
+  return <Panel title="سجل الحركة داخل قسم بداية الخير" icon={CalendarClock}><div className="max-h-72 space-y-2 overflow-y-auto">{audit.length ? audit.slice(0, 40).map((item, i) => <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.055] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><b>{item.action}</b><span className="text-xs text-stone-400">{item.at}</span></div><p className="mt-1 text-sm text-stone-300">{item.employee}</p>{item.note && <p className="mt-1 text-xs leading-6 text-stone-400">{String(item.note).slice(0, 260)}</p>}</div>) : <p className="text-stone-400">لا يوجد سجل حركة بعد.</p>}</div></Panel>;
 }
 
 function EmptyEmployee() {
-  return <div className="rounded-[2rem] border border-white/10 bg-slate-950/65 p-8 text-center shadow-xl"><Users className="mx-auto mb-3 h-10 w-10 text-amber-300" /><h3 className="font-black">لا يوجد موظف محدد</h3><p className="mt-2 text-sm text-slate-400">أضف موظفاً جديداً أو اختر فرعاً يحتوي على موظفين.</p></div>;
+  return <div className="rounded-[2rem] border border-white/10 bg-black/35 p-8 text-center shadow-xl"><Users className="mx-auto mb-3 h-10 w-10 text-amber-300" /><h3 className="font-black">لا يوجد موظف محدد</h3><p className="mt-2 text-sm text-stone-400">أضف موظفاً جديداً أو اختر قسماً يحتوي على موظفين.</p></div>;
 }
 
-function TemplatesPanel({ employees, selectedEmployee }) {
+function TemplatesStudio({ employees, selectedEmployee, selectedId, setSelectedId }) {
   const flatTemplates = templateGroups.flatMap((g) => g.items);
   const [templateName, setTemplateName] = useState(flatTemplates[0] || "عقد عمل شامل");
-  const [employeeId, setEmployeeId] = useState(selectedEmployee?.id || employees?.[0]?.id || "");
+  const [employeeId, setEmployeeId] = useState(selectedId || selectedEmployee?.id || employees?.[0]?.id || "");
   const [body, setBody] = useState(() => getBadayatTemplateBody(flatTemplates[0] || "عقد عمل شامل"));
+  const [activeGroup, setActiveGroup] = useState(templateGroups[0]?.group || "");
   const employee = employees.find((e) => e.id === employeeId) || selectedEmployee || employees[0] || {};
   const branchName = employeeBranchName(employee.branchId);
   const rendered = useMemo(() => renderBadayatTemplate(body, employee, branchName), [body, employee, branchName]);
+  const activeItems = templateGroups.find((g) => g.group === activeGroup)?.items || flatTemplates;
 
   useEffect(() => { setBody(getBadayatTemplateBody(templateName)); }, [templateName]);
   useEffect(() => { if (!employeeId && employees?.[0]?.id) setEmployeeId(employees[0].id); }, [employeeId, employees]);
 
-  return <section className="grid grid-cols-1 gap-4 xl:grid-cols-[390px_1fr]">
-    <aside className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 shadow-xl">
-      <h2 className="mb-1 text-xl font-black">النماذج الشاملة</h2>
-      <p className="mb-4 text-sm leading-7 text-slate-400">الهيدر ثابت على شكل العقد النهائي: شعار بداية الخير، اسم المعرض، العنوان، الفواصل، والتوقيعات.</p>
-      <label className="mb-3 block"><span className="text-xs font-bold text-slate-400">الموظف</span><select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-900 px-3 py-2 outline-none">{employees.map((e) => <option key={e.id} value={e.id}>{e.fullName}</option>)}</select></label>
-      <div className="space-y-3">{templateGroups.map((group) => <div key={group.group} className="rounded-2xl border border-white/10 bg-white/[0.055] p-3"><h3 className="mb-2 text-sm font-black text-amber-200">{group.group}</h3><div className="space-y-1">{group.items.map((item) => <button key={item} onClick={() => setTemplateName(item)} className={`w-full rounded-xl px-3 py-2 text-right text-sm transition ${templateName === item ? "bg-amber-400 text-slate-950 font-black shadow" : "hover:bg-white/10"}`}>{item}</button>)}</div></div>)}</div>
+  const changeEmployee = (id) => {
+    setEmployeeId(id);
+    setSelectedId(id);
+  };
+
+  const chooseTemplate = (item) => {
+    setTemplateName(item);
+    setBody(getBadayatTemplateBody(item));
+  };
+
+  return <section className="grid grid-cols-1 gap-4 2xl:grid-cols-[360px_1fr_430px]">
+    <aside className="rounded-[2rem] border border-white/10 bg-black/35 p-4 shadow-2xl backdrop-blur">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black text-amber-300">DOCUMENT STUDIO</p>
+          <h3 className="mt-1 text-xl font-black">استوديو النماذج</h3>
+          <p className="mt-1 text-xs leading-6 text-stone-400">نماذج مقسمة، مرتبطة بالموظف، وتطبع بالهيدر النهائي.</p>
+        </div>
+        <FileText className="h-7 w-7 text-amber-300" />
+      </div>
+      <label className="mb-4 block"><span className="text-xs font-bold text-stone-400">الموظف المرتبط بالنموذج</span><select value={employeeId} onChange={(e) => changeEmployee(e.target.value)} className="mt-1 w-full rounded-2xl border border-white/10 bg-black/45 px-3 py-3 outline-none">{employees.map((e) => <option key={e.id} value={e.id}>{e.fullName}</option>)}</select></label>
+      <div className="space-y-2">{templateGroups.map((group) => <button key={group.group} onClick={() => setActiveGroup(group.group)} className={`w-full rounded-2xl border p-3 text-right transition ${activeGroup === group.group ? "border-amber-300 bg-amber-300/12" : "border-white/10 bg-white/[0.055] hover:border-amber-300/40"}`}><p className="font-black">{group.group}</p><p className="mt-1 text-xs text-stone-400">{group.items.length} نموذج</p></button>)}</div>
     </aside>
+
     <main className="space-y-4">
-      <Panel title={`تحرير النموذج: ${templateName === "عقد عمل شامل" ? "عقد عمل مبدئي" : templateName}`} icon={FileText}>
-        <textarea value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[300px] w-full rounded-2xl border border-white/10 bg-slate-950/40 p-4 leading-8 outline-none focus:border-amber-300" />
-        <div className="mt-3 flex flex-wrap gap-2"><ActionButton onClick={() => saveBadayatTemplateDraft(templateName, body)} icon={Save} variant="ghost">حفظ مسودة النموذج</ActionButton><ActionButton onClick={() => { resetBadayatTemplateDraft(templateName); setBody(getBadayatTemplateBody(templateName)); }} icon={RotateCcw} variant="ghost">استعادة الأصلي</ActionButton><ActionButton onClick={() => printBadayatDocument(templateName, rendered)} icon={Printer}>طباعة بالهيدر النهائي</ActionButton><ActionButton onClick={() => exportBadayatDocumentPdf(templateName, rendered)} icon={Download} variant="ghost">PDF مباشر</ActionButton></div>
+      <Panel title={`مكتبة: ${activeGroup}`} icon={ClipboardCheck}>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">{activeItems.map((item) => <button key={item} onClick={() => chooseTemplate(item)} className={`rounded-2xl border p-4 text-right transition ${templateName === item ? "border-amber-300 bg-amber-300/12 shadow-lg" : "border-white/10 bg-white/[0.055] hover:-translate-y-0.5 hover:border-amber-300/40"}`}><FileText className="mb-3 h-5 w-5 text-amber-300" /><h4 className="font-black leading-7">{item}</h4><p className="mt-2 text-xs text-stone-400">جاهز للتحرير والطباعة</p></button>)}</div>
       </Panel>
-      <Panel title="معاينة نصية" icon={Sparkles}><div className="rounded-2xl border border-white/10 bg-white p-5 text-right text-slate-950 shadow-inner"><h2 className="mb-4 text-center text-2xl font-black">{templateName === "عقد عمل شامل" ? "عقد عمل مبدئي" : templateName}</h2><pre className="whitespace-pre-wrap font-[inherit] leading-9">{rendered}</pre></div></Panel>
-      <Panel title="الحقول الذكية المتاحة" icon={ClipboardCheck}><div className="flex flex-wrap gap-2">{badayatTemplatePlaceholders.map((key) => <span key={key} className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-300">{`{{${key}}}`}</span>)}</div></Panel>
+
+      <Panel title={`تحرير النموذج: ${templateName === "عقد عمل شامل" ? "عقد عمل مبدئي" : templateName}`} icon={FileText}>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} className="min-h-[360px] w-full rounded-2xl border border-white/10 bg-black/35 p-4 leading-8 outline-none focus:border-amber-300" />
+        <div className="mt-3 flex flex-wrap gap-2"><ActionButton onClick={() => saveBadayatTemplateDraft(templateName, body)} icon={Save} variant="ghost">حفظ المسودة</ActionButton><ActionButton onClick={() => { resetBadayatTemplateDraft(templateName); setBody(getBadayatTemplateBody(templateName)); }} icon={RotateCcw} variant="ghost">استعادة الأصل</ActionButton><ActionButton onClick={() => printBadayatDocument(templateName, rendered)} icon={Printer}>طباعة نهائية</ActionButton><ActionButton onClick={() => exportBadayatDocumentPdf(templateName, rendered)} icon={Download} variant="ghost">PDF مباشر</ActionButton></div>
+      </Panel>
     </main>
+
+    <aside className="space-y-4">
+      <Panel title="المعاينة السريعة" icon={Sparkles}>
+        <div className="max-h-[560px] overflow-y-auto rounded-2xl border border-stone-200 bg-white p-5 text-right text-stone-950 shadow-inner"><h2 className="mb-4 text-center text-2xl font-black">{templateName === "عقد عمل شامل" ? "عقد عمل مبدئي" : templateName}</h2><pre className="whitespace-pre-wrap font-[inherit] leading-9">{rendered}</pre></div>
+      </Panel>
+      <Panel title="الحقول الذكية" icon={Database}><div className="flex max-h-72 flex-wrap gap-2 overflow-y-auto">{badayatTemplatePlaceholders.map((key) => <span key={key} className="rounded-full bg-white/10 px-3 py-1 text-xs text-stone-300">{`{{${key}}}`}</span>)}</div></Panel>
+    </aside>
   </section>;
 }

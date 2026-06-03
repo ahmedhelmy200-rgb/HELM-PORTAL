@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Building2, FileText, Plus, Search, Users, Wallet, ShieldCheck, Gavel, Award, Printer, Save, RotateCcw, Download, Sparkles, Database } from "lucide-react";
+import { Building2, FileText, Plus, Search, Users, Wallet, ShieldCheck, Gavel, Award, Printer, Save, RotateCcw, Download, Sparkles, Database, BriefcaseBusiness } from "lucide-react";
 import { badayatBranches as branches, badayatTemplateGroups as templateGroups, loadBadayatState, saveBadayatLocal, saveBadayatEmployee } from "@/lib/badayatAlKhairStore";
 import { badayatTemplatePlaceholders, getBadayatTemplateBody, renderBadayatTemplate, saveBadayatTemplateDraft, resetBadayatTemplateDraft, printBadayatDocument } from "@/lib/badayatTemplateEngine";
 import { exportBadayatDocumentPdf } from "@/lib/badayatPdfExport";
@@ -21,6 +21,10 @@ function Panel({ title, icon: Icon, children }) {
 
 function Field({ label, value, onChange, type = "text" }) {
   return <label className="block"><span className="text-xs font-bold text-slate-500">{label}</span><input type={type} value={value ?? ""} onChange={(e) => onChange(type === "number" ? Number(e.target.value) : e.target.value)} className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-950 outline-none focus:border-amber-400" /></label>;
+}
+
+function CompanyHero({ activeBranchInfo }) {
+  return <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"><p className="text-xs font-black tracking-[.25em] text-amber-600">BDAYT ALKHIR</p><h2 className="mt-2 text-3xl font-black">{activeBranchInfo.name}</h2><p className="mt-2 text-slate-500">إدارة الموظفين والنماذج والتصاريح والطباعة الرسمية بدون تكديس.</p></section>;
 }
 
 function printEmployee(emp) {

@@ -3,9 +3,8 @@ import { supabase } from '@/integrations/supabase/client'
 export const BADAYAT_STORAGE_KEY = 'helm_badayat_al_khair_module_v2'
 
 export const badayatBranches = [
-  { id: 'dubai_mother', name: 'بداية الخير دبي (الأم)', type: 'إدارة وتشغيل', color: 'from-amber-400 via-yellow-600 to-stone-900' },
-  { id: 'showroom_1', name: 'معرض بداية الخير - الشارقة', type: 'معرض سيارات', color: 'from-zinc-200 via-slate-500 to-slate-950' },
-  { id: 'showroom_2', name: 'معرض بداية الخير - فرع 2', type: 'مبيعات ومتابعة', color: 'from-emerald-400 via-teal-700 to-slate-950' },
+  { id: 'dubai_mother', name: 'بداية الخير دبي', type: 'الشركة الأولى', color: 'from-amber-400 via-yellow-600 to-stone-900' },
+  { id: 'showroom_1', name: 'بداية الخير الشارقة', type: 'الشركة الثانية', color: 'from-zinc-200 via-slate-500 to-slate-950' },
   { id: 'legal_sub', name: 'الملفات القانونية والجزاءات', type: 'متابعة قانونية', color: 'from-red-400 via-rose-700 to-slate-950' },
   { id: 'templates', name: 'استوديو النماذج الرسمية', type: 'عقود وخطابات وملفات موظفين', color: 'from-amber-300 via-stone-700 to-black' },
 ]
@@ -24,7 +23,7 @@ export const defaultBadayatEmployees = [
     id: 'emp-001',
     branchId: 'dubai_mother',
     photo: '',
-    fullName: 'موظف تجريبي - الإدارة الأم',
+    fullName: 'موظف تجريبي - دبي',
     nationality: 'مصري',
     emiratesId: '784-0000-0000000-0',
     passportNo: 'P0000000',
@@ -32,7 +31,7 @@ export const defaultBadayatEmployees = [
     email: 'employee@example.com',
     jobTitle: 'إداري',
     department: 'الإدارة',
-    workLocation: 'دبي',
+    workLocation: 'بداية الخير دبي',
     contractType: 'دوام كامل',
     contractStart: '2026-01-01',
     contractEnd: '2028-01-01',
@@ -52,7 +51,7 @@ export const defaultBadayatEmployees = [
     id: 'emp-002',
     branchId: 'showroom_1',
     photo: '',
-    fullName: 'موظف تجريبي - معرض 1',
+    fullName: 'موظف تجريبي - الشارقة',
     nationality: 'هندي',
     emiratesId: '784-1111-1111111-1',
     passportNo: 'A1111111',
@@ -60,7 +59,7 @@ export const defaultBadayatEmployees = [
     email: 'sales@example.com',
     jobTitle: 'مندوب مبيعات سيارات',
     department: 'المبيعات',
-    workLocation: 'معرض 1',
+    workLocation: 'بداية الخير الشارقة',
     contractType: 'عمولة وراتب',
     contractStart: '2026-02-01',
     contractEnd: '2028-02-01',
@@ -78,9 +77,11 @@ export const defaultBadayatEmployees = [
   },
 ]
 
+const normalizeBranchId = (branchId) => branchId === 'showroom_2' ? 'showroom_1' : (branchId || 'dubai_mother')
+
 const toEmployee = (row = {}) => ({
   id: row.id,
-  branchId: row.branch_id || row.branchId || 'dubai_mother',
+  branchId: normalizeBranchId(row.branch_id || row.branchId),
   photo: row.photo_url || row.photo || '',
   fullName: row.full_name || row.fullName || '',
   nationality: row.nationality || '',
@@ -109,7 +110,7 @@ const toEmployee = (row = {}) => ({
 
 const toRow = (emp = {}) => ({
   id: emp.id,
-  branch_id: emp.branchId,
+  branch_id: normalizeBranchId(emp.branchId),
   photo_url: emp.photo || null,
   full_name: emp.fullName || 'موظف جديد',
   nationality: emp.nationality || null,
@@ -142,17 +143,25 @@ function isSupabaseSchemaMissing(error) {
   return msg.includes('does not exist') || msg.includes('schema cache') || msg.includes('badayat_employees') || msg.includes('relation')
 }
 
+function normalizeStateBranches(state = {}) {
+  return {
+    ...state,
+    employees: (state.employees || []).map((emp) => ({ ...emp, branchId: normalizeBranchId(emp.branchId) })),
+  }
+}
+
 export function loadBadayatLocal() {
   try {
     const saved = JSON.parse(localStorage.getItem(BADAYAT_STORAGE_KEY) || 'null')
-    if (saved?.employees?.length) return saved
+    if (saved?.employees?.length) return normalizeStateBranches(saved)
   } catch {}
   return { employees: defaultBadayatEmployees, audit: [], source: 'local' }
 }
 
 export function saveBadayatLocal(state) {
-  localStorage.setItem(BADAYAT_STORAGE_KEY, JSON.stringify({ ...state, source: 'local' }))
-  return { ...state, source: 'local' }
+  const normalized = normalizeStateBranches({ ...state, source: 'local' })
+  localStorage.setItem(BADAYAT_STORAGE_KEY, JSON.stringify(normalized))
+  return normalized
 }
 
 export async function loadBadayatState() {
@@ -176,9 +185,10 @@ export async function loadBadayatState() {
 }
 
 export async function saveBadayatEmployee(emp) {
+  const local = loadBadayatLocal()
   saveBadayatLocal({
-    ...loadBadayatLocal(),
-    employees: loadBadayatLocal().employees.map((item) => item.id === emp.id ? emp : item),
+    ...local,
+    employees: local.employees.map((item) => item.id === emp.id ? { ...emp, branchId: normalizeBranchId(emp.branchId) } : item),
   })
   try {
     const { data, error } = await supabase

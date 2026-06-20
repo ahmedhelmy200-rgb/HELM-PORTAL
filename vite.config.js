@@ -3,6 +3,8 @@ import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig(() => ({
+  // Relative asset paths are required so the built React app can run inside Electron from file://
+  base: './',
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },

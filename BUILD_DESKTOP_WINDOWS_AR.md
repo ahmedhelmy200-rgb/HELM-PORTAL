@@ -1,8 +1,8 @@
 # تشغيل مشروع HELM Portal كبرنامج Desktop على Windows
 
-تم تجهيز هذا الفرع `desktop-exe` ليحوّل مشروع React/Vite الحالي إلى برنامج سطح مكتب بصيغة Windows EXE باستخدام Electron و electron-builder.
+هذا الفرع `desktop-exe` مخصص لتحويل مشروع React/Vite الحالي إلى برنامج سطح مكتب بصيغة Windows EXE باستخدام Electron و electron-builder.
 
-## 1) تحميل النسخة على جهازك
+## 1) تحميل النسخة الصحيحة
 
 افتح PowerShell داخل المكان الذي تريد حفظ المشروع فيه، ثم نفذ:
 
@@ -11,21 +11,47 @@ git clone -b desktop-exe https://github.com/ahmedhelmy200-rgb/HELM-PORTAL.git
 cd HELM-PORTAL
 ```
 
-## 2) تثبيت المتطلبات
+إذا كانت النسخة موجودة عندك بالفعل:
 
-يشترط وجود Node.js إصدار 20 أو أحدث.
+```powershell
+git checkout desktop-exe
+git pull origin desktop-exe
+```
+
+## 2) ضبط Supabase قبل بناء EXE
+
+التطبيق لن يعمل تشغيلًا كاملًا إذا لم تكن قيم Supabase موجودة وقت البناء. أنشئ ملفًا باسم `.env.local` في جذر المشروع بجوار `package.json` وضع بداخله القيم الحقيقية:
+
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+يمكن نسخ الملف المبدئي:
+
+```powershell
+copy .env.example .env.local
+notepad .env.local
+```
+
+ثم عدّل القيم داخل Notepad واحفظ الملف.
+
+## 3) البناء السريع بسكربت واحد
+
+تمت إضافة سكربت PowerShell يفحص Node وملف `.env.local` ثم يبني EXE:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\BUILD_EXE_WINDOWS.ps1
+```
+
+## 4) الطريقة اليدوية
 
 ```powershell
 npm install
-```
-
-## 3) تشغيل البرنامج محليًا بدون إنشاء Installer
-
-```powershell
 npm run desktop
 ```
 
-## 4) إنشاء ملف EXE للتثبيت على ويندوز
+ولإنشاء ملف EXE:
 
 ```powershell
 npm run dist:win
@@ -42,22 +68,9 @@ release
 - Installer بصيغة `.exe` للتثبيت الطبيعي.
 - Portable EXE يعمل مباشرة بدون تثبيت.
 
-## 5) البناء التلقائي من GitHub
+## 5) ملاحظات تشخيص مهمة
 
-تمت إضافة ملف Workflow باسم:
-
-```text
-.github/workflows/windows-exe.yml
-```
-
-يمكن تشغيله يدويًا من GitHub Actions، وبعد انتهاء التشغيل ستجد Artifact باسم:
-
-```text
-HELM-Portal-Windows-EXE
-```
-
-## ملاحظات مهمة
-
-- التطبيق ما زال يعتمد على نفس كود المشروع الحالي.
-- إذا كان تسجيل الدخول أو البيانات متصلة بـ Supabase فسيظل البرنامج يحتاج اتصال إنترنت للوصول إلى Supabase.
-- لم يتم حذف أو تعديل صفحات المشروع الأساسية؛ تم فقط إضافة غلاف Desktop وسكربتات بناء EXE.
+- إذا ظهرت رسالة: `إعدادات Supabase غير مكتملة`، فالمشكلة من ملف `.env.local` أو من أن EXE بُني قبل وضع قيم Supabase.
+- بعد تعديل `.env.local` يجب إعادة البناء بالأمر `npm run dist:win`.
+- إذا فتح البرنامج صفحة 404 أو شاشة بيضاء، استخدم آخر نسخة من فرع `desktop-exe` لأن الراوتر تم تعديله ليستخدم HashRouter داخل Electron.
+- التطبيق لا يحفظ قاعدة البيانات محليًا؛ إذا كان متصلًا بـ Supabase فسيحتاج اتصال إنترنت للوصول للبيانات.

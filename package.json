@@ -14,7 +14,7 @@
     "vercel-build": "node node_modules/vite/bin/vite.js build",
     "desktop": "npm run build && electron .",
     "desktop:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:win": "npm run build && electron-builder --win",
     "dist:portable": "npm run build && electron-builder --win portable"
   },
   "dependencies": {

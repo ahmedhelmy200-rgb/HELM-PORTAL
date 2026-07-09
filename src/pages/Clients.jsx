@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, Clock3, Building2, Upload, UserCheck } from "lucide-react";
+import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, Clock3, Building2, Upload, UserCheck, Percent } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import StatusBadge from "../components/helm/StatusBadge";
 import EmptyState from "../components/helm/EmptyState";
@@ -20,17 +20,23 @@ import PaginationControls from "@/components/shared/PaginationControls";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
 import { importContactsCsvFile, importFormerEmployeesFromLocalData } from "@/lib/clientImport";
+import { brokerNames, brokerPayloadFromName, isMissingBrokerSchema, listBrokers, stripBrokerFields } from "@/lib/brokerUtils";
 
-const emptyForm = { full_name:"",client_type:"فرد",id_number:"",phone:"",email:"",address:"",nationality:"",notes:"",status:"نشط" };
+const emptyForm = {
+  full_name:"",client_type:"فرد",id_number:"",phone:"",email:"",address:"",nationality:"",notes:"",status:"نشط",
+  broker_id:null,broker_name:"",broker_commission_percent:""
+};
 const CLIENT_TYPES      = ["فرد","شركة","مؤسسة","جهة حكومية","ورثة"];
 const CLIENT_STATUSES   = ["نشط","غير نشط","مهمل"];
 const COMMON_NATS       = ["الإمارات","مصر","السعودية","الهند","باكستان","سوريا","الأردن","السودان"];
 
 function toDate(v){ if(!v)return null; const d=new Date(v); return isNaN(d)?null:d; }
 function daysSince(v){ const d=toDate(v); if(!d)return null; return Math.floor((new Date()-d)/86400000); }
+function asPercent(value){ const n=Number(value); return Number.isFinite(n)?n:0; }
 
 export default function Clients() {
   const [clients,setClients]   = useState([]);
+  const [brokers,setBrokers]   = useState([]);
   const [cases,setCases]       = useState([]);
   const [sessions,setSessions] = useState([]);
   const [documents,setDocs]    = useState([]);
@@ -55,15 +61,16 @@ export default function Clients() {
   const loadData = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [{data:cl,total:tot},cs,ss,ds,inv,sets] = await Promise.all([
+      const [{data:cl,total:tot},brokerRows,cs,ss,ds,inv,sets] = await Promise.all([
         base44.entities.Client.listPage("-created_date",{page,pageSize}),
+        listBrokers(),
         base44.entities.Case.list("-created_date",300),
         base44.entities.Session.list("-session_date",300),
         base44.entities.Document.list("-created_date",300),
         base44.entities.Invoice.list("-created_date",300),
         base44.entities.OfficeSettings.list(),
       ]);
-      setClients(cl); setTotal(tot); setCases(cs); setSessions(ss); setDocs(ds); setInvoices(inv); setSettings(sets?.[0]||null);
+      setClients(cl); setTotal(tot); setBrokers(brokerRows||[]); setCases(cs); setSessions(ss); setDocs(ds); setInvoices(inv); setSettings(sets?.[0]||null);
     } catch(e){ setError(e.message||"تعذر التحميل."); } finally { setLoading(false); }
   },[page]);
 
@@ -76,16 +83,30 @@ export default function Clients() {
     return()=>{oN();oS();};
   },[]);
 
+  const brokerNameOptions = useMemo(()=>brokerNames(brokers),[brokers]);
+  const applyBroker = (name) => setForm((prev)=>({ ...prev, ...brokerPayloadFromName(name, brokers) }));
+  const normalizePayload = (payload) => ({ ...payload, broker_commission_percent: asPercent(payload.broker_commission_percent) });
+
   const openCreate=()=>{setEditing(null);setForm(emptyForm);setDialog(true);};
-  const openEdit=(c)=>{setEditing(c);setForm({...emptyForm,...c});setDialog(true);};
+  const openEdit=(c)=>{setEditing(c);setForm({...emptyForm,...c,broker_commission_percent:c.broker_commission_percent??""});setDialog(true);};
 
   const handleSave=async()=>{
     setSaving(true);
     try{
-      if(editing)await base44.entities.Client.update(editing.id,form);
-      else await base44.entities.Client.create(form);
+      const payload=normalizePayload(form);
+      try{
+        if(editing)await base44.entities.Client.update(editing.id,payload);
+        else await base44.entities.Client.create(payload);
+      }catch(error){
+        if(!isMissingBrokerSchema(error))throw error;
+        const legacyPayload=stripBrokerFields(payload);
+        if(editing)await base44.entities.Client.update(editing.id,legacyPayload);
+        else await base44.entities.Client.create(legacyPayload);
+        alert("تم حفظ الموكل، لكن بيانات البروكر لم تُحفظ لأن أعمدة البروكر لم تُفعّل في Supabase بعد. شغّل Migration رقم 022.");
+      }
       setDialog(false); await loadData();
-    }finally{setSaving(false);}
+    }catch(error){ alert(error.message||"تعذر حفظ الموكل."); }
+    finally{setSaving(false);}
   };
 
   const runImport = async (work, successPrefix) => {
@@ -141,7 +162,7 @@ export default function Clients() {
   }),[metrics,total]);
 
   const filtered=useMemo(()=>metrics.filter(c=>{
-    const ms=searchInFields(c,['full_name','phone','email','id_number','address','nationality'],search);
+    const ms=searchInFields(c,['full_name','phone','email','id_number','address','nationality','broker_name'],search);
     if(!ms)return false;
     if(activeTab==='active')return c.status==='نشط';
     if(activeTab==='neglected')return c.isNeglected;
@@ -189,7 +210,7 @@ export default function Clients() {
         <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-            <Input ref={searchRef} placeholder="بحث بالاسم أو الهاتف أو رقم الهوية..." value={search} onChange={e=>setSearch(e.target.value)} className="pr-10 h-11"/>
+            <Input ref={searchRef} placeholder="بحث بالاسم أو الهاتف أو رقم الهوية أو البروكر..." value={search} onChange={e=>setSearch(e.target.value)} className="pr-10 h-11"/>
           </div>
           <div className="flex flex-wrap gap-2">
             {TABS.map(t=>(
@@ -212,7 +233,6 @@ export default function Clients() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {filtered.map(client=>(
               <Card key={client.id} className="p-5 border-primary/10 hover:shadow-md transition-all hover:border-primary/25">
-                {/* ── رأس البطاقة ── */}
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-primary font-black text-lg">
@@ -225,9 +245,9 @@ export default function Clients() {
                         {client.isNeglected&&<Badge className="bg-warning/15 text-warning border-warning/20 text-[10px]">مهمل</Badge>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{client.client_type}{client.nationality?` · ${client.nationality}`:''}</p>
+                      {client.broker_name&&<p className="text-xs text-primary mt-1 flex items-center gap-1"><Percent className="h-3 w-3"/>البروكر: {client.broker_name} · {asPercent(client.broker_commission_percent)}%</p>}
                     </div>
                   </div>
-                  {/* ── أزرار الإجراءات ── */}
                   <ActionButtons
                     entityName="Client"
                     record={client}
@@ -237,7 +257,6 @@ export default function Clients() {
                   />
                 </div>
 
-                {/* ── إحصائيات ── */}
                 <div className="grid grid-cols-4 gap-2 mb-4">
                   {[{label:'القضايا',v:client.activeCases},{label:'الجلسات',v:client.sessionsCount},{label:'المستندات',v:client.documentsCount},{label:'الفواتير',v:client.invoicesCount}].map(s=>(
                     <div key={s.label} className="rounded-xl bg-muted/40 p-2.5 text-center">
@@ -247,7 +266,6 @@ export default function Clients() {
                   ))}
                 </div>
 
-                {/* ── معلومات ── */}
                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-4">
                   {client.phone&&<span className="flex items-center gap-1"><Phone className="h-3 w-3"/>{client.phone}</span>}
                   {client.email&&<span className="flex items-center gap-1 truncate"><Mail className="h-3 w-3"/>{client.email}</span>}
@@ -255,7 +273,6 @@ export default function Clients() {
                   {client.overdueInvoices>0&&<Badge className="text-[10px] bg-destructive/10 text-destructive border-0">{client.overdueInvoices} فاتورة متأخرة</Badge>}
                 </div>
 
-                {/* ── أزرار التواصل ── */}
                 <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
                   <Button variant="outline" size="sm" onClick={()=>openEdit(client)} className="gap-1.5 h-8">
                     <FileText className="h-3.5 w-3.5"/>فتح الملف
@@ -281,6 +298,9 @@ export default function Clients() {
             <div className="space-y-1"><Label>البريد الإلكتروني</Label><Input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} className="h-11"/></div>
             <div className="space-y-1"><Label>رقم الهوية</Label><Input value={form.id_number} onChange={e=>setForm({...form,id_number:e.target.value})} className="h-11"/></div>
             <div className="space-y-1"><Label>الجنسية</Label><ChoiceInput value={form.nationality} onChange={v=>setForm({...form,nationality:v})} options={COMMON_NATS} listId="cl-nat"/></div>
+            <div className="space-y-1 md:col-span-2"><Label>البروكر / مصدر الموكل</Label><ChoiceInput value={form.broker_name} onChange={applyBroker} options={brokerNameOptions} listId="client-brokers" placeholder="اختر أو اكتب اسم البروكر"/></div>
+            <div className="space-y-1"><Label>نسبة البروكر الافتراضية %</Label><Input type="number" min="0" max="100" step="0.01" value={form.broker_commission_percent} onChange={e=>setForm({...form,broker_commission_percent:e.target.value})} className="h-11"/></div>
+            <div className="space-y-1"><Label>ملاحظة</Label><p className="text-xs text-muted-foreground pt-3">النسبة هنا تُورّث تلقائيًا عند إضافة قضية جديدة لهذا الموكل، ويمكن تعديلها داخل كل قضية.</p></div>
             <div className="space-y-1 md:col-span-2"><Label>العنوان</Label><Input value={form.address} onChange={e=>setForm({...form,address:e.target.value})} className="h-11"/></div>
             <div className="space-y-1 md:col-span-2"><Label>ملاحظات</Label><Textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} className="min-h-[100px]"/></div>
           </div>

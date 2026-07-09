@@ -5,10 +5,8 @@ import '@/index.css'
 import '@/readability.css'
 import '@/polish.css'
 import { installGlobalImageRecovery } from '@/lib/imageRecovery'
-import { installBadayatPortalTemplatePreset as setupBadayatTemplates } from '@/lib/badayatPortalTemplatePreset'
 
 installGlobalImageRecovery()
-setupBadayatTemplates()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <App />

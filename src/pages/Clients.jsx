@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, BellRing, Clock3, Building2 } from "lucide-react";
+import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, Clock3, Building2, Upload, UserCheck } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import StatusBadge from "../components/helm/StatusBadge";
 import EmptyState from "../components/helm/EmptyState";
@@ -19,6 +19,7 @@ import { PageErrorState } from "@/components/app/AppStatusBar";
 import PaginationControls from "@/components/shared/PaginationControls";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
+import { importContactsCsvFile, importFormerEmployeesFromLocalData } from "@/lib/clientImport";
 
 const emptyForm = { full_name:"",client_type:"فرد",id_number:"",phone:"",email:"",address:"",nationality:"",notes:"",status:"نشط" };
 const CLIENT_TYPES      = ["فرد","شركة","مؤسسة","جهة حكومية","ورثة"];
@@ -45,8 +46,11 @@ export default function Clients() {
   const [activeTab,setTab]     = useState("all");
   const [page,setPage]         = useState(1);
   const [total,setTotal]       = useState(0);
+  const [importing,setImporting] = useState(false);
+  const [importSummary,setImportSummary] = useState("");
   const pageSize = 12;
   const searchRef = useRef(null);
+  const csvInputRef = useRef(null);
 
   const loadData = useCallback(async () => {
     setLoading(true); setError("");
@@ -82,6 +86,38 @@ export default function Clients() {
       else await base44.entities.Client.create(form);
       setDialog(false); await loadData();
     }finally{setSaving(false);}
+  };
+
+  const runImport = async (work, successPrefix) => {
+    setImporting(true);
+    setImportSummary("جاري الاستيراد...");
+    try {
+      const result = await work((p) => setImportSummary(`جاري الاستيراد: ${p.current}/${p.total} — تمت الإضافة ${p.created} / تخطي ${p.skipped} / فشل ${p.failed}`));
+      setImportSummary(`${successPrefix}: تمت إضافة ${result.created}، تخطي ${result.skipped} مكرر/ناقص، فشل ${result.failed}.`);
+      await loadData();
+    } catch (e) {
+      setImportSummary(e?.message || "تعذر تنفيذ الاستيراد.");
+    } finally {
+      setImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  };
+
+  const handleCsvImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await runImport(
+      (onProgress) => importContactsCsvFile({ file, base44, existingClients: clients, onProgress }),
+      "تم استيراد جهات الاتصال"
+    );
+  };
+
+  const handleFormerEmployeesImport = async () => {
+    if (!confirm("سيتم نقل ملفات الموظفين المحلية السابقة إلى الموكلين ثم حذف مفاتيحها المحلية من المتصفح. هل تريد الاستمرار؟")) return;
+    await runImport(
+      (onProgress) => importFormerEmployeesFromLocalData({ base44, existingClients: clients, onProgress }),
+      "تم نقل ملفات الموظفين السابقة إلى الموكلين"
+    );
   };
 
   const metrics = useMemo(()=>clients.map(c=>{
@@ -123,7 +159,24 @@ export default function Clients() {
   return (
     <div className="space-y-6">
       <PageHeader title="الموكلون" subtitle={`${total} موكل`}
-        action={<Button onClick={openCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4"/>إضافة موكل</Button>} />
+        action={
+          <div className="flex flex-wrap gap-2 justify-end">
+            <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvImport} />
+            <Button variant="outline" onClick={handleFormerEmployeesImport} disabled={importing} className="gap-2">
+              <UserCheck className="h-4 w-4"/>نقل الموظفين للموكلين
+            </Button>
+            <Button variant="outline" onClick={()=>csvInputRef.current?.click()} disabled={importing} className="gap-2">
+              <Upload className="h-4 w-4"/>استيراد جهات اتصال CSV
+            </Button>
+            <Button onClick={openCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4"/>إضافة موكل</Button>
+          </div>
+        } />
+
+      {importSummary&&(
+        <Card className="p-3 border-primary/10 bg-primary/5 text-sm font-bold text-primary">
+          {importSummary}
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="إجمالي الموكلين"       value={stats.total}     icon={Users}     color="primary"/>

@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { Scale } from 'lucide-react'
 import PublicEntry from './PublicEntry'
 import { appParams } from '@/lib/app-params'
-import BadayatPortalShortcut from '@/components/BadayatPortalShortcut'
 
 const LOGO_SOURCES = [
   '/icons/icon-192.png',
@@ -44,7 +43,6 @@ export default function PublicEntryWithLogo() {
   return (
     <>
       <ProgramLogoMark />
-      <BadayatPortalShortcut />
       <PublicEntry />
     </>
   )

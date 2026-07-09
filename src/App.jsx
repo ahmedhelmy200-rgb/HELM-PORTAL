@@ -9,7 +9,6 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
 import PublicEntryWithLogo from './pages/PublicEntryWithLogo'
 import PublicLegalLibrary from './pages/PublicLegalLibrary'
-import BadayatFeedback from './pages/BadayatFeedback'
 import PasswordReset from './pages/PasswordReset'
 import Payment from './pages/Payment'
 import { createPageUrl } from '@/utils'
@@ -61,7 +60,6 @@ function PublicRoutes() {
     <Routes>
       <Route path="/" element={<PublicEntryWithLogo />} />
       <Route path="/Payment" element={<Payment />} />
-      <Route path="/BadayatFeedback" element={<BadayatFeedback />} />
       <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />
       <Route path="/PasswordReset" element={<PasswordReset />} />
       <Route path={createPageUrl('ClientOnboarding')} element={<Navigate to="/" replace />} />
@@ -88,7 +86,6 @@ const AuthenticatedApp = () => {
         <Route path="/" element={user?.role === 'pending_client' ? <Navigate to={createPageUrl('ClientOnboarding')} replace /> : renderPage(mainPageKey, MainPage)} />
         <Route path={createPageUrl('ClientOnboarding')} element={<OnboardingRoute />} />
         <Route path="/Payment" element={<Payment />} />
-        <Route path="/BadayatFeedback" element={<BadayatFeedback />} />
         <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />
         <Route path="/PasswordReset" element={<PasswordReset />} />
         {Object.entries(Pages).map(([path, Page]) => <Route key={path} path={`/${path}`} element={renderPage(path, Page)} />)}

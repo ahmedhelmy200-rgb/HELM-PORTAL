@@ -3,9 +3,10 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { UploadCloud, CheckCircle2, FileJson, Landmark, RefreshCw } from 'lucide-react'
+import { UploadCloud, CheckCircle2, FileJson, Landmark, RefreshCw, DatabaseZap } from 'lucide-react'
 import PageHeader from '../components/helm/PageHeader'
 import { bankImportSummary, importExpensesToPortal, importIncomeToPortal, readJsonFile } from '@/lib/bankImportHelpers'
+import { adibMemoryBankData } from '@/lib/adibMemoryBankData'
 
 function money(n) { return Number(n || 0).toLocaleString('ar-AE', { maximumFractionDigits: 2 }) }
 
@@ -33,6 +34,14 @@ export default function BankImport() {
     }
   }
 
+  const loadMemoryData = () => {
+    setError('')
+    setData(adibMemoryBankData)
+    setFileName('ADIB memory summary 2026-01-01 to 2026-05-01')
+    const s = bankImportSummary(adibMemoryBankData)
+    setMessage(`تم تحميل ملخص ADIB من الذاكرة: ${s.expenses.length} صف مصروفات ملخص بإجمالي ${money(s.expenseTotal)} د.إ، و${s.income.length} صف دخل بإجمالي ${money(s.incomeTotal)} د.إ. هذا ملخص تصنيفي وليس 296 عملية تفصيلية.`)
+  }
+
   const importAll = async () => {
     if (!data) return
     setBusy(true); setError(''); setMessage('')
@@ -51,20 +60,33 @@ export default function BankImport() {
 
   return (
     <div dir="rtl" className="space-y-5">
-      <PageHeader title="استيراد كشف بنك" subtitle="إدخال المصاريف والدخل من ملف JSON المجهز من كشف الحساب" action={<Badge className="bg-blue-100 text-blue-800">ADIB / HELM</Badge>} />
+      <PageHeader title="استيراد كشف بنك" subtitle="إدخال المصاريف والدخل من ملف JSON أو من ملخص ADIB المحفوظ" action={<Badge className="bg-blue-100 text-blue-800">ADIB / HELM</Badge>} />
 
-      <Card className="p-5 border-dashed border-2">
-        <label className="flex flex-col items-center justify-center gap-3 rounded-3xl bg-muted/25 p-8 cursor-pointer hover:bg-muted/40 transition">
-          <UploadCloud className="h-10 w-10 text-primary" />
-          <div className="text-center">
-            <p className="font-black text-foreground">ارفع ملف JSON الجاهز للاستيراد</p>
-            <p className="text-xs text-muted-foreground mt-1">استخدم ملف HELM_Bank_Import_Data.json الذي جهزناه من كشف البنك.</p>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <Card className="p-5 border-dashed border-2">
+          <label className="flex flex-col items-center justify-center gap-3 rounded-3xl bg-muted/25 p-8 cursor-pointer hover:bg-muted/40 transition">
+            <UploadCloud className="h-10 w-10 text-primary" />
+            <div className="text-center">
+              <p className="font-black text-foreground">ارفع ملف JSON الجاهز للاستيراد</p>
+              <p className="text-xs text-muted-foreground mt-1">استخدم ملف HELM_Bank_Import_Data.json إذا كان متوفرًا لديك.</p>
+            </div>
+            <Input type="file" accept=".json,application/json" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
+            <span className="rounded-2xl bg-primary px-4 py-2 text-sm font-black text-white">اختيار الملف</span>
+          </label>
+          {fileName && <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1"><FileJson className="h-3.5 w-3.5" /> {fileName}</p>}
+        </Card>
+
+        <Card className="p-5 border-primary/10 bg-primary/5 flex flex-col justify-center gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0"><DatabaseZap className="h-5 w-5" /></div>
+            <div>
+              <h3 className="font-black text-foreground">استيراد ملخص ADIB المحفوظ</h3>
+              <p className="text-sm text-muted-foreground leading-7 mt-1">الفترة 2026-01-01 إلى 2026-05-01: 296 عملية في الأصل، محفوظ هنا كملخص تصنيفي: 252 مصروف، 27 دخل، 17 مراجعة.</p>
+            </div>
           </div>
-          <Input type="file" accept=".json,application/json" className="hidden" onChange={(e) => pickFile(e.target.files?.[0])} />
-          <span className="rounded-2xl bg-primary px-4 py-2 text-sm font-black text-white">اختيار الملف</span>
-        </label>
-        {fileName && <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1"><FileJson className="h-3.5 w-3.5" /> {fileName}</p>}
-      </Card>
+          <Button type="button" onClick={loadMemoryData} variant="outline" className="gap-2 h-11"><DatabaseZap className="h-4 w-4" />تحميل ملخص ADIB من الذاكرة</Button>
+        </Card>
+      </div>
 
       {error && <Card className="p-4 border-red-200 bg-red-50 text-red-800 text-sm font-bold">{error}</Card>}
       {message && <Card className="p-4 border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-bold flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> {message}</Card>}
@@ -84,8 +106,8 @@ export default function BankImport() {
         <div className="space-y-2 text-sm text-muted-foreground leading-7">
           <p>1. المصاريف تدخل في قسم المصاريف مباشرة.</p>
           <p>2. الدخل يدخل في صفحة الدخل والتحصيلات.</p>
-          <p>3. إذا كانت قاعدة البيانات غير مجهزة، يتم الحفظ محلياً داخل المتصفح حتى لا تضيع البيانات.</p>
-          <p>4. بعد تشغيل جدول الدخل في Supabase، نفس الزر يدخل الدخل في قاعدة البيانات.</p>
+          <p>3. ملف JSON التفصيلي هو الأفضل لأنه يحفظ كل عملية وحدها؛ زر ملخص ADIB يحفظ المجاميع المعروفة فقط.</p>
+          <p>4. إذا كانت قاعدة البيانات غير مجهزة، يتم الحفظ محلياً داخل المتصفح حتى لا تضيع البيانات.</p>
         </div>
       </Card>
 

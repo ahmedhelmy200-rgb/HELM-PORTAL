@@ -95,11 +95,6 @@ async function recoverImage(img) {
     return
   }
 
-  if (/badayat/i.test(src) || /بداية/.test(img.alt || '')) {
-    img.src = `/badayat-logo.svg?v=${Date.now()}`
-    return
-  }
-
   if (/icon|logo|favicon/i.test(src) || /شعار|logo/i.test(img.alt || '')) {
     img.src = `/icon-192.png?v=${Date.now()}`
     return

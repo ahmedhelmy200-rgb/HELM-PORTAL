@@ -94,10 +94,11 @@ th {
   font-weight: 900 !important;
 }
 
-/* بوابة بداية الخير تمييز هادئ */
-.badayat-invoice .helm-letterhead,
-[class*="border-amber"] {
-  box-shadow: 0 16px 38px rgba(146,64,14,.10);
+/* إخفاء أي روابط قديمة للوحدة الملغاة إن بقيت في كاش أو نسخة قديمة */
+a[href$="/BadayatAlKhair"],
+a[href*="BadayatAlKhair"],
+a[href*="BadayatFeedback"] {
+  display: none !important;
 }
 
 @media (prefers-reduced-motion: no-preference) {

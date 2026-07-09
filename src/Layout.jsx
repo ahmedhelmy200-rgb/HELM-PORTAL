@@ -9,8 +9,8 @@ import { useAuth } from '@/lib/AuthContext'
 import {
   LayoutDashboard, Briefcase, Users, CalendarDays, FileText, CheckSquare,
   Bell, Menu, X, LogOut, Receipt, BookOpen, Settings, Wallet, BarChart2, MessageCircle,
-  Archive, Search as SearchIcon,
-  MoonStar, SunMedium, Volume2, VolumeX, Zap, Landmark, ArrowRight, MonitorCog, BrainCircuit, Building2
+  Archive, Search as SearchIcon, MoonStar, SunMedium, Volume2, VolumeX, Zap,
+  Landmark, ArrowRight, MonitorCog, BrainCircuit, Handshake
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,8 @@ const staffNavItems = [
   { label: "لوحة التحكم", page: "Dashboard", icon: LayoutDashboard, fx: "nav-fx-float" },
   { label: "القضايا", page: "Cases", icon: Briefcase, fx: "nav-fx-pulse" },
   { label: "الموكلون", page: "Clients", icon: Users, fx: "nav-fx-bob" },
+  { label: "جهات الاتصال", page: "Contacts", icon: Users, fx: "nav-fx-bob" },
+  { label: "البروكر", page: "Brokers", icon: Handshake, fx: "nav-fx-pulse" },
   { label: "الجلسات", page: "Sessions", icon: CalendarDays, fx: "nav-fx-wiggle" },
   { label: "المستندات", page: "Documents", icon: FileText, fx: "nav-fx-spark" },
   { label: "المهام", page: "Tasks", icon: CheckSquare, fx: "nav-fx-tilt" },
@@ -32,7 +34,6 @@ const staffNavItems = [
   { label: "مركز التواصل", page: "Communications", icon: MessageCircle, fx: "nav-fx-breathe" },
   { label: "التقارير", page: "Reports", icon: BarChart2, fx: "nav-fx-pulse" },
   { label: "حُلم سمارت", page: "HelmSmart", icon: BrainCircuit, fx: "nav-fx-spark" },
-  { label: "بداية الخير", page: "BadayatAlKhair", icon: Building2, fx: "nav-fx-pulse" },
   { label: "الأرشيف", page: "Archive", icon: Archive, fx: "nav-fx-tilt" },
   { label: "الإعدادات", page: "Settings", icon: Settings, fx: "nav-fx-spin-soft" },
 ]
@@ -49,8 +50,8 @@ const mobileTabsForRole = {
   staff: [
     { label: "الرئيسية", page: "Dashboard", icon: LayoutDashboard },
     { label: "القضايا", page: "Cases", icon: Briefcase },
-    { label: "المهام", page: "Tasks", icon: CheckSquare },
-    { label: "بداية الخير", page: "BadayatAlKhair", icon: Building2 },
+    { label: "الموكلون", page: "Clients", icon: Users },
+    { label: "الاتصال", page: "Contacts", icon: Users },
   ],
   client: [
     { label: "الرئيسية", page: "Dashboard", icon: LayoutDashboard },
@@ -77,10 +78,7 @@ export default function Layout({ children, currentPageName }) {
   const [officeSettings, setOfficeSettings] = useState(null)
   const [archiveCount, setArchiveCount] = useState(0)
   const [themePreference, setThemePreference] = useState(() => getStoredThemePreference())
-  const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
-    if (typeof window === "undefined") return true
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-  })
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => typeof window !== "undefined" ? window.matchMedia("(prefers-color-scheme: dark)").matches : true)
   const [soundEnabled, setSoundEnabled] = useState(() => getStoredSound())
   const [effectPower, setEffectPower] = useState(() => {
     if (typeof window === 'undefined') return 1.15
@@ -89,13 +87,6 @@ export default function Layout({ children, currentPageName }) {
   })
   const desktopSidebarScrollRef = useRef(null)
   const mobileSidebarScrollRef = useRef(null)
-
-  useEffect(() => {
-    const update = () => setArchiveCount(getArchiveCount())
-    update()
-    window.addEventListener('storage', update)
-    return () => window.removeEventListener('storage', update)
-  }, [])
 
   const navItems = useMemo(() => user?.role === 'client' ? clientNavItems : staffNavItems, [user?.role])
   const mobileTabs = user?.role === 'client' ? mobileTabsForRole.client : mobileTabsForRole.staff
@@ -109,6 +100,13 @@ export default function Layout({ children, currentPageName }) {
     : themePreference === "dark"
       ? { icon: MoonStar, label: "ليلي" }
       : { icon: SunMedium, label: "نهاري" }
+
+  useEffect(() => {
+    const update = () => setArchiveCount(getArchiveCount())
+    update()
+    window.addEventListener('storage', update)
+    return () => window.removeEventListener('storage', update)
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -161,18 +159,9 @@ export default function Layout({ children, currentPageName }) {
       const isEditable = target?.isContentEditable || ['input', 'textarea', 'select'].includes(tag)
       if (!(event.ctrlKey || event.metaKey) || isEditable) return
       const key = String(event.key || '').toLowerCase()
-      if (key === 'f') {
-        event.preventDefault()
-        emitAppEvent(APP_SHORTCUT_SEARCH, { page: currentPageName })
-      }
-      if (key === 'n') {
-        event.preventDefault()
-        emitAppEvent(APP_SHORTCUT_NEW, { page: currentPageName })
-      }
-      if (key === '/' || (event.shiftKey && key === '/')) {
-        event.preventDefault()
-        emitAppEvent(APP_SHORTCUT_HELP, {})
-      }
+      if (key === 'f') { event.preventDefault(); emitAppEvent(APP_SHORTCUT_SEARCH, { page: currentPageName }) }
+      if (key === 'n') { event.preventDefault(); emitAppEvent(APP_SHORTCUT_NEW, { page: currentPageName }) }
+      if (key === '/' || (event.shiftKey && key === '/')) { event.preventDefault(); emitAppEvent(APP_SHORTCUT_HELP, {}) }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -213,55 +202,39 @@ export default function Layout({ children, currentPageName }) {
       <Link
         key={item.page}
         to={createPageUrl(item.page)}
-        onClick={() => {
-          playUiTone("nav", soundEnabled)
-          if (mobile) setSidebarOpen(false)
-        }}
-        className={cn(
-          compact ? "mobile-tab-link" : "sidebar-nav-item",
-          isActive && (compact ? "mobile-tab-link-active" : "sidebar-nav-item-active")
-        )}
+        onClick={() => { playUiTone("nav", soundEnabled); if (mobile) setSidebarOpen(false) }}
+        className={cn(compact ? "mobile-tab-link" : "sidebar-nav-item", isActive && (compact ? "mobile-tab-link-active" : "sidebar-nav-item-active"))}
       >
         <span className={cn(compact ? "mobile-tab-icon" : "sidebar-nav-icon", !compact && item.fx, isActive && !compact && "active-electric")}>
           <Icon className="h-4 w-4 shrink-0" />
         </span>
         <span className={cn(compact ? "text-[11px] font-medium" : "truncate")}>{item.label}</span>
-        {item.page === 'Archive' && archiveCount > 0 && !compact && (
-          <span className="archive-nav-count shrink-0">{archiveCount > 99 ? '99+' : archiveCount}</span>
-        )}
+        {item.page === 'Archive' && archiveCount > 0 && !compact && <span className="archive-nav-count shrink-0">{archiveCount > 99 ? '99+' : archiveCount}</span>}
         {isActive && !compact && <span className="sidebar-active-dot" />}
       </Link>
     )
   }
 
   const NotificationTopButton = ({ mobile = false }) => (
-    <Link
-      to={createPageUrl("Notifications")}
-      className="relative shrink-0"
-      title="التنبيهات"
-      onClick={() => playUiTone("nav", soundEnabled)}
-    >
+    <Link to={createPageUrl("Notifications")} className="relative shrink-0" title="التنبيهات" onClick={() => playUiTone("nav", soundEnabled)}>
       {mobile ? (
         <>
-          <span className="icon-glass-btn inline-flex">
-            <Bell className="h-4.5 w-4.5 text-white" />
-          </span>
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -left-1 h-4.5 w-4.5 bg-accent rounded-full text-[9px] text-white flex items-center justify-center">{unreadCount}</span>
-          )}
+          <span className="icon-glass-btn inline-flex"><Bell className="h-4.5 w-4.5 text-white" /></span>
+          {unreadCount > 0 && <span className="absolute -top-1 -left-1 h-4.5 w-4.5 bg-accent rounded-full text-[9px] text-white flex items-center justify-center">{unreadCount}</span>}
         </>
       ) : (
         <span className="control-chip relative min-w-[112px] justify-center">
-          <Bell className="h-4 w-4" />
-          <span>التنبيهات</span>
-          {unreadCount > 0 && (
-            <Badge className="absolute -top-2 -left-2 bg-accent text-white text-[10px] h-5 min-w-[20px] px-1.5">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Badge>
-          )}
+          <Bell className="h-4 w-4" /><span>التنبيهات</span>
+          {unreadCount > 0 && <Badge className="absolute -top-2 -left-2 bg-accent text-white text-[10px] h-5 min-w-[20px] px-1.5">{unreadCount > 99 ? '99+' : unreadCount}</Badge>}
         </span>
       )}
     </Link>
+  )
+
+  const LogoMark = ({ compact = false }) => (
+    <div className={cn(compact ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl", "bg-white/10 flex items-center justify-center shrink-0 ring-1 ring-white/10 overflow-hidden")}>
+      {logoUrl ? <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1.5" /> : <img src="/icon-192.png" alt="HELM Portal" className={compact ? "h-6 w-6 object-contain" : "h-8 w-8 object-contain"} onError={(e) => { e.currentTarget.style.display = 'none' }} />}
+    </div>
   )
 
   const SidebarFooter = () => {
@@ -269,43 +242,20 @@ export default function Layout({ children, currentPageName }) {
     return (
       <div className="p-3 border-t border-white/10 space-y-2">
         <div className="grid grid-cols-2 gap-2 md:hidden">
-          <button onClick={handleThemeToggle} className="control-chip" title="تبديل الثيم">
-            <ThemeIcon className="h-4 w-4" />
-            <span>{themeMeta.label}</span>
-          </button>
-          <button onClick={handleSoundToggle} className="control-chip">
-            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            <span>{soundEnabled ? "الصوت" : "صامت"}</span>
-          </button>
+          <button onClick={handleThemeToggle} className="control-chip" title="تبديل الثيم"><ThemeIcon className="h-4 w-4" /><span>{themeMeta.label}</span></button>
+          <button onClick={handleSoundToggle} className="control-chip">{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}<span>{soundEnabled ? "الصوت" : "صامت"}</span></button>
         </div>
-
         <div className="control-chip w-full justify-between md:hidden">
           <span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> شبكة الكهرباء</span>
-          <input
-            type="range"
-            min="0.6"
-            max="2.2"
-            step="0.05"
-            value={effectPower}
-            onChange={(e) => setEffectPower(Number(e.target.value))}
-            className="w-24 accent-sky-400"
-          />
+          <input type="range" min="0.6" max="2.2" step="0.05" value={effectPower} onChange={(e) => setEffectPower(Number(e.target.value))} className="w-24 accent-sky-400" />
         </div>
-
         {user && (
           <div className="user-panel-glass">
             <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10">
-                <Landmark className="h-4 w-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-white text-xs font-semibold truncate">{user.full_name || user.email}</p>
-                <p className="text-white/55 text-[11px] truncate">{user.role === 'client' ? 'بوابة الموكّل' : 'الإدارة القانونية'}</p>
-              </div>
+              <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10"><Landmark className="h-4 w-4 text-white" /></div>
+              <div className="min-w-0"><p className="text-white text-xs font-semibold truncate">{user.full_name || user.email}</p><p className="text-white/55 text-[11px] truncate">{user.role === 'client' ? 'بوابة الموكّل' : 'الإدارة القانونية'}</p></div>
             </div>
-            <button onClick={() => { playUiTone("nav", soundEnabled); base44.auth.logout(); }} className="logout-link">
-              <LogOut className="h-3.5 w-3.5" /> تسجيل خروج
-            </button>
+            <button onClick={() => { playUiTone("nav", soundEnabled); base44.auth.logout(); }} className="logout-link"><LogOut className="h-3.5 w-3.5" /> تسجيل خروج</button>
           </div>
         )}
       </div>
@@ -316,42 +266,12 @@ export default function Layout({ children, currentPageName }) {
     const ThemeIcon = themeMeta.icon
     return (
       <div className="hidden md:flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl border border-white/10 bg-slate-950/45 backdrop-blur-xl shadow-[0_12px_34px_rgba(2,8,23,.22)]">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-600 to-slate-950 flex items-center justify-center ring-1 ring-sky-300/25 shadow-[0_0_22px_rgba(59,130,246,.24)] overflow-hidden shrink-0">
-            {logoUrl ? (
-              <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1.5" />
-            ) : (
-              <img src="/icon-192.png" alt="HELM Portal" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-            )}
-          </div>
-          <div className="min-w-0 text-right">
-            <p className="text-[11px] text-sky-200/70 leading-tight">HELM Portal</p>
-            <h2 className="text-white font-extrabold text-base leading-tight truncate">{officeName}</h2>
-          </div>
-        </div>
-
+        <div className="flex items-center gap-3 min-w-0"><LogoMark /><div className="min-w-0 text-right"><p className="text-[11px] text-sky-200/70 leading-tight">HELM Portal</p><h2 className="text-white font-extrabold text-base leading-tight truncate">{officeName}</h2></div></div>
         <div className="flex items-center gap-2 shrink-0">
           <NotificationTopButton />
-          <button onClick={handleThemeToggle} className="control-chip min-w-[92px]" title="تبديل الثيم">
-            <ThemeIcon className="h-4 w-4" />
-            <span>{themeMeta.label}</span>
-          </button>
-          <button onClick={handleSoundToggle} className="control-chip min-w-[84px]">
-            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            <span>{soundEnabled ? "الصوت" : "صامت"}</span>
-          </button>
-          <div className="control-chip min-w-[210px] justify-between">
-            <span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> شبكة الكهرباء</span>
-            <input
-              type="range"
-              min="0.6"
-              max="2.2"
-              step="0.05"
-              value={effectPower}
-              onChange={(e) => setEffectPower(Number(e.target.value))}
-              className="w-24 accent-sky-400"
-            />
-          </div>
+          <button onClick={handleThemeToggle} className="control-chip min-w-[92px]" title="تبديل الثيم"><ThemeIcon className="h-4 w-4" /><span>{themeMeta.label}</span></button>
+          <button onClick={handleSoundToggle} className="control-chip min-w-[84px]">{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}<span>{soundEnabled ? "الصوت" : "صامت"}</span></button>
+          <div className="control-chip min-w-[210px] justify-between"><span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> شبكة الكهرباء</span><input type="range" min="0.6" max="2.2" step="0.05" value={effectPower} onChange={(e) => setEffectPower(Number(e.target.value))} className="w-24 accent-sky-400" /></div>
         </div>
       </div>
     )
@@ -360,80 +280,28 @@ export default function Layout({ children, currentPageName }) {
   return (
     <div className={cn("min-h-screen md:h-screen flex app-shell md:overflow-hidden") } dir="rtl">
       <AnimatedBackground active intensity={effectPower} theme={resolvedTheme} />
-      <div className="ambient-orb orb-one" />
-      <div className="ambient-orb orb-two" />
-      <div className="ambient-orb orb-three" />
+      <div className="ambient-orb orb-one" /><div className="ambient-orb orb-two" /><div className="ambient-orb orb-three" />
 
       <aside className="hidden md:flex flex-col w-64 sidebar-shell h-screen fixed right-0 top-0 z-40" onWheelCapture={(event) => handleSidebarWheel(event, desktopSidebarScrollRef)}>
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/8">
-          <div className="h-11 w-11 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-white/10 shadow-[0_0_22px_rgba(68,127,255,.16)] overflow-hidden">
-            {logoUrl ? (
-              <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1.5" />
-            ) : (
-              <img src="/icon-192.png" alt="HELM Portal" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-            )}
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-white font-bold text-sm leading-tight truncate">HELM Portal</h1>
-            <p className="text-white/55 text-xs leading-tight">{user?.role === 'client' ? 'بوابة العميل الآمنة' : 'منصة الإدارة القانونية'}</p>
-          </div>
-        </div>
-
-        <nav ref={desktopSidebarScrollRef} className="sidebar-scroll flex-1 min-h-0 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">
-          {navItems.map((item) => <NavLink key={item.page} item={item} />)}
-        </nav>
-
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/8"><LogoMark /><div className="min-w-0"><h1 className="text-white font-bold text-sm leading-tight truncate">HELM Portal</h1><p className="text-white/55 text-xs leading-tight">{user?.role === 'client' ? 'بوابة العميل الآمنة' : 'منصة الإدارة القانونية'}</p></div></div>
+        <nav ref={desktopSidebarScrollRef} className="sidebar-scroll flex-1 min-h-0 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">{navItems.map((item) => <NavLink key={item.page} item={item} />)}</nav>
         <SidebarFooter />
       </aside>
 
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 mobile-topbar">
         <div className="flex items-center gap-2">
-          {shouldShowBack ? (
-            <button onClick={goBack} className="icon-glass-btn mobile-back-emphasis">
-              <ArrowRight className="h-5 w-5 text-white" />
-            </button>
-          ) : (
-            <button onClick={() => { playUiTone("nav", soundEnabled); setSidebarOpen(true) }} className="icon-glass-btn">
-              <Menu className="h-5 w-5 text-white" />
-            </button>
-          )}
+          {shouldShowBack ? <button onClick={goBack} className="icon-glass-btn mobile-back-emphasis"><ArrowRight className="h-5 w-5 text-white" /></button> : <button onClick={() => { playUiTone("nav", soundEnabled); setSidebarOpen(true) }} className="icon-glass-btn"><Menu className="h-5 w-5 text-white" /></button>}
         </div>
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10 overflow-hidden">
-            {logoUrl ? <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1" /> : <img src="/icon-192.png" alt="HELM Portal" className="h-6 w-6 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />}
-          </div>
-          <div className="min-w-0">
-            <span className="text-white font-bold text-sm truncate block">HELM Portal</span>
-            {shouldShowBack && <span className="text-white/55 text-[11px] truncate block">{currentPageName}</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={handleThemeToggle} className="icon-glass-btn" title={themeMeta.label}>
-            {themeMeta.label.startsWith("تلقائي") ? <MonitorCog className="h-4.5 w-4.5 text-white" /> : resolvedTheme === "dark" ? <SunMedium className="h-4.5 w-4.5 text-white" /> : <MoonStar className="h-4.5 w-4.5 text-white" />}
-          </button>
-          <button onClick={() => window.dispatchEvent(new Event(GLOBAL_SEARCH_EVENT))} className="icon-glass-btn" title="بحث شامل (Ctrl+K)"><SearchIcon className="h-4 w-4 text-white" /></button>
-          <NotificationTopButton mobile />
-        </div>
+        <div className="flex items-center gap-2 min-w-0"><LogoMark compact /><div className="min-w-0"><span className="text-white font-bold text-sm truncate block">HELM Portal</span>{shouldShowBack && <span className="text-white/55 text-[11px] truncate block">{currentPageName}</span>}</div></div>
+        <div className="flex items-center gap-2"><button onClick={handleThemeToggle} className="icon-glass-btn" title={themeMeta.label}>{themeMeta.label.startsWith("تلقائي") ? <MonitorCog className="h-4.5 w-4.5 text-white" /> : resolvedTheme === "dark" ? <SunMedium className="h-4.5 w-4.5 text-white" /> : <MoonStar className="h-4.5 w-4.5 text-white" />}</button><button onClick={() => window.dispatchEvent(new Event(GLOBAL_SEARCH_EVENT))} className="icon-glass-btn" title="بحث شامل (Ctrl+K)"><SearchIcon className="h-4 w-4 text-white" /></button><NotificationTopButton mobile /></div>
       </header>
 
       {sidebarOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <div className="relative w-72 sidebar-shell h-full mr-auto shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10 overflow-hidden">
-                  {logoUrl ? <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1" /> : <img src="/icon-192.png" alt="HELM Portal" className="h-7 w-7 object-contain" onError={(e) => { e.currentTarget.style.display = 'none' }} />}
-                </div>
-                <span className="text-white font-bold text-sm truncate">HELM Portal</span>
-              </div>
-              <button onClick={() => setSidebarOpen(false)} className="icon-glass-btn">
-                <X className="h-5 w-5 text-white/80" />
-              </button>
-            </div>
-            <nav ref={mobileSidebarScrollRef} className="sidebar-scroll flex-1 min-h-0 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">
-              {navItems.map((item) => <NavLink key={item.page} item={item} mobile />)}
-            </nav>
+            <div className="flex items-center justify-between px-5 py-5 border-b border-white/10"><div className="flex items-center gap-2 min-w-0"><LogoMark compact /><span className="text-white font-bold text-sm truncate">HELM Portal</span></div><button onClick={() => setSidebarOpen(false)} className="icon-glass-btn"><X className="h-5 w-5 text-white/80" /></button></div>
+            <nav ref={mobileSidebarScrollRef} className="sidebar-scroll flex-1 min-h-0 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">{navItems.map((item) => <NavLink key={item.page} item={item} mobile />)}</nav>
             <SidebarFooter />
           </div>
         </div>
@@ -442,21 +310,12 @@ export default function Layout({ children, currentPageName }) {
       <main className="flex-1 md:mr-64 pt-[calc(4rem+env(safe-area-inset-top))] md:pt-0 min-h-screen md:h-screen relative z-[1] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-6 md:overflow-y-auto overflow-x-hidden">
         <div className="p-4 md:p-6 max-w-7xl mx-auto w-full page-enter">
           <DesktopTopPortalBar />
-          {shouldShowBack && (
-            <div className="mb-3 md:mb-4 flex">
-              <Button type="button" variant="outline" onClick={goBack} className="mobile-page-back-button gap-2">
-                <ArrowRight className="h-4 w-4" />
-                العودة
-              </Button>
-            </div>
-          )}
+          {shouldShowBack && <div className="mb-3 md:mb-4 flex"><Button type="button" variant="outline" onClick={goBack} className="mobile-page-back-button gap-2"><ArrowRight className="h-4 w-4" />العودة</Button></div>}
           {children}
         </div>
       </main>
 
-      <nav className="md:hidden mobile-bottom-tabs" aria-label="التنقل السفلي">
-        {mobileTabs.map((item) => <NavLink key={item.page} item={item} compact mobile />)}
-      </nav>
+      <nav className="md:hidden mobile-bottom-tabs" aria-label="التنقل السفلي">{mobileTabs.map((item) => <NavLink key={item.page} item={item} compact mobile />)}</nav>
     </div>
   )
 }

@@ -42,21 +42,24 @@ begin
     updated_date = timezone('utc', now())
   returning id into v_profile_id;
 
-  insert into public.brokers (email, full_name, phone, default_commission_percent, status, updated_date)
-  values (v_email, trim(p_full_name), p_phone, coalesce(p_default_commission_percent, 0), 'نشط', timezone('utc', now()))
-  on conflict (id) do update set id = excluded.id
-  returning id into v_broker_id;
+  select id into v_broker_id
+  from public.brokers
+  where lower(coalesce(email, '')) = v_email
+  limit 1;
 
-  -- If there is already a broker with the same email, update it instead of creating duplicates.
   if v_broker_id is null then
-    select id into v_broker_id from public.brokers where lower(email) = v_email limit 1;
+    select id into v_broker_id
+    from public.brokers
+    where full_name = trim(p_full_name)
+    order by created_date desc
+    limit 1;
   end if;
 
   if v_broker_id is null then
-    select id into v_broker_id from public.brokers where full_name = trim(p_full_name) limit 1;
-  end if;
-
-  if v_broker_id is not null then
+    insert into public.brokers (email, full_name, phone, default_commission_percent, status, updated_date)
+    values (v_email, trim(p_full_name), p_phone, coalesce(p_default_commission_percent, 0), 'نشط', timezone('utc', now()))
+    returning id into v_broker_id;
+  else
     update public.brokers
        set email = v_email,
            full_name = trim(p_full_name),

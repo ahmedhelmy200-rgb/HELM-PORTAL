@@ -38,6 +38,12 @@ const staffNavItems = [
   { label: "الإعدادات", page: "Settings", icon: Settings, fx: "nav-fx-spin-soft" },
 ]
 
+const brokerNavItems = [
+  { label: "قسم البروكر", page: "Brokers", icon: Handshake, fx: "nav-fx-pulse" },
+  { label: "الموكلون المرتبطون", page: "Clients", icon: Users, fx: "nav-fx-bob" },
+  { label: "القضايا المرتبطة", page: "Cases", icon: Briefcase, fx: "nav-fx-pulse" },
+]
+
 const clientNavItems = [
   { label: "لوحة العميل", page: "Dashboard", icon: LayoutDashboard, fx: "nav-fx-float" },
   { label: "القضايا", page: "Cases", icon: Briefcase, fx: "nav-fx-pulse" },
@@ -52,6 +58,11 @@ const mobileTabsForRole = {
     { label: "القضايا", page: "Cases", icon: Briefcase },
     { label: "الموكلون", page: "Clients", icon: Users },
     { label: "الاتصال", page: "Contacts", icon: Users },
+  ],
+  broker: [
+    { label: "البروكر", page: "Brokers", icon: Handshake },
+    { label: "الموكلون", page: "Clients", icon: Users },
+    { label: "القضايا", page: "Cases", icon: Briefcase },
   ],
   client: [
     { label: "الرئيسية", page: "Dashboard", icon: LayoutDashboard },
@@ -68,6 +79,18 @@ const EFFECT_KEY = 'helm_electric_intensity'
 function getStoredSound() {
   if (typeof window === 'undefined') return true
   return localStorage.getItem(SOUND_KEY) !== 'false'
+}
+
+function roleLabel(role) {
+  if (role === 'client') return 'بوابة الموكّل'
+  if (role === 'broker') return 'بوابة البروكر'
+  return 'الإدارة القانونية'
+}
+
+function roleSubtitle(role) {
+  if (role === 'client') return 'بوابة العميل الآمنة'
+  if (role === 'broker') return 'صلاحيات البروكر المحدودة'
+  return 'منصة الإدارة القانونية'
 }
 
 export default function Layout({ children, currentPageName }) {
@@ -88,8 +111,8 @@ export default function Layout({ children, currentPageName }) {
   const desktopSidebarScrollRef = useRef(null)
   const mobileSidebarScrollRef = useRef(null)
 
-  const navItems = useMemo(() => user?.role === 'client' ? clientNavItems : staffNavItems, [user?.role])
-  const mobileTabs = user?.role === 'client' ? mobileTabsForRole.client : mobileTabsForRole.staff
+  const navItems = useMemo(() => user?.role === 'client' ? clientNavItems : user?.role === 'broker' ? brokerNavItems : staffNavItems, [user?.role])
+  const mobileTabs = user?.role === 'client' ? mobileTabsForRole.client : user?.role === 'broker' ? mobileTabsForRole.broker : mobileTabsForRole.staff
   const resolvedTheme = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference
   const isPrimaryMobilePage = mobileTabs.some((item) => item.page === currentPageName)
   const shouldShowBack = !isPrimaryMobilePage
@@ -192,7 +215,7 @@ export default function Layout({ children, currentPageName }) {
   const goBack = () => {
     playUiTone("nav", soundEnabled)
     if (typeof window !== "undefined" && window.history.length > 1) navigate(-1)
-    else navigate(createPageUrl("Dashboard"))
+    else navigate(createPageUrl(user?.role === 'broker' ? "Brokers" : "Dashboard"))
   }
 
   const NavLink = ({ item, mobile = false, compact = false }) => {
@@ -253,7 +276,7 @@ export default function Layout({ children, currentPageName }) {
           <div className="user-panel-glass">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center ring-1 ring-white/10"><Landmark className="h-4 w-4 text-white" /></div>
-              <div className="min-w-0"><p className="text-white text-xs font-semibold truncate">{user.full_name || user.email}</p><p className="text-white/55 text-[11px] truncate">{user.role === 'client' ? 'بوابة الموكّل' : 'الإدارة القانونية'}</p></div>
+              <div className="min-w-0"><p className="text-white text-xs font-semibold truncate">{user.full_name || user.email}</p><p className="text-white/55 text-[11px] truncate">{roleLabel(user.role)}</p></div>
             </div>
             <button onClick={() => { playUiTone("nav", soundEnabled); base44.auth.logout(); }} className="logout-link"><LogOut className="h-3.5 w-3.5" /> تسجيل خروج</button>
           </div>
@@ -283,7 +306,7 @@ export default function Layout({ children, currentPageName }) {
       <div className="ambient-orb orb-one" /><div className="ambient-orb orb-two" /><div className="ambient-orb orb-three" />
 
       <aside className="hidden md:flex flex-col w-64 sidebar-shell h-screen fixed right-0 top-0 z-40" onWheelCapture={(event) => handleSidebarWheel(event, desktopSidebarScrollRef)}>
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/8"><LogoMark /><div className="min-w-0"><h1 className="text-white font-bold text-sm leading-tight truncate">HELM Portal</h1><p className="text-white/55 text-xs leading-tight">{user?.role === 'client' ? 'بوابة العميل الآمنة' : 'منصة الإدارة القانونية'}</p></div></div>
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/8"><LogoMark /><div className="min-w-0"><h1 className="text-white font-bold text-sm leading-tight truncate">HELM Portal</h1><p className="text-white/55 text-xs leading-tight">{roleSubtitle(user?.role)}</p></div></div>
         <nav ref={desktopSidebarScrollRef} className="sidebar-scroll flex-1 min-h-0 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">{navItems.map((item) => <NavLink key={item.page} item={item} />)}</nav>
         <SidebarFooter />
       </aside>

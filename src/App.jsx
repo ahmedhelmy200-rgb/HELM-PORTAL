@@ -22,6 +22,7 @@ const { Pages, Layout, mainPage } = pagesConfig
 const mainPageKey = mainPage ?? Object.keys(Pages)[0]
 const MainPage = mainPageKey ? Pages[mainPageKey] : () => null
 const CLIENT_ALLOWED_PAGES = new Set(['Dashboard', 'Cases', 'Invoices', 'Documents', 'Notifications', 'Profile'])
+const BROKER_ALLOWED_PAGES = new Set(['Brokers', 'Clients', 'Cases', 'Notifications', 'Profile'])
 const PENDING_CLIENT_ALLOWED_PAGES = new Set(['ClientOnboarding'])
 const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
 
@@ -50,7 +51,7 @@ function RealtimeBridge() { useEffect(() => { const stop = base44.realtime.subsc
 function OnboardingRoute() {
   const { user, isAuthenticated } = useAuth()
   if (!isAuthenticated) return <Navigate to="/" replace />
-  if (STAFF_ROLES.has(user?.role)) return <Navigate to={createPageUrl('Dashboard')} replace />
+  if (STAFF_ROLES.has(user?.role) || user?.role === 'broker') return <Navigate to={createPageUrl(user?.role === 'broker' ? 'Brokers' : 'Dashboard')} replace />
   if (user?.role === 'client') return <Navigate to={createPageUrl('Dashboard')} replace />
   return <ClientOnboarding />
 }
@@ -73,9 +74,11 @@ const AuthenticatedApp = () => {
   if (isLoadingPublicSettings || isLoadingAuth) return <PageFallback />
   if (!isAuthenticated || !user) return <PublicRoutes />
 
+  const fallbackPage = user?.role === 'broker' ? 'Brokers' : 'Dashboard'
   const renderPage = (path, Page) => {
     if (user?.role === 'pending_client' && !PENDING_CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('ClientOnboarding')} replace />
     if (user?.role === 'client' && !CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Dashboard')} replace />
+    if (user?.role === 'broker' && !BROKER_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Brokers')} replace />
     return <LayoutWrapper currentPageName={path}><Suspense fallback={<PageFallback />}><Page /></Suspense></LayoutWrapper>
   }
 
@@ -83,7 +86,7 @@ const AuthenticatedApp = () => {
     <>
       <RealtimeBridge />
       <Routes>
-        <Route path="/" element={user?.role === 'pending_client' ? <Navigate to={createPageUrl('ClientOnboarding')} replace /> : renderPage(mainPageKey, MainPage)} />
+        <Route path="/" element={user?.role === 'pending_client' ? <Navigate to={createPageUrl('ClientOnboarding')} replace /> : renderPage(fallbackPage, Pages[fallbackPage] || MainPage)} />
         <Route path={createPageUrl('ClientOnboarding')} element={<OnboardingRoute />} />
         <Route path="/Payment" element={<Payment />} />
         <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />

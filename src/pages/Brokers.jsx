@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/integrations/supabase/client'
 import { base44 } from '@/api/base44Client'
+import { supabase } from '@/integrations/supabase/client'
+import { useAuth } from '@/lib/AuthContext'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +20,7 @@ import { brokerSummaryForCase, calcBrokerCommission } from '@/lib/brokerUtils'
 
 const emptyForm = { full_name: '', phone: '', email: '', default_commission_percent: '', status: 'نشط', notes: '' }
 const STATUSES = ['نشط', 'موقوف', 'غير نشط']
+const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
 
 function isMissingTable(error) {
   const msg = String(error?.message || error || '').toLowerCase()
@@ -27,6 +29,9 @@ function isMissingTable(error) {
 function numberOrZero(value) { const n = Number(value); return Number.isFinite(n) ? n : 0 }
 
 export default function Brokers() {
+  const { user } = useAuth()
+  const isStaff = STAFF_ROLES.has(user?.role)
+  const isBroker = user?.role === 'broker'
   const [brokers, setBrokers] = useState([])
   const [clients, setClients] = useState([])
   const [cases, setCases] = useState([])
@@ -41,13 +46,12 @@ export default function Brokers() {
   const loadData = useCallback(async () => {
     setLoading(true); setLoadError('')
     try {
-      const [{ data, error }, clientRows, caseRows] = await Promise.all([
-        supabase.from('brokers').select('*').order('full_name', { ascending: true }),
+      const [brokerRows, clientRows, caseRows] = await Promise.all([
+        base44.entities.Broker.list('full_name', 1000),
         base44.entities.Client.list('-created_date', 1000).catch(() => []),
         base44.entities.Case.list('-created_date', 1000).catch(() => []),
       ])
-      if (error) throw error
-      setBrokers(data || [])
+      setBrokers(brokerRows || [])
       setClients(clientRows || [])
       setCases(caseRows || [])
     } catch (error) {
@@ -89,10 +93,11 @@ export default function Brokers() {
     }
   }, [brokers.length, statsByName])
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setShowDialog(true) }
-  const openEdit = (item) => { setEditing(item); setForm({ ...emptyForm, ...item, default_commission_percent: item.default_commission_percent ?? '' }); setShowDialog(true) }
+  const openCreate = () => { if (!isStaff) return; setEditing(null); setForm(emptyForm); setShowDialog(true) }
+  const openEdit = (item) => { if (!isStaff) return; setEditing(item); setForm({ ...emptyForm, ...item, default_commission_percent: item.default_commission_percent ?? '' }); setShowDialog(true) }
 
   const handleSave = async () => {
+    if (!isStaff) return
     setSaving(true)
     try {
       const payload = {
@@ -112,6 +117,7 @@ export default function Brokers() {
   }
 
   const handleDelete = async (item) => {
+    if (!isStaff) return
     if (!confirm(`حذف البروكر: ${item.full_name}؟ لن يتم حذف القضايا أو الموكلين المرتبطين، لكن الأفضل تعديلهم بعد الحذف.`)) return
     const { error } = await supabase.from('brokers').delete().eq('id', item.id)
     if (error) alert(error.message)
@@ -120,10 +126,14 @@ export default function Brokers() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="البروكر" subtitle="مصدر الموكل أو القضية ونسبة الأتعاب" action={<Button onClick={openCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4" />إضافة بروكر</Button>} />
+      <PageHeader
+        title={isBroker ? 'قسم البروكر' : 'البروكر'}
+        subtitle={isBroker ? 'الموكلون والقضايا المرتبطة بك فقط' : 'مصدر الموكل أو القضية ونسبة الأتعاب'}
+        action={isStaff ? <Button onClick={openCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4" />إضافة بروكر</Button> : undefined}
+      />
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="إجمالي البروكر" value={totals.brokers} icon={Handshake} color="primary" />
+        <StatCard title={isBroker ? 'سجل البروكر' : 'إجمالي البروكر'} value={totals.brokers} icon={Handshake} color="primary" />
         <StatCard title="موكلون مرتبطون" value={totals.clients} icon={Users} color="success" />
         <StatCard title="قضايا مرتبطة" value={totals.cases} icon={Briefcase} color="warning" />
         <StatCard title="مستحق تقديري" value={`${totals.commission.toFixed(2)} د.إ`} icon={Wallet} color="accent" />
@@ -141,7 +151,7 @@ export default function Brokers() {
       ) : loadError ? (
         <PageErrorState message={loadError} onRetry={loadData} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Handshake} title="لا يوجد بروكر" description="أضف الأشخاص أو الجهات التي تجلب الموكلين والقضايا." action={<Button onClick={openCreate}>إضافة بروكر</Button>} />
+        <EmptyState icon={Handshake} title="لا يوجد بروكر مرتبط بهذا الحساب" description="تأكد أن بريد البروكر في جدول brokers مطابق لبريد تسجيل الدخول، وأن دور المستخدم broker." action={isStaff ? <Button onClick={openCreate}>إضافة بروكر</Button> : undefined} />
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
           {filtered.map((broker) => {
@@ -166,10 +176,10 @@ export default function Brokers() {
                     </div>
                     {broker.notes && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{broker.notes}</p>}
                   </div>
-                  <div className="flex gap-1 shrink-0">
+                  {isStaff && <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(broker)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(broker)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </div>
+                  </div>}
                 </div>
               </Card>
             )

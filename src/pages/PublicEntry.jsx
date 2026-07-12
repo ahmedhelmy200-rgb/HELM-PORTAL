@@ -29,6 +29,9 @@ import {
   Users,
 } from 'lucide-react'
 
+const NAV_LINK = 'rounded-2xl border border-transparent px-4 py-2 text-sm font-black text-slate-700 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400'
+const PRIMARY_NAV = 'rounded-2xl bg-blue-900 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400'
+
 function AuthErrorCard({ error, onRetry }) {
   const isSetup = error?.type === 'oauth_error' || error?.type === 'network_error'
   const isNoReg = error?.type === 'user_not_registered'
@@ -51,23 +54,24 @@ function AuthErrorCard({ error, onRetry }) {
 }
 
 function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setShowPassword, authError, notice, emailLoading, isLoadingAuth, googleLoading, onSubmit, onReset, onGoogle, checkAppState }) {
+  const tabClass = (mode) => `h-11 rounded-xl border text-sm font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${authMode === mode ? 'border-amber-400 bg-amber-300 text-slate-950 shadow-sm' : 'border-transparent bg-white text-slate-700 hover:border-slate-200 hover:bg-slate-50'}`
   return (
     <aside id="login" className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-900/12 md:p-6">
-      <div className="mb-5 rounded-3xl bg-slate-950 p-5 text-white">
+      <div className="mb-5 rounded-3xl bg-blue-900 p-5 text-white">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-300 text-slate-950">
             <LogIn className="h-5 w-5" />
           </div>
           <div>
             <h2 className="text-xl font-black">دخول البوابة</h2>
-            <p className="mt-1 text-sm font-bold text-slate-300">للمكتب، الموكلين، الموظفين، والبروكر</p>
+            <p className="mt-1 text-sm font-bold text-blue-100">للمكتب، الموكلين، الموظفين، والبروكر</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
-        <button type="button" onClick={() => setAuthMode('login')} className={`h-11 rounded-xl text-sm font-black transition ${authMode === 'login' ? 'bg-slate-950 text-white shadow' : 'text-slate-700 hover:bg-white'}`}>تسجيل دخول</button>
-        <button type="button" onClick={() => setAuthMode('signup')} className={`h-11 rounded-xl text-sm font-black transition ${authMode === 'signup' ? 'bg-slate-950 text-white shadow' : 'text-slate-700 hover:bg-white'}`}>إنشاء حساب</button>
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+        <button type="button" onClick={() => setAuthMode('login')} className={tabClass('login')}>تسجيل دخول</button>
+        <button type="button" onClick={() => setAuthMode('signup')} className={tabClass('signup')}>إنشاء حساب</button>
       </div>
 
       <div className="mt-5 space-y-4">
@@ -80,7 +84,7 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
               <span className="mb-1.5 block text-sm font-black text-slate-800">الاسم الكامل</span>
               <div className="relative">
                 <UserPlus className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                <input value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} className="h-12 w-full rounded-2xl border border-slate-300 bg-white pr-11 pl-4 text-sm font-bold text-slate-950 outline-none focus:border-slate-950" placeholder="الاسم كما يظهر داخل النظام" />
+                <input value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} className="h-12 w-full rounded-2xl border border-slate-300 bg-white pr-11 pl-4 text-sm font-bold text-slate-950 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" placeholder="الاسم كما يظهر داخل النظام" />
               </div>
             </label>
           )}
@@ -89,7 +93,7 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
             <span className="mb-1.5 block text-sm font-black text-slate-800">البريد الإلكتروني</span>
             <div className="relative">
               <Mail className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-              <input type="email" required autoComplete="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} className="h-12 w-full rounded-2xl border border-slate-300 bg-white pr-11 pl-4 text-sm font-bold text-slate-950 outline-none focus:border-slate-950" placeholder="name@example.com" />
+              <input type="email" required autoComplete="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} className="h-12 w-full rounded-2xl border border-slate-300 bg-white pr-11 pl-4 text-sm font-bold text-slate-950 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" placeholder="name@example.com" />
             </div>
           </label>
 
@@ -97,7 +101,7 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
             <span className="mb-1.5 block text-sm font-black text-slate-800">كلمة المرور</span>
             <div className="relative">
               <Lock className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-              <input type={showPassword ? 'text' : 'password'} required autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} className="h-12 w-full rounded-2xl border border-slate-300 bg-white pr-11 pl-11 text-sm font-bold text-slate-950 outline-none focus:border-slate-950" placeholder="••••••••" />
+              <input type={showPassword ? 'text' : 'password'} required autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} value={form.password} onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))} className="h-12 w-full rounded-2xl border border-slate-300 bg-white pr-11 pl-11 text-sm font-bold text-slate-950 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" placeholder="••••••••" />
               <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-950">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -110,7 +114,7 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
           </button>
         </form>
 
-        <button type="button" onClick={onReset} disabled={emailLoading || !form.email} className="text-sm font-black text-slate-700 underline underline-offset-4 hover:text-slate-950 disabled:opacity-40">
+        <button type="button" onClick={onReset} disabled={emailLoading || !form.email} className="text-sm font-black text-blue-900 underline underline-offset-4 hover:text-blue-700 disabled:opacity-40">
           نسيت كلمة المرور؟ أدخل البريد ثم اضغط هنا.
         </button>
 
@@ -118,9 +122,9 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
           <span className="h-px flex-1 bg-slate-200" /> أو <span className="h-px flex-1 bg-slate-200" />
         </div>
 
-        <button onClick={onGoogle} disabled={googleLoading || isLoadingAuth} className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white text-sm font-black text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
-          {(googleLoading || isLoadingAuth) ? <div className="h-5 w-5 rounded-full border-2 border-slate-300 border-t-slate-950 animate-spin" /> : <>
-            <ShieldCheck className="h-5 w-5" /> تسجيل الدخول عبر Google <ChevronLeft className="h-4 w-4" />
+        <button onClick={onGoogle} disabled={googleLoading || isLoadingAuth} className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white text-sm font-black text-slate-900 transition hover:border-blue-900 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60">
+          {(googleLoading || isLoadingAuth) ? <div className="h-5 w-5 rounded-full border-2 border-slate-300 border-t-blue-900 animate-spin" /> : <>
+            <ShieldCheck className="h-5 w-5 text-blue-900" /> تسجيل الدخول عبر Google <ChevronLeft className="h-4 w-4" />
           </>}
         </button>
       </div>
@@ -131,7 +135,7 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
 function ServiceCard({ icon: Icon, title, desc }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-900 text-white">
         <Icon className="h-5 w-5" />
       </div>
       <h3 className="text-base font-black text-slate-950">{title}</h3>
@@ -144,7 +148,7 @@ function RoleCard({ icon: Icon, title, desc }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm"><Icon className="h-5 w-5" /></div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-900 shadow-sm"><Icon className="h-5 w-5" /></div>
         <h3 className="text-base font-black text-slate-950">{title}</h3>
       </div>
       <p className="mt-3 text-sm font-medium leading-7 text-slate-700">{desc}</p>
@@ -200,15 +204,15 @@ export default function PublicEntry() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="bg-slate-950 text-white">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-8">
-          <OfficeBrandMark logoUrl={officeLogo} officeName={officeName} subtitle="بوابة المكتب والموكلين" compact />
+          <OfficeBrandMark logoUrl={officeLogo} officeName={officeName} subtitle="بوابة المكتب والموكلين" compact tone="dark" />
           <nav className="hidden items-center gap-2 md:flex">
-            <a href="#services" className="rounded-xl px-4 py-2 text-sm font-black text-white hover:bg-white/10">الخدمات</a>
-            <a href="#library" className="rounded-xl px-4 py-2 text-sm font-black text-white hover:bg-white/10">المكتبة القانونية</a>
-            <a href="#login" className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-black text-slate-950">دخول البوابة</a>
+            <a href="#services" className={NAV_LINK}>الخدمات</a>
+            <a href="#library" className={NAV_LINK}>المكتبة القانونية</a>
+            <a href="#login" className={PRIMARY_NAV}>دخول البوابة</a>
           </nav>
-          <a href="#login" className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-black text-slate-950 md:hidden">دخول</a>
+          <a href="#login" className="rounded-2xl bg-blue-900 px-4 py-2 text-sm font-black text-white shadow-sm md:hidden">دخول</a>
         </div>
       </header>
 
@@ -227,8 +231,8 @@ export default function PublicEntry() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <a href="#login" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 text-sm font-black text-white shadow-lg shadow-slate-900/20">دخول المكتب والموكلين <ChevronLeft className="h-4 w-4" /></a>
-                <Link to="/PublicLegalLibrary" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 text-sm font-black text-slate-950">تصفح المكتبة القانونية <ArrowLeft className="h-4 w-4" /></Link>
+                <a href="#login" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-900 px-6 text-sm font-black text-white shadow-lg shadow-blue-900/20 hover:bg-blue-800">دخول المكتب والموكلين <ChevronLeft className="h-4 w-4" /></a>
+                <Link to="/PublicLegalLibrary" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 text-sm font-black text-slate-950 hover:border-blue-900 hover:bg-blue-50">تصفح المكتبة القانونية <ArrowLeft className="h-4 w-4" /></Link>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -274,22 +278,22 @@ export default function PublicEntry() {
           </div>
         </section>
 
-        <section id="library" className="bg-slate-950 py-10 text-white">
+        <section id="library" className="bg-blue-950 py-10 text-white">
           <div className="mx-auto max-w-7xl px-4 md:px-8">
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-sm font-black text-amber-300">المكتبة القانونية العامة</p>
                 <h2 className="mt-2 text-3xl font-black">محتوى واضح قبل فتح الملف</h2>
-                <p className="mt-3 max-w-3xl text-base font-medium leading-8 text-slate-300">المكتبة تساعد الزائر على فهم نوع النزاع والمستندات المطلوبة دون فتح أي بيانات خاصة.</p>
+                <p className="mt-3 max-w-3xl text-base font-medium leading-8 text-blue-100">المكتبة تساعد الزائر على فهم نوع النزاع والمستندات المطلوبة دون فتح أي بيانات خاصة.</p>
               </div>
               <Link to="/PublicLegalLibrary" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-sm font-black text-slate-950"><Search className="h-4 w-4" /> فتح المكتبة بالكامل</Link>
             </div>
             <div className="grid gap-4 md:grid-cols-4">
               {legalPreview.map((item) => (
-                <Link key={item.id} to="/PublicLegalLibrary" className="rounded-3xl border border-slate-700 bg-slate-900 p-5 transition hover:border-amber-300">
+                <Link key={item.id} to="/PublicLegalLibrary" className="rounded-3xl border border-blue-800 bg-blue-900 p-5 transition hover:border-amber-300">
                   <span className="inline-flex rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-slate-950">{item.category}</span>
                   <h3 className="mt-4 text-base font-black leading-7 text-white">{item.title}</h3>
-                  <p className="mt-2 line-clamp-3 text-sm font-medium leading-7 text-slate-300">{item.summary}</p>
+                  <p className="mt-2 line-clamp-3 text-sm font-medium leading-7 text-blue-100">{item.summary}</p>
                 </Link>
               ))}
             </div>

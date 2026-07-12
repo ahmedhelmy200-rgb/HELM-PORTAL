@@ -114,7 +114,7 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
           </button>
         </form>
 
-        <button type="button" onClick={onReset} disabled={emailLoading || !form.email} className="text-sm font-black text-blue-900 underline underline-offset-4 hover:text-blue-700 disabled:opacity-40">
+        <button type="button" onClick={onReset} disabled={emailLoading || !form.email} className="text-sm font-black text-slate-700 underline underline-offset-4 hover:text-slate-950 disabled:opacity-40">
           نسيت كلمة المرور؟ أدخل البريد ثم اضغط هنا.
         </button>
 
@@ -122,9 +122,9 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
           <span className="h-px flex-1 bg-slate-200" /> أو <span className="h-px flex-1 bg-slate-200" />
         </div>
 
-        <button onClick={onGoogle} disabled={googleLoading || isLoadingAuth} className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white text-sm font-black text-slate-900 transition hover:border-blue-900 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60">
-          {(googleLoading || isLoadingAuth) ? <div className="h-5 w-5 rounded-full border-2 border-slate-300 border-t-blue-900 animate-spin" /> : <>
-            <ShieldCheck className="h-5 w-5 text-blue-900" /> تسجيل الدخول عبر Google <ChevronLeft className="h-4 w-4" />
+        <button onClick={onGoogle} disabled={googleLoading || isLoadingAuth} className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white text-sm font-black text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+          {(googleLoading || isLoadingAuth) ? <div className="h-5 w-5 rounded-full border-2 border-slate-300 border-t-slate-950 animate-spin" /> : <>
+            <ShieldCheck className="h-5 w-5" /> تسجيل الدخول عبر Google <ChevronLeft className="h-4 w-4" />
           </>}
         </button>
       </div>
@@ -135,7 +135,7 @@ function LoginPanel({ authMode, setAuthMode, form, setForm, showPassword, setSho
 function ServiceCard({ icon: Icon, title, desc }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-900 text-white">
+      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
         <Icon className="h-5 w-5" />
       </div>
       <h3 className="text-base font-black text-slate-950">{title}</h3>
@@ -148,10 +148,29 @@ function RoleCard({ icon: Icon, title, desc }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-900 shadow-sm"><Icon className="h-5 w-5" /></div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-950 shadow-sm"><Icon className="h-5 w-5" /></div>
         <h3 className="text-base font-black text-slate-950">{title}</h3>
       </div>
       <p className="mt-3 text-sm font-medium leading-7 text-slate-700">{desc}</p>
+    </div>
+  )
+}
+
+function ProfessionalIntroCard({ officeName }) {
+  return (
+    <div className="space-y-7">
+      <div className="inline-flex rounded-full bg-amber-100 px-4 py-2 text-sm font-black text-slate-950">منصة قانونية رقمية لإدارة ملفات الموكلين</div>
+      <div className="space-y-4">
+        <h1 className="max-w-4xl text-4xl font-black leading-tight text-slate-950 md:text-6xl">
+          {officeName}
+        </h1>
+        <p className="max-w-3xl text-lg font-medium leading-9 text-slate-700">
+          منصة مهنية لتنظيم ملفات الموكلين، متابعة القضايا، أرشفة المستندات، وإدارة التواصل القانوني بين المكتب والموكلين ضمن صلاحيات واضحة تحفظ سرية البيانات وتمنع تداخل الملفات.
+        </p>
+        <p className="max-w-3xl rounded-3xl border border-slate-200 bg-slate-50 p-5 text-base font-bold leading-8 text-slate-800">
+          تهدف البوابة إلى تقديم تجربة متابعة قانونية أكثر انضباطًا: ملف لكل موكل، قضية لكل إجراء، ومستندات ومواعيد وملاحظات محفوظة في مكان واحد، مع فصل كامل بين صلاحيات الإدارة والموكل والبروكر والحسابات المالية.
+        </p>
+      </div>
     </div>
   )
 }
@@ -220,19 +239,11 @@ export default function PublicEntry() {
         <section className="bg-white">
           <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:px-8 lg:grid-cols-[1fr,430px] lg:py-14">
             <div className="space-y-7">
-              <div className="inline-flex rounded-full bg-amber-100 px-4 py-2 text-sm font-black text-slate-950">بوابة قانونية واضحة للمكتب والموكلين</div>
-              <div className="space-y-4">
-                <h1 className="max-w-4xl text-4xl font-black leading-tight text-slate-950 md:text-6xl">
-                  مكتب قانوني منظم. ملف موكل واضح. متابعة بلا فوضى.
-                </h1>
-                <p className="max-w-3xl text-lg font-medium leading-9 text-slate-700">
-                  {officeName} يقدّم بوابة موحدة لإدارة القضايا والمستندات والجلسات والتواصل. كل مستخدم يرى ما يخصه فقط: الإدارة ترى النظام، الموكل يرى ملفه، والبروكر يرى الملفات المرتبطة به دون حسابات مالية.
-                </p>
-              </div>
+              <ProfessionalIntroCard officeName={officeName} />
 
               <div className="flex flex-wrap gap-3">
-                <a href="#login" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-900 px-6 text-sm font-black text-white shadow-lg shadow-blue-900/20 hover:bg-blue-800">دخول المكتب والموكلين <ChevronLeft className="h-4 w-4" /></a>
-                <Link to="/PublicLegalLibrary" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 text-sm font-black text-slate-950 hover:border-blue-900 hover:bg-blue-50">تصفح المكتبة القانونية <ArrowLeft className="h-4 w-4" /></Link>
+                <a href="#login" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-900 px-6 text-sm font-black text-white shadow-lg shadow-slate-900/20 hover:bg-blue-800">دخول المكتب والموكلين <ChevronLeft className="h-4 w-4" /></a>
+                <Link to="/PublicLegalLibrary" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 text-sm font-black text-slate-950 hover:border-blue-900">تصفح المكتبة القانونية <ArrowLeft className="h-4 w-4" /></Link>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -265,7 +276,7 @@ export default function PublicEntry() {
         <section id="services" className="mx-auto max-w-7xl px-4 py-10 md:px-8">
           <div className="mb-6 max-w-3xl">
             <p className="text-sm font-black text-amber-700">خدمات المكتب داخل البوابة</p>
-            <h2 className="mt-2 text-3xl font-black text-slate-950">واجهة عملية بدل الكلام العام</h2>
+            <h2 className="mt-2 text-3xl font-black text-slate-950">واجهة عملية لتنظيم العمل القانوني</h2>
             <p className="mt-3 text-base font-medium leading-8 text-slate-700">كل خدمة داخل البوابة لها مكان واضح: موكل، قضية، مستند، جلسة، مهمة، تواصل، وصلاحية.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -278,22 +289,22 @@ export default function PublicEntry() {
           </div>
         </section>
 
-        <section id="library" className="bg-blue-950 py-10 text-white">
+        <section id="library" className="bg-slate-950 py-10 text-white">
           <div className="mx-auto max-w-7xl px-4 md:px-8">
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-sm font-black text-amber-300">المكتبة القانونية العامة</p>
-                <h2 className="mt-2 text-3xl font-black">محتوى واضح قبل فتح الملف</h2>
-                <p className="mt-3 max-w-3xl text-base font-medium leading-8 text-blue-100">المكتبة تساعد الزائر على فهم نوع النزاع والمستندات المطلوبة دون فتح أي بيانات خاصة.</p>
+                <h2 className="mt-2 text-3xl font-black">محتوى قانوني تعريفي قبل فتح الملف</h2>
+                <p className="mt-3 max-w-3xl text-base font-medium leading-8 text-slate-300">المكتبة تساعد الزائر على فهم نوع النزاع والمستندات المطلوبة دون فتح أي بيانات خاصة.</p>
               </div>
               <Link to="/PublicLegalLibrary" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-sm font-black text-slate-950"><Search className="h-4 w-4" /> فتح المكتبة بالكامل</Link>
             </div>
             <div className="grid gap-4 md:grid-cols-4">
               {legalPreview.map((item) => (
-                <Link key={item.id} to="/PublicLegalLibrary" className="rounded-3xl border border-blue-800 bg-blue-900 p-5 transition hover:border-amber-300">
+                <Link key={item.id} to="/PublicLegalLibrary" className="rounded-3xl border border-slate-700 bg-slate-900 p-5 transition hover:border-amber-300">
                   <span className="inline-flex rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-slate-950">{item.category}</span>
                   <h3 className="mt-4 text-base font-black leading-7 text-white">{item.title}</h3>
-                  <p className="mt-2 line-clamp-3 text-sm font-medium leading-7 text-blue-100">{item.summary}</p>
+                  <p className="mt-2 line-clamp-3 text-sm font-medium leading-7 text-slate-300">{item.summary}</p>
                 </Link>
               ))}
             </div>

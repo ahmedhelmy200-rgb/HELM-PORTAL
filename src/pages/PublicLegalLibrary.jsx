@@ -10,13 +10,13 @@ const CATEGORY_ICONS = [BookOpen, Gavel, FileText, Landmark, FolderArchive, Shie
 function LibraryCard({ item, index }) {
   const Icon = CATEGORY_ICONS[index % CATEGORY_ICONS.length]
   return (
-    <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-slate-950 hover:shadow-xl">
+    <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-blue-900 hover:shadow-xl">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-slate-950">{item.category}</span>
           <h2 className="mt-3 text-xl font-black leading-8 text-slate-950">{item.title}</h2>
         </div>
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-900 text-white">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -36,7 +36,7 @@ function LibraryCard({ item, index }) {
 function StatBox({ label, value, icon: Icon }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-      <Icon className="mx-auto h-6 w-6 text-slate-950" />
+      <Icon className="mx-auto h-6 w-6 text-blue-900" />
       <p className="mt-3 text-2xl font-black text-slate-950">{value}</p>
       <p className="mt-1 text-sm font-black text-slate-600">{label}</p>
     </div>
@@ -62,14 +62,14 @@ export default function PublicLegalLibrary() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-100 text-slate-950">
-      <header className="bg-slate-950 text-white">
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-8">
-          <OfficeBrandMark logoUrl={officeLogo} officeName={officeName} subtitle="المكتبة القانونية العامة" compact />
+          <OfficeBrandMark logoUrl={officeLogo} officeName={officeName} subtitle="المكتبة القانونية العامة" compact tone="dark" />
           <div className="flex items-center gap-2">
-            <Link to="/" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/20 px-4 text-sm font-black text-white hover:bg-white/10">
+            <Link to="/" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-900 hover:bg-blue-50">
               <ArrowRight className="h-4 w-4" /> العودة للدخول
             </Link>
-            <Link to="/" className="hidden h-11 items-center gap-2 rounded-2xl bg-amber-300 px-4 text-sm font-black text-slate-950 sm:inline-flex">
+            <Link to="/" className="hidden h-11 items-center gap-2 rounded-2xl bg-blue-900 px-4 text-sm font-black text-white sm:inline-flex">
               <LogIn className="h-4 w-4" /> دخول البوابة
             </Link>
           </div>
@@ -107,7 +107,7 @@ export default function PublicLegalLibrary() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="ابحث: إيجارات، عمالي، تنفيذ، استئناف، عقود، أدلة..."
-                className="h-13 w-full rounded-2xl border border-slate-300 bg-white py-3 pr-12 pl-4 text-base font-bold text-slate-950 outline-none placeholder:text-slate-400 focus:border-slate-950"
+                className="h-12 w-full rounded-2xl border border-slate-300 bg-white py-3 pr-12 pl-4 text-base font-bold text-slate-950 outline-none placeholder:text-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
               />
             </div>
             <div className="flex max-w-full gap-2 overflow-x-auto pb-1 lg:max-w-[54%] lg:pb-0">
@@ -116,7 +116,7 @@ export default function PublicLegalLibrary() {
                   key={cat}
                   type="button"
                   onClick={() => setCategory(cat)}
-                  className={`h-12 whitespace-nowrap rounded-2xl border px-4 text-sm font-black transition ${category === cat ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-950'}`}
+                  className={`h-12 whitespace-nowrap rounded-2xl border px-4 text-sm font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${category === cat ? 'border-amber-400 bg-amber-300 text-slate-950 shadow-sm' : 'border-slate-300 bg-white text-slate-700 hover:border-blue-900 hover:bg-blue-50 hover:text-slate-950'}`}
                 >
                   {cat}
                 </button>
@@ -136,11 +136,11 @@ export default function PublicLegalLibrary() {
           )}
         </section>
 
-        <section className="mt-8 rounded-[28px] bg-slate-950 p-6 text-white md:p-7">
+        <section className="mt-8 rounded-[28px] bg-blue-950 p-6 text-white md:p-7">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-black">هل تريد متابعة ملفك داخل البوابة؟</h2>
-              <p className="mt-2 max-w-3xl text-base font-medium leading-8 text-slate-300">المكتبة للتوعية العامة فقط. فتح ملف فعلي يحتاج تسجيل دخول وصلاحية من المكتب حتى تحفظ بياناتك ومرفقاتك داخل بوابة آمنة.</p>
+              <p className="mt-2 max-w-3xl text-base font-medium leading-8 text-blue-100">المكتبة للتوعية العامة فقط. فتح ملف فعلي يحتاج تسجيل دخول وصلاحية من المكتب حتى تحفظ بياناتك ومرفقاتك داخل بوابة آمنة.</p>
             </div>
             <Link to="/" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-sm font-black text-slate-950">
               <LogIn className="h-4 w-4" /> دخول أو إنشاء حساب

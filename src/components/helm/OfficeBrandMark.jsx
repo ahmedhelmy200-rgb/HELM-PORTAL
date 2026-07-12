@@ -16,11 +16,13 @@ export default function OfficeBrandMark({
   compact = false,
   className = '',
   textClassName = '',
+  tone = 'light',
 }) {
   const sources = [logoUrl, ...FALLBACK_LOGOS].filter(Boolean)
   const [index, setIndex] = useState(0)
   const [failed, setFailed] = useState(false)
   const src = sources[index]
+  const isDarkText = tone === 'dark'
 
   const handleError = () => {
     if (index < sources.length - 1) setIndex(index + 1)
@@ -40,8 +42,8 @@ export default function OfficeBrandMark({
         )}
       </div>
       <div className={`text-right min-w-0 ${textClassName}`}>
-        <p className={`${compact ? 'text-sm' : 'text-base'} font-black leading-tight text-white truncate`}>{officeName || appParams.appName || 'HELM Portal'}</p>
-        <p className="mt-1 text-[11px] font-bold text-blue-200/65 truncate">{subtitle}</p>
+        <p className={`${compact ? 'text-sm' : 'text-base'} font-black leading-tight ${isDarkText ? 'text-slate-950' : 'text-white'} truncate`}>{officeName || appParams.appName || 'HELM Portal'}</p>
+        <p className={`mt-1 text-[11px] font-bold truncate ${isDarkText ? 'text-slate-600' : 'text-blue-200/65'}`}>{subtitle}</p>
       </div>
     </div>
   )

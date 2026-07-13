@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import PageNotFound from './lib/PageNotFound'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
@@ -17,6 +17,10 @@ import AppStatusBar from '@/components/app/AppStatusBar'
 import KeyboardShortcutsModal from '@/components/app/KeyboardShortcutsModal'
 import SupabaseConfigGate from '@/components/app/SupabaseConfigGate'
 import { base44 } from '@/api/base44Client'
+
+const isElectronFileBuild = typeof window !== 'undefined' && window.location.protocol === 'file:'
+const Router = isElectronFileBuild ? HashRouter : BrowserRouter
+const publicAsset = (assetPath) => `${import.meta.env.BASE_URL}${String(assetPath).replace(/^\//, '')}`
 
 const { Pages, Layout, mainPage } = pagesConfig
 const mainPageKey = mainPage ?? Object.keys(Pages)[0]
@@ -32,7 +36,7 @@ const PageFallback = () => (
       <div className="relative mx-auto h-20 w-20">
         <div className="absolute inset-0 rounded-3xl bg-white/5 border border-blue-400/25 shadow-2xl shadow-blue-500/20"/>
         <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-blue-600/90 to-slate-950 flex items-center justify-center overflow-hidden">
-          <img src="/icon-192.png" alt="HELM Portal" className="h-12 w-12 rounded-xl object-contain drop-shadow-lg" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+          <img src={publicAsset('icon-192.png')} alt="HELM Portal" className="h-12 w-12 rounded-xl object-contain drop-shadow-lg" onError={(e) => { e.currentTarget.style.display = 'none' }} />
         </div>
         <div className="absolute inset-0 rounded-3xl border border-blue-400/30 animate-ping"/>
       </div>

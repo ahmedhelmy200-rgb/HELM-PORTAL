@@ -72,7 +72,6 @@ export function buildClientDuplicateGroups(records = []) {
     if (identity.idNumber) keys.push(`id:${identity.idNumber}`)
     if (identity.email) keys.push(`email:${identity.email}`)
     if (identity.phone) keys.push(`phone:${identity.phone}`)
-    if (identity.name && (identity.email || identity.phone || identity.idNumber)) keys.push(`name:${identity.name}`)
     keys.forEach((key) => {
       if (!links.has(key)) links.set(key, [])
       links.get(key).push(record)

@@ -16,6 +16,7 @@ import { createPageUrl } from '@/utils'
 import ErrorBoundary from '@/components/app/ErrorBoundary'
 import AppStatusBar from '@/components/app/AppStatusBar'
 import KeyboardShortcutsModal from '@/components/app/KeyboardShortcutsModal'
+import MobilePriorityDock from '@/components/app/MobilePriorityDock'
 import SupabaseConfigGate from '@/components/app/SupabaseConfigGate'
 import { base44 } from '@/api/base44Client'
 
@@ -97,6 +98,7 @@ const AuthenticatedApp = () => {
         {Object.entries(Pages).map(([path, Page]) => <Route key={path} path={`/${path}`} element={renderPage(path, Page)} />)}
         <Route path="*" element={<PageNotFound />} />
       </Routes>
+      <MobilePriorityDock />
     </>
   )
 }

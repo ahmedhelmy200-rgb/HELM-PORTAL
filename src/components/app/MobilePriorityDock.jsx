@@ -39,7 +39,7 @@ export default function MobilePriorityDock() {
           .mobile-bottom-tabs { display: none !important; }
         }
       `}</style>
-      <nav dir="rtl" aria-label="القائمة الرئيسية للموبايل" className="fixed inset-x-0 bottom-0 z-[70] border-t border-slate-200 bg-white/98 px-2 pb-[calc(.45rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-12px_35px_rgba(15,23,42,.14)] backdrop-blur md:hidden">
+      <nav dir="rtl" aria-label="القائمة الرئيسية للموبايل" className="fixed inset-x-0 bottom-0 z-[70] border-t border-slate-200 bg-white/[.98] px-2 pb-[calc(.45rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-12px_35px_rgba(15,23,42,.14)] backdrop-blur md:hidden">
         <div className={`mx-auto grid max-w-lg gap-1 ${items.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
           {items.map((item) => {
             const Icon = item.icon

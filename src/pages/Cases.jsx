@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Briefcase, Calendar, ArrowUpDown, Percent } from "lucide-react";
+import { Plus, Search, Briefcase, Calendar, ArrowUpDown, Percent, Trophy } from "lucide-react";
 import ActionButtons from "@/components/shared/ActionButtons";
 import { format, isValid } from "date-fns";
 import PageHeader from "../components/helm/PageHeader";
@@ -23,6 +23,7 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { brokerNames, brokerPayloadFromName, brokerSummaryForCase, calcBrokerCommission, isMissingBrokerSchema, listBrokers, stripBrokerFields } from "@/lib/brokerUtils";
+import { CASE_RESULTS, defaultCaseSuccessPercentage } from "@/lib/dataIntegrity";
 
 const CASE_TYPES = ["مدني", "جزائي", "تجاري", "عمالي", "أسري", "إداري", "عقاري", "أخرى"];
 const STATUSES = ["جارية", "متوقفة", "مكتملة", "مغلقة"];
@@ -35,14 +36,21 @@ const SORT_OPTIONS = {
 };
 
 const emptyForm = {
-  case_number: "", title: "", client_name: "", case_type: "مدني",
+  case_number: "", title: "", client_id: null, client_name: "", case_type: "مدني",
   court: "", judge: "", status: "جارية", priority: "متوسطة",
   next_session_date: "", filing_date: "", description: "", fees: "",
   paid_amount: "", assigned_lawyer: "", opponent_name: "", opponent_lawyer: "",
-  broker_id: null, broker_name: "", broker_commission_percent: "", broker_commission_amount: ""
+  broker_id: null, broker_name: "", broker_commission_percent: "", broker_commission_amount: "",
+  case_result: "غير محسومة", success_percentage: "", result_notes: ""
 };
 
 function numberOrZero(value) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
+function resultTone(value) {
+  if (value === 'حكم لصالح الموكل' || value === 'تسوية لصالح الموكل') return 'bg-emerald-100 text-emerald-800';
+  if (value === 'نجاح جزئي') return 'bg-amber-100 text-amber-800';
+  if (value === 'حكم ضد الموكل') return 'bg-red-100 text-red-800';
+  return 'bg-slate-100 text-slate-700';
+}
 
 export default function Cases() {
   const { user } = useAuth();
@@ -71,13 +79,13 @@ export default function Cases() {
     try {
       const [{ data: caseRows, total: totalRows }, clientRows, brokerRows] = await Promise.all([
         base44.entities.Case.listPage(sortBy, { page, pageSize }),
-        base44.entities.Client.list(),
+        base44.entities.Client.list('full_name', 2000),
         listBrokers(),
       ]);
-      setCases(caseRows);
-      setClients(clientRows);
+      setCases(caseRows || []);
+      setClients(clientRows || []);
       setBrokers(brokerRows || []);
-      setTotal(totalRows);
+      setTotal(totalRows || 0);
     } catch (error) {
       setLoadError(error.message || "تعذر تحميل القضايا.");
     } finally {
@@ -105,16 +113,36 @@ export default function Cases() {
     return calcBrokerCommission(form.fees, form.broker_commission_percent);
   }, [form.fees, form.broker_commission_percent, form.broker_commission_amount]);
 
-  const applyBroker = (name) => setForm((prev) => ({ ...prev, ...brokerPayloadFromName(name, brokers), broker_commission_amount: calcBrokerCommission(prev.fees, brokerPayloadFromName(name, brokers).broker_commission_percent) }));
+  const applyBroker = (name) => {
+    const brokerPayload = brokerPayloadFromName(name, brokers);
+    setForm((prev) => ({ ...prev, ...brokerPayload, broker_commission_amount: calcBrokerCommission(prev.fees, brokerPayload.broker_commission_percent) }));
+  };
+
   const applyClient = (name) => {
-    const selected = clients.find((client) => client.full_name === name);
+    const selected = clients.find((client) => client.full_name === name || client.id === name);
     setForm((prev) => {
-      if (!selected) return { ...prev, client_name: name };
+      if (!selected) return { ...prev, client_id: null, client_name: name };
       const inheritedBroker = selected.broker_name
         ? { broker_id: selected.broker_id || null, broker_name: selected.broker_name, broker_commission_percent: selected.broker_commission_percent || 0 }
         : {};
-      return { ...prev, client_name: name, ...inheritedBroker, broker_commission_amount: inheritedBroker.broker_name ? calcBrokerCommission(prev.fees, inheritedBroker.broker_commission_percent) : prev.broker_commission_amount };
+      return {
+        ...prev,
+        client_id: selected.id,
+        client_name: selected.full_name,
+        ...inheritedBroker,
+        broker_commission_amount: inheritedBroker.broker_name ? calcBrokerCommission(prev.fees, inheritedBroker.broker_commission_percent) : prev.broker_commission_amount,
+      };
     });
+  };
+
+  const applyResult = (result) => {
+    const suggested = defaultCaseSuccessPercentage(result);
+    setForm((prev) => ({
+      ...prev,
+      case_result: result,
+      success_percentage: suggested === null ? "" : String(suggested),
+      status: result !== 'غير محسومة' && prev.status === 'جارية' ? 'مكتملة' : prev.status,
+    }));
   };
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormTab('core'); setShowDialog(true); };
@@ -127,6 +155,9 @@ export default function Cases() {
       paid_amount: item.paid_amount || "",
       broker_commission_percent: item.broker_commission_percent ?? "",
       broker_commission_amount: item.broker_commission_amount ?? "",
+      case_result: item.case_result || 'غير محسومة',
+      success_percentage: item.success_percentage ?? "",
+      result_notes: item.result_notes || "",
       next_session_date: item.next_session_date?.slice(0, 16) || "",
       filing_date: item.filing_date || "",
     });
@@ -138,6 +169,9 @@ export default function Cases() {
     setSaving(true);
     try {
       const normalizedPercent = numberOrZero(form.broker_commission_percent);
+      const explicitSuccess = form.success_percentage === "" || form.success_percentage === null || form.success_percentage === undefined
+        ? null
+        : Math.min(100, Math.max(0, Number(form.success_percentage)));
       const payload = {
         ...form,
         fees: form.fees ? Number(form.fees) : undefined,
@@ -146,6 +180,8 @@ export default function Cases() {
         broker_commission_amount: form.broker_commission_amount !== "" && form.broker_commission_amount !== null && form.broker_commission_amount !== undefined
           ? Number(form.broker_commission_amount)
           : calcBrokerCommission(form.fees, normalizedPercent),
+        case_result: form.case_result || 'غير محسومة',
+        success_percentage: explicitSuccess,
       };
       try {
         if (editing) await base44.entities.Case.update(editing.id, payload);
@@ -167,7 +203,7 @@ export default function Cases() {
   };
 
   const filtered = cases.filter(item => {
-    const matchSearch = searchInFields(item, ['title', 'client_name', 'case_number', 'court', 'assigned_lawyer', 'opponent_name', 'broker_name'], search);
+    const matchSearch = searchInFields(item, ['title', 'client_name', 'case_number', 'court', 'assigned_lawyer', 'opponent_name', 'broker_name', 'case_result'], search);
     const matchStatus = statusFilter === "الكل" || item.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -175,7 +211,7 @@ export default function Cases() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="القضايا"
+        title={isClient ? "قضاياي" : "القضايا"}
         subtitle={`${total || cases.length} قضية`}
         action={!isClient ? <Button onClick={openCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4" />إضافة قضية</Button> : undefined}
       />
@@ -183,30 +219,32 @@ export default function Cases() {
       <div className="flex flex-col xl:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input ref={searchRef} placeholder="بحث ذكي بالاسم أو رقم القضية أو المحكمة أو البروكر..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10 h-11" />
+          <Input ref={searchRef} placeholder="بحث بالاسم أو رقم القضية أو المحكمة أو النتيجة..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10 h-11" />
         </div>
         <ChoiceInput value={statusFilter} onChange={setStatusFilter} options={["الكل", ...STATUSES]} listId="cases-status-filter" helper="" className="xl:w-44 h-11" />
         <ChoiceInput value={Object.keys(SORT_OPTIONS).find((label) => SORT_OPTIONS[label] === sortBy) || 'الأحدث'} onChange={(label) => { setSortBy(SORT_OPTIONS[label] || '-created_date'); setPage(1); }} options={Object.keys(SORT_OPTIONS)} listId="cases-sort" helper="" className="xl:w-44 h-11" />
       </div>
 
-      <Card className="p-3 border-primary/10 bg-primary/5 text-sm text-muted-foreground flex items-center gap-2">
-        <ArrowUpDown className="h-4 w-4 text-primary" />
-        تم إضافة ربط البروكر بالقضية مع حساب نسبة مستحقاته من أتعاب القضية.
-      </Card>
+      {!isClient && (
+        <Card className="p-3 border-primary/10 bg-primary/5 text-sm text-muted-foreground flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-primary" />
+          سجّل نتيجة القضية ونسبة النجاح عند اكتمالها حتى يظهر مؤشر موثوق للموكل، مع بقاء القضايا غير المحسومة خارج الحساب.
+        </Card>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-48"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>
       ) : loadError ? (
         <PageErrorState message={loadError} onRetry={loadData} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Briefcase} title="لا توجد قضايا" description="ابدأ بإضافة قضيتك الأولى" action={!isClient ? <Button onClick={openCreate}>إضافة قضية</Button> : undefined} />
+        <EmptyState icon={Briefcase} title="لا توجد قضايا" description={isClient ? "لا توجد قضايا مرتبطة بحسابك" : "ابدأ بإضافة القضية الأولى"} action={!isClient ? <Button onClick={openCreate}>إضافة قضية</Button> : undefined} />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3">
             {filtered.map(item => {
               const brokerSummary = brokerSummaryForCase(item);
               return (
-                <Card key={item.id} className="p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => !isClient && openEdit(item)}>
+                <Card key={item.id} className={`p-4 hover:shadow-md transition-shadow ${!isClient ? 'cursor-pointer' : ''}`} onClick={() => !isClient && openEdit(item)}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -216,7 +254,11 @@ export default function Cases() {
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5">{item.client_name} · {item.case_type}</p>
                       {item.court && <p className="text-xs text-muted-foreground mt-0.5">{item.court}</p>}
-                      {item.broker_name && <p className="text-xs text-primary mt-1">مستحق البروكر التقديري: {brokerSummary.amount.toFixed(2)} د.إ</p>}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {item.case_result && <Badge className={`border-0 text-[10px] ${resultTone(item.case_result)}`}>{item.case_result}</Badge>}
+                        {item.success_percentage !== null && item.success_percentage !== undefined && item.success_percentage !== '' && <Badge className="border-0 bg-emerald-100 text-emerald-800 text-[10px]">نسبة النجاح {Number(item.success_percentage)}%</Badge>}
+                      </div>
+                      {item.broker_name && !isClient && <p className="text-xs text-primary mt-1">مستحق البروكر التقديري: {brokerSummary.amount.toFixed(2)} د.إ</p>}
                       {item.next_session_date && (
                         <p className="text-xs text-primary mt-1 flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
@@ -228,13 +270,7 @@ export default function Cases() {
                       <StatusBadge status={item.status} />
                       <StatusBadge status={item.priority} isPriority />
                       {!isClient && (
-                        <ActionButtons
-                          entityName="Case"
-                          record={item}
-                          onEdit={openEdit}
-                          onDeleted={loadData}
-                          size="sm"
-                        />
+                        <ActionButtons entityName="Case" record={item} onEdit={openEdit} onDeleted={loadData} size="sm" />
                       )}
                     </div>
                   </div>
@@ -249,14 +285,13 @@ export default function Cases() {
       {!isClient && (
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
-            <DialogHeader>
-              <DialogTitle>{editing ? "تعديل القضية" : "إضافة قضية جديدة"}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "تعديل القضية" : "إضافة قضية جديدة"}</DialogTitle></DialogHeader>
             <Tabs value={formTab} onValueChange={setFormTab} className="mt-2">
-              <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="core">البيانات الأساسية</TabsTrigger>
-                <TabsTrigger value="timeline">التواريخ والجلسات</TabsTrigger>
-                <TabsTrigger value="finance">الخصوم والأتعاب</TabsTrigger>
+              <TabsList className="grid grid-cols-4 w-full">
+                <TabsTrigger value="core">البيانات</TabsTrigger>
+                <TabsTrigger value="timeline">التواريخ</TabsTrigger>
+                <TabsTrigger value="result">النتيجة</TabsTrigger>
+                <TabsTrigger value="finance">الأتعاب</TabsTrigger>
               </TabsList>
               <TabsContent value="core" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -277,6 +312,14 @@ export default function Cases() {
                   <div className="space-y-1 md:col-span-2"><Label>وصف القضية</Label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px]" /></div>
                 </div>
               </TabsContent>
+              <TabsContent value="result" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <div className="space-y-1"><Label>نتيجة القضية</Label><ChoiceInput value={form.case_result} onChange={applyResult} options={CASE_RESULTS} listId="case-results" /></div>
+                  <div className="space-y-1"><Label>نسبة النجاح %</Label><Input type="number" min="0" max="100" step="1" value={form.success_percentage} onChange={e => setForm({...form, success_percentage: e.target.value})} className="h-11" placeholder="0 إلى 100" /></div>
+                  <div className="space-y-1 md:col-span-2"><Label>ملخص النتيجة</Label><Textarea value={form.result_notes} onChange={e => setForm({...form, result_notes: e.target.value})} className="min-h-[120px]" placeholder="اكتب منطوق النتيجة أو التسوية وأهم أثر على الموكل" /></div>
+                </div>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-900">اختيار النتيجة يقترح نسبة مبدئية قابلة للتعديل. القضايا غير المحسومة لا تدخل في معدل النجاح.</div>
+              </TabsContent>
               <TabsContent value="finance" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                   <div className="space-y-1"><Label>الخصم</Label><Input value={form.opponent_name} onChange={e => setForm({...form, opponent_name: e.target.value})} className="h-11" /></div>
@@ -293,9 +336,7 @@ export default function Cases() {
             </Tabs>
             <div className="flex justify-end gap-3 mt-4">
               <Button variant="outline" onClick={() => setShowDialog(false)}>إلغاء</Button>
-              <Button onClick={handleSave} disabled={saving || !form.title || !form.client_name} className="bg-primary text-white">
-                {saving ? "جارٍ الحفظ..." : editing ? "حفظ" : "إضافة"}
-              </Button>
+              <Button onClick={handleSave} disabled={saving || !form.title || !form.client_name} className="bg-primary text-white">{saving ? "جارٍ الحفظ..." : editing ? "حفظ" : "إضافة"}</Button>
             </div>
           </DialogContent>
         </Dialog>

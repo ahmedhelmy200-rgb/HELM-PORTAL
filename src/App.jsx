@@ -7,6 +7,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
+import ClientDashboard from './pages/ClientDashboard'
 import PublicEntryWithLogo from './pages/PublicEntryWithLogo'
 import PublicLegalLibrary from './pages/PublicLegalLibrary'
 import PasswordReset from './pages/PasswordReset'
@@ -15,6 +16,7 @@ import { createPageUrl } from '@/utils'
 import ErrorBoundary from '@/components/app/ErrorBoundary'
 import AppStatusBar from '@/components/app/AppStatusBar'
 import KeyboardShortcutsModal from '@/components/app/KeyboardShortcutsModal'
+import MobilePriorityDock from '@/components/app/MobilePriorityDock'
 import SupabaseConfigGate from '@/components/app/SupabaseConfigGate'
 import { base44 } from '@/api/base44Client'
 
@@ -75,11 +77,13 @@ const AuthenticatedApp = () => {
   if (!isAuthenticated || !user) return <PublicRoutes />
 
   const fallbackPage = user?.role === 'broker' ? 'Brokers' : 'Dashboard'
+  const resolvePage = (path, Page) => user?.role === 'client' && path === 'Dashboard' ? ClientDashboard : Page
   const renderPage = (path, Page) => {
     if (user?.role === 'pending_client' && !PENDING_CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('ClientOnboarding')} replace />
     if (user?.role === 'client' && !CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Dashboard')} replace />
     if (user?.role === 'broker' && !BROKER_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Brokers')} replace />
-    return <LayoutWrapper currentPageName={path}><Suspense fallback={<PageFallback />}><Page /></Suspense></LayoutWrapper>
+    const ResolvedPage = resolvePage(path, Page)
+    return <LayoutWrapper currentPageName={path}><Suspense fallback={<PageFallback />}><ResolvedPage /></Suspense></LayoutWrapper>
   }
 
   return (
@@ -94,6 +98,7 @@ const AuthenticatedApp = () => {
         {Object.entries(Pages).map(([path, Page]) => <Route key={path} path={`/${path}`} element={renderPage(path, Page)} />)}
         <Route path="*" element={<PageNotFound />} />
       </Routes>
+      <MobilePriorityDock />
     </>
   )
 }

@@ -15,6 +15,10 @@ export default defineConfig(() => ({
         replacement: fileURLToPath(new URL('./src/desktop/base44DesktopClient.js', import.meta.url)),
       },
       {
+        find: '@/integrations/supabase/client',
+        replacement: fileURLToPath(new URL('./src/desktop/supabaseDesktopClient.js', import.meta.url)),
+      },
+      {
         find: '@',
         replacement: fileURLToPath(new URL('./src', import.meta.url)),
       },

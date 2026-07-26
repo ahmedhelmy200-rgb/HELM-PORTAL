@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Cloud, CloudOff, Database, RefreshCw } from 'lucide-react'
-import OriginalAppStatusBar from '../components/app/AppStatusBar.jsx'
+import OriginalAppStatusBar, { PageErrorState } from '../components/app/AppStatusBar.jsx'
 import { base44 } from './base44DesktopClient.js'
+
+export { PageErrorState }
 
 const INITIAL_STATE = {
   phase: 'ready',

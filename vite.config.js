@@ -3,12 +3,34 @@ import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig(() => ({
+  base: './',
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    alias: [
+      {
+        find: '@/components/app/AppStatusBar',
+        replacement: fileURLToPath(new URL('./src/desktop/DesktopAwareStatusBar.jsx', import.meta.url)),
+      },
+      {
+        find: '@/api/base44Client',
+        replacement: fileURLToPath(new URL('./src/desktop/base44DesktopClient.js', import.meta.url)),
+      },
+      {
+        find: '@/integrations/supabase/client',
+        replacement: fileURLToPath(new URL('./src/desktop/supabaseDesktopClient.js', import.meta.url)),
+      },
+      {
+        find: '@',
+        replacement: fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    ],
   },
   server: {
     host: true,
     port: 5173,
+    strictPort: true,
+    watch: {
+      ignored: ['**/src-tauri/**'],
+    },
   },
   plugins: [react()],
   build: {

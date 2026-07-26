@@ -1,6 +1,6 @@
 const getTauriInvoke = () => {
   if (typeof window === 'undefined') return null
-  return window.__TAURI_INTERNALS__?.invoke || window.__TAURI_INVOKE__ || null
+  return window.__TAURI__?.core?.invoke || window.__TAURI_INTERNALS__?.invoke || null
 }
 
 export function isDesktopRuntime() {

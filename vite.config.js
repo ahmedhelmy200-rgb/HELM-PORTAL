@@ -7,6 +7,10 @@ export default defineConfig(() => ({
   resolve: {
     alias: [
       {
+        find: '@/components/app/AppStatusBar',
+        replacement: fileURLToPath(new URL('./src/desktop/DesktopAwareStatusBar.jsx', import.meta.url)),
+      },
+      {
         find: '@/api/base44Client',
         replacement: fileURLToPath(new URL('./src/desktop/base44DesktopClient.js', import.meta.url)),
       },

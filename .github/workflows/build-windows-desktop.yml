@@ -12,6 +12,16 @@ on:
       - 'package-lock.json'
       - 'vite.config.js'
       - '.github/workflows/build-windows-desktop.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
+      - '.github/workflows/build-windows-desktop.yml'
 
 permissions:
   contents: read

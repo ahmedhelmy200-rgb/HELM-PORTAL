@@ -4,12 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#06142c" />
+    <script>
+      (function () {
+        try {
+          var preference = localStorage.getItem('helm_theme_preference') || 'system';
+          var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var dark = preference === 'dark' || (preference === 'system' && systemDark);
+          var root = document.documentElement;
+          root.classList.add(dark ? 'theme-dark' : 'theme-light');
+          root.style.colorScheme = dark ? 'dark' : 'light';
+          var themeMeta = document.querySelector('meta[name="theme-color"]');
+          if (themeMeta) themeMeta.setAttribute('content', dark ? '#06142c' : '#f7f9fd');
+        } catch (_) {
+          document.documentElement.classList.add('theme-dark');
+        }
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="HELM" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="HELM" />
     <meta name="description" content="HELM LAW Office Platform" />
+    <link rel="preload" as="image" href="/icon-192.png" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />

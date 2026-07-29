@@ -28,11 +28,11 @@ img[src*="logo"] {
 .helm-logo-box {
   background-color: #f8fafc !important;
   background-image:
-    linear-gradient(135deg, rgba(255,255,255,.9), rgba(226,232,240,.78)),
-    url('/icon-192.png') !important;
+    url('/icon-192.png'),
+    linear-gradient(135deg, rgba(255,255,255,.96), rgba(226,232,240,.92)) !important;
   background-position: center, center !important;
   background-repeat: no-repeat, no-repeat !important;
-  background-size: cover, 68% !important;
+  background-size: 68%, cover !important;
   border: 1px solid rgba(255,255,255,.28) !important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.55),

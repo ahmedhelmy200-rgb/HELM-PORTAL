@@ -29,19 +29,26 @@ const PENDING_CLIENT_ALLOWED_PAGES = new Set(['ClientOnboarding'])
 const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
 
 const PageFallback = () => (
-  <div className="fixed inset-0 flex items-center justify-center" style={{background:'radial-gradient(circle at 50% 35%, #101d3d 0%, #050913 42%, #02040a 100%)'}}>
-    <div className="text-center space-y-5 select-none">
-      <div className="relative mx-auto h-20 w-20">
-        <div className="absolute inset-0 rounded-3xl bg-white/5 border border-blue-400/25 shadow-2xl shadow-blue-500/20"/>
-        <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-blue-600/90 to-slate-950 flex items-center justify-center overflow-hidden">
-          <img src="/icon-192.png" alt="HELM Portal" className="h-12 w-12 rounded-xl object-contain drop-shadow-lg" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-        </div>
-        <div className="absolute inset-0 rounded-3xl border border-blue-400/30 animate-ping"/>
+  <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
+    <div className="select-none space-y-4 text-center">
+      <div className="relative mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+        <img src="/icon-192.png" alt="HELM Portal" className="h-14 w-14 rounded-2xl object-contain" onError={(event) => { event.currentTarget.style.display = 'none' }} />
       </div>
       <div className="space-y-2">
-        <div className="h-1.5 w-32 mx-auto rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-blue-500 rounded-full animate-[loading_1.5s_ease-in-out_infinite]"/></div>
-        <p className="text-xs text-white/40">جارٍ تحميل HELM Portal…</p>
+        <div className="mx-auto h-1.5 w-32 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-1/2 animate-[loading_1.2s_ease-in-out_infinite] rounded-full bg-primary" />
+        </div>
+        <p className="text-xs font-bold text-muted-foreground">جارٍ تحميل HELM Portal…</p>
       </div>
+    </div>
+  </div>
+)
+
+const ContentFallback = () => (
+  <div className="flex min-h-[320px] items-center justify-center" role="status" aria-live="polite">
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card/90 px-5 py-4 text-sm font-bold text-muted-foreground shadow-sm">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+      جارٍ فتح القسم…
     </div>
   </div>
 )
@@ -83,7 +90,7 @@ const AuthenticatedApp = () => {
     if (user?.role === 'client' && !CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Dashboard')} replace />
     if (user?.role === 'broker' && !BROKER_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Brokers')} replace />
     const ResolvedPage = resolvePage(path, Page)
-    return <LayoutWrapper currentPageName={path}><Suspense fallback={<PageFallback />}><ResolvedPage /></Suspense></LayoutWrapper>
+    return <LayoutWrapper currentPageName={path}><Suspense fallback={<ContentFallback />}><ResolvedPage /></Suspense></LayoutWrapper>
   }
 
   return (

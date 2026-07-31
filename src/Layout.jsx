@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Briefcase, Users, CalendarDays, FileText, CheckSquare,
   Bell, Menu, X, LogOut, Receipt, BookOpen, Settings, Wallet, BarChart2, MessageCircle,
   Archive, Search as SearchIcon, MoonStar, SunMedium, Volume2, VolumeX, Zap,
-  Landmark, ArrowRight, MonitorCog, BrainCircuit, Handshake
+  Landmark, ArrowRight, MonitorCog, BrainCircuit
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,6 @@ const staffNavItems = [
   { label: "القضايا", page: "Cases", icon: Briefcase, fx: "nav-fx-pulse" },
   { label: "الموكلون", page: "Clients", icon: Users, fx: "nav-fx-bob" },
   { label: "جهات الاتصال", page: "Contacts", icon: Users, fx: "nav-fx-bob" },
-  { label: "البروكر", page: "Brokers", icon: Handshake, fx: "nav-fx-pulse" },
   { label: "الجلسات", page: "Sessions", icon: CalendarDays, fx: "nav-fx-wiggle" },
   { label: "المستندات", page: "Documents", icon: FileText, fx: "nav-fx-spark" },
   { label: "المهام", page: "Tasks", icon: CheckSquare, fx: "nav-fx-tilt" },
@@ -36,12 +35,6 @@ const staffNavItems = [
   { label: "حُلم سمارت", page: "HelmSmart", icon: BrainCircuit, fx: "nav-fx-spark" },
   { label: "الأرشيف", page: "Archive", icon: Archive, fx: "nav-fx-tilt" },
   { label: "الإعدادات", page: "Settings", icon: Settings, fx: "nav-fx-spin-soft" },
-]
-
-const brokerNavItems = [
-  { label: "قسم البروكر", page: "Brokers", icon: Handshake, fx: "nav-fx-pulse" },
-  { label: "الموكلون المرتبطون", page: "Clients", icon: Users, fx: "nav-fx-bob" },
-  { label: "القضايا المرتبطة", page: "Cases", icon: Briefcase, fx: "nav-fx-pulse" },
 ]
 
 const clientNavItems = [
@@ -58,11 +51,6 @@ const mobileTabsForRole = {
     { label: "القضايا", page: "Cases", icon: Briefcase },
     { label: "الموكلون", page: "Clients", icon: Users },
     { label: "الاتصال", page: "Contacts", icon: Users },
-  ],
-  broker: [
-    { label: "البروكر", page: "Brokers", icon: Handshake },
-    { label: "الموكلون", page: "Clients", icon: Users },
-    { label: "القضايا", page: "Cases", icon: Briefcase },
   ],
   client: [
     { label: "الرئيسية", page: "Dashboard", icon: LayoutDashboard },
@@ -83,13 +71,11 @@ function getStoredSound() {
 
 function roleLabel(role) {
   if (role === 'client') return 'بوابة الموكّل'
-  if (role === 'broker') return 'بوابة البروكر'
   return 'الإدارة القانونية'
 }
 
 function roleSubtitle(role) {
   if (role === 'client') return 'بوابة العميل الآمنة'
-  if (role === 'broker') return 'صلاحيات البروكر المحدودة'
   return 'منصة الإدارة القانونية'
 }
 
@@ -111,8 +97,8 @@ export default function Layout({ children, currentPageName }) {
   const desktopSidebarScrollRef = useRef(null)
   const mobileSidebarScrollRef = useRef(null)
 
-  const navItems = useMemo(() => user?.role === 'client' ? clientNavItems : user?.role === 'broker' ? brokerNavItems : staffNavItems, [user?.role])
-  const mobileTabs = user?.role === 'client' ? mobileTabsForRole.client : user?.role === 'broker' ? mobileTabsForRole.broker : mobileTabsForRole.staff
+  const navItems = useMemo(() => user?.role === 'client' ? clientNavItems : staffNavItems, [user?.role])
+  const mobileTabs = user?.role === 'client' ? mobileTabsForRole.client : mobileTabsForRole.staff
   const resolvedTheme = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference
   const isPrimaryMobilePage = mobileTabs.some((item) => item.page === currentPageName)
   const shouldShowBack = !isPrimaryMobilePage
@@ -215,7 +201,7 @@ export default function Layout({ children, currentPageName }) {
   const goBack = () => {
     playUiTone("nav", soundEnabled)
     if (typeof window !== "undefined" && window.history.length > 1) navigate(-1)
-    else navigate(createPageUrl(user?.role === 'broker' ? "Brokers" : "Dashboard"))
+    else navigate(createPageUrl("Dashboard"))
   }
 
   const NavLink = ({ item, mobile = false, compact = false }) => {
@@ -301,7 +287,7 @@ export default function Layout({ children, currentPageName }) {
   }
 
   return (
-    <div className={cn("min-h-screen md:h-screen flex app-shell md:overflow-hidden") } dir="rtl">
+    <div className={cn("min-h-screen md:h-screen flex app-shell md:overflow-hidden")} dir="rtl">
       <AnimatedBackground active intensity={effectPower} theme={resolvedTheme} />
       <div className="ambient-orb orb-one" /><div className="ambient-orb orb-two" /><div className="ambient-orb orb-three" />
 

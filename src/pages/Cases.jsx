@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Briefcase, Calendar, ArrowUpDown, Percent, Trophy } from "lucide-react";
+import { Plus, Search, Briefcase, Calendar, Trophy } from "lucide-react";
 import ActionButtons from "@/components/shared/ActionButtons";
 import { format, isValid } from "date-fns";
 import PageHeader from "../components/helm/PageHeader";
@@ -22,34 +22,57 @@ import { searchInFields } from "@/lib/search";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { brokerNames, brokerPayloadFromName, brokerSummaryForCase, calcBrokerCommission, isMissingBrokerSchema, listBrokers, stripBrokerFields } from "@/lib/brokerUtils";
 import { CASE_RESULTS, defaultCaseSuccessPercentage } from "@/lib/dataIntegrity";
 
 const CASE_TYPES = ["مدني", "جزائي", "تجاري", "عمالي", "أسري", "إداري", "عقاري", "أخرى"];
 const STATUSES = ["جارية", "متوقفة", "مكتملة", "مغلقة"];
 const PRIORITIES = ["عالية", "متوسطة", "منخفضة"];
 const SORT_OPTIONS = {
-  'الأحدث': '-created_date',
-  'العنوان': 'title',
-  'رقم القضية': 'case_number',
-  'أقرب جلسة': 'next_session_date',
+  "الأحدث": "-created_date",
+  "العنوان": "title",
+  "رقم القضية": "case_number",
+  "أقرب جلسة": "next_session_date",
 };
 
 const emptyForm = {
-  case_number: "", title: "", client_id: null, client_name: "", case_type: "مدني",
-  court: "", judge: "", status: "جارية", priority: "متوسطة",
-  next_session_date: "", filing_date: "", description: "", fees: "",
-  paid_amount: "", assigned_lawyer: "", opponent_name: "", opponent_lawyer: "",
-  broker_id: null, broker_name: "", broker_commission_percent: "", broker_commission_amount: "",
-  case_result: "غير محسومة", success_percentage: "", result_notes: ""
+  case_number: "",
+  title: "",
+  client_id: null,
+  client_name: "",
+  case_type: "مدني",
+  court: "",
+  judge: "",
+  status: "جارية",
+  priority: "متوسطة",
+  next_session_date: "",
+  filing_date: "",
+  description: "",
+  fees: "",
+  paid_amount: "",
+  assigned_lawyer: "",
+  opponent_name: "",
+  opponent_lawyer: "",
+  case_result: "غير محسومة",
+  success_percentage: "",
+  result_notes: "",
 };
 
-function numberOrZero(value) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
+function stripLegacyBrokerFields(value = {}) {
+  const {
+    broker_id,
+    broker_name,
+    broker_commission_percent,
+    broker_commission_amount,
+    ...rest
+  } = value || {};
+  return rest;
+}
+
 function resultTone(value) {
-  if (value === 'حكم لصالح الموكل' || value === 'تسوية لصالح الموكل') return 'bg-emerald-100 text-emerald-800';
-  if (value === 'نجاح جزئي') return 'bg-amber-100 text-amber-800';
-  if (value === 'حكم ضد الموكل') return 'bg-red-100 text-red-800';
-  return 'bg-slate-100 text-slate-700';
+  if (value === "حكم لصالح الموكل" || value === "تسوية لصالح الموكل") return "bg-emerald-100 text-emerald-800";
+  if (value === "نجاح جزئي") return "bg-amber-100 text-amber-800";
+  if (value === "حكم ضد الموكل") return "bg-red-100 text-red-800";
+  return "bg-slate-100 text-slate-700";
 }
 
 export default function Cases() {
@@ -57,7 +80,6 @@ export default function Cases() {
   const isClient = user?.role === "client";
   const [cases, setCases] = useState([]);
   const [clients, setClients] = useState([]);
-  const [brokers, setBrokers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
@@ -70,21 +92,19 @@ export default function Cases() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [formTab, setFormTab] = useState('core');
+  const [formTab, setFormTab] = useState("core");
   const searchRef = useRef(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setLoadError("");
     try {
-      const [{ data: caseRows, total: totalRows }, clientRows, brokerRows] = await Promise.all([
+      const [{ data: caseRows, total: totalRows }, clientRows] = await Promise.all([
         base44.entities.Case.listPage(sortBy, { page, pageSize }),
-        base44.entities.Client.list('full_name', 2000),
-        listBrokers(),
+        base44.entities.Client.list("full_name", 2000),
       ]);
       setCases(caseRows || []);
       setClients(clientRows || []);
-      setBrokers(brokerRows || []);
       setTotal(totalRows || 0);
     } catch (error) {
       setLoadError(error.message || "تعذر تحميل القضايا.");
@@ -94,105 +114,79 @@ export default function Cases() {
   }, [page, sortBy]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  usePageRefresh(loadData, ['cases', 'clients']);
+  usePageRefresh(loadData, ["cases", "clients"]);
 
   useEffect(() => {
-    const offNew = subscribeAppEvent(APP_SHORTCUT_NEW, ({ page: p }) => {
-      if (!isClient && p === 'Cases') openCreate();
+    const offNew = subscribeAppEvent(APP_SHORTCUT_NEW, ({ page: currentPage }) => {
+      if (!isClient && currentPage === "Cases") openCreate();
     });
-    const offSearch = subscribeAppEvent(APP_SHORTCUT_SEARCH, ({ page: p }) => {
-      if (p === 'Cases') searchRef.current?.focus();
+    const offSearch = subscribeAppEvent(APP_SHORTCUT_SEARCH, ({ page: currentPage }) => {
+      if (currentPage === "Cases") searchRef.current?.focus();
     });
     return () => { offNew(); offSearch(); };
   }, [isClient]);
 
-  const brokerNameOptions = useMemo(() => brokerNames(brokers), [brokers]);
-  const commissionPreview = useMemo(() => {
-    const explicit = form.broker_commission_amount;
-    if (explicit !== "" && explicit !== null && explicit !== undefined) return numberOrZero(explicit);
-    return calcBrokerCommission(form.fees, form.broker_commission_percent);
-  }, [form.fees, form.broker_commission_percent, form.broker_commission_amount]);
-
-  const applyBroker = (name) => {
-    const brokerPayload = brokerPayloadFromName(name, brokers);
-    setForm((prev) => ({ ...prev, ...brokerPayload, broker_commission_amount: calcBrokerCommission(prev.fees, brokerPayload.broker_commission_percent) }));
-  };
-
   const applyClient = (name) => {
     const selected = clients.find((client) => client.full_name === name || client.id === name);
-    setForm((prev) => {
-      if (!selected) return { ...prev, client_id: null, client_name: name };
-      const inheritedBroker = selected.broker_name
-        ? { broker_id: selected.broker_id || null, broker_name: selected.broker_name, broker_commission_percent: selected.broker_commission_percent || 0 }
-        : {};
-      return {
-        ...prev,
-        client_id: selected.id,
-        client_name: selected.full_name,
-        ...inheritedBroker,
-        broker_commission_amount: inheritedBroker.broker_name ? calcBrokerCommission(prev.fees, inheritedBroker.broker_commission_percent) : prev.broker_commission_amount,
-      };
-    });
+    setForm((previous) => ({
+      ...previous,
+      client_id: selected?.id || null,
+      client_name: selected?.full_name || name,
+    }));
   };
 
   const applyResult = (result) => {
     const suggested = defaultCaseSuccessPercentage(result);
-    setForm((prev) => ({
-      ...prev,
+    setForm((previous) => ({
+      ...previous,
       case_result: result,
       success_percentage: suggested === null ? "" : String(suggested),
-      status: result !== 'غير محسومة' && prev.status === 'جارية' ? 'مكتملة' : prev.status,
+      status: result !== "غير محسومة" && previous.status === "جارية" ? "مكتملة" : previous.status,
     }));
   };
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setFormTab('core'); setShowDialog(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setFormTab("core");
+    setShowDialog(true);
+  };
+
   const openEdit = (item) => {
+    const cleanItem = stripLegacyBrokerFields(item);
     setEditing(item);
     setForm({
       ...emptyForm,
-      ...item,
-      fees: item.fees || "",
-      paid_amount: item.paid_amount || "",
-      broker_commission_percent: item.broker_commission_percent ?? "",
-      broker_commission_amount: item.broker_commission_amount ?? "",
-      case_result: item.case_result || 'غير محسومة',
-      success_percentage: item.success_percentage ?? "",
-      result_notes: item.result_notes || "",
-      next_session_date: item.next_session_date?.slice(0, 16) || "",
-      filing_date: item.filing_date || "",
+      ...cleanItem,
+      fees: cleanItem.fees || "",
+      paid_amount: cleanItem.paid_amount || "",
+      case_result: cleanItem.case_result || "غير محسومة",
+      success_percentage: cleanItem.success_percentage ?? "",
+      result_notes: cleanItem.result_notes || "",
+      next_session_date: cleanItem.next_session_date?.slice(0, 16) || "",
+      filing_date: cleanItem.filing_date || "",
     });
-    setFormTab('core');
+    setFormTab("core");
     setShowDialog(true);
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const normalizedPercent = numberOrZero(form.broker_commission_percent);
       const explicitSuccess = form.success_percentage === "" || form.success_percentage === null || form.success_percentage === undefined
         ? null
         : Math.min(100, Math.max(0, Number(form.success_percentage)));
-      const payload = {
+      const payload = stripLegacyBrokerFields({
         ...form,
         fees: form.fees ? Number(form.fees) : undefined,
         paid_amount: form.paid_amount ? Number(form.paid_amount) : 0,
-        broker_commission_percent: normalizedPercent,
-        broker_commission_amount: form.broker_commission_amount !== "" && form.broker_commission_amount !== null && form.broker_commission_amount !== undefined
-          ? Number(form.broker_commission_amount)
-          : calcBrokerCommission(form.fees, normalizedPercent),
-        case_result: form.case_result || 'غير محسومة',
+        case_result: form.case_result || "غير محسومة",
         success_percentage: explicitSuccess,
-      };
-      try {
-        if (editing) await base44.entities.Case.update(editing.id, payload);
-        else await base44.entities.Case.create(payload);
-      } catch (error) {
-        if (!isMissingBrokerSchema(error)) throw error;
-        const legacyPayload = stripBrokerFields(payload);
-        if (editing) await base44.entities.Case.update(editing.id, legacyPayload);
-        else await base44.entities.Case.create(legacyPayload);
-        alert("تم حفظ القضية، لكن بيانات البروكر لم تُحفظ لأن أعمدة البروكر لم تُفعّل في Supabase بعد. شغّل Migration رقم 022.");
-      }
+      });
+
+      if (editing) await base44.entities.Case.update(editing.id, payload);
+      else await base44.entities.Case.create(payload);
+
       setShowDialog(false);
       await loadData();
     } catch (error) {
@@ -202,8 +196,12 @@ export default function Cases() {
     }
   };
 
-  const filtered = cases.filter(item => {
-    const matchSearch = searchInFields(item, ['title', 'client_name', 'case_number', 'court', 'assigned_lawyer', 'opponent_name', 'broker_name', 'case_result'], search);
+  const filtered = cases.filter((item) => {
+    const matchSearch = searchInFields(
+      item,
+      ["title", "client_name", "case_number", "court", "assigned_lawyer", "opponent_name", "case_result"],
+      search,
+    );
     const matchStatus = statusFilter === "الكل" || item.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -219,10 +217,17 @@ export default function Cases() {
       <div className="flex flex-col xl:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input ref={searchRef} placeholder="بحث بالاسم أو رقم القضية أو المحكمة أو النتيجة..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10 h-11" />
+          <Input ref={searchRef} placeholder="بحث بالاسم أو رقم القضية أو المحكمة أو النتيجة..." value={search} onChange={(event) => setSearch(event.target.value)} className="pr-10 h-11" />
         </div>
         <ChoiceInput value={statusFilter} onChange={setStatusFilter} options={["الكل", ...STATUSES]} listId="cases-status-filter" helper="" className="xl:w-44 h-11" />
-        <ChoiceInput value={Object.keys(SORT_OPTIONS).find((label) => SORT_OPTIONS[label] === sortBy) || 'الأحدث'} onChange={(label) => { setSortBy(SORT_OPTIONS[label] || '-created_date'); setPage(1); }} options={Object.keys(SORT_OPTIONS)} listId="cases-sort" helper="" className="xl:w-44 h-11" />
+        <ChoiceInput
+          value={Object.keys(SORT_OPTIONS).find((label) => SORT_OPTIONS[label] === sortBy) || "الأحدث"}
+          onChange={(label) => { setSortBy(SORT_OPTIONS[label] || "-created_date"); setPage(1); }}
+          options={Object.keys(SORT_OPTIONS)}
+          listId="cases-sort"
+          helper=""
+          className="xl:w-44 h-11"
+        />
       </div>
 
       {!isClient && (
@@ -241,42 +246,37 @@ export default function Cases() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3">
-            {filtered.map(item => {
-              const brokerSummary = brokerSummaryForCase(item);
-              return (
-                <Card key={item.id} className={`p-4 hover:shadow-md transition-shadow ${!isClient ? 'cursor-pointer' : ''}`} onClick={() => !isClient && openEdit(item)}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-foreground">{item.title}</h3>
-                        {item.case_number && <span className="text-xs text-muted-foreground">#{item.case_number}</span>}
-                        {item.broker_name && <Badge variant="secondary" className="text-[10px] flex items-center gap-1"><Percent className="h-3 w-3" />{item.broker_name} · {brokerSummary.percent}%</Badge>}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">{item.client_name} · {item.case_type}</p>
-                      {item.court && <p className="text-xs text-muted-foreground mt-0.5">{item.court}</p>}
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {item.case_result && <Badge className={`border-0 text-[10px] ${resultTone(item.case_result)}`}>{item.case_result}</Badge>}
-                        {item.success_percentage !== null && item.success_percentage !== undefined && item.success_percentage !== '' && <Badge className="border-0 bg-emerald-100 text-emerald-800 text-[10px]">نسبة النجاح {Number(item.success_percentage)}%</Badge>}
-                      </div>
-                      {item.broker_name && !isClient && <p className="text-xs text-primary mt-1">مستحق البروكر التقديري: {brokerSummary.amount.toFixed(2)} د.إ</p>}
-                      {item.next_session_date && (
-                        <p className="text-xs text-primary mt-1 flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          الجلسة القادمة: {item.next_session_date && isValid(new Date(item.next_session_date)) ? format(new Date(item.next_session_date), "yyyy/MM/dd") : "—"}
-                        </p>
+            {filtered.map((item) => (
+              <Card key={item.id} className={`p-4 hover:shadow-md transition-shadow ${!isClient ? "cursor-pointer" : ""}`} onClick={() => !isClient && openEdit(item)}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground">{item.title}</h3>
+                      {item.case_number && <span className="text-xs text-muted-foreground">#{item.case_number}</span>}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-0.5">{item.client_name} · {item.case_type}</p>
+                    {item.court && <p className="text-xs text-muted-foreground mt-0.5">{item.court}</p>}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {item.case_result && <Badge className={`border-0 text-[10px] ${resultTone(item.case_result)}`}>{item.case_result}</Badge>}
+                      {item.success_percentage !== null && item.success_percentage !== undefined && item.success_percentage !== "" && (
+                        <Badge className="border-0 bg-emerald-100 text-emerald-800 text-[10px]">نسبة النجاح {Number(item.success_percentage)}%</Badge>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <StatusBadge status={item.status} />
-                      <StatusBadge status={item.priority} isPriority />
-                      {!isClient && (
-                        <ActionButtons entityName="Case" record={item} onEdit={openEdit} onDeleted={loadData} size="sm" />
-                      )}
-                    </div>
+                    {item.next_session_date && (
+                      <p className="text-xs text-primary mt-1 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        الجلسة القادمة: {isValid(new Date(item.next_session_date)) ? format(new Date(item.next_session_date), "yyyy/MM/dd") : "—"}
+                      </p>
+                    )}
                   </div>
-                </Card>
-              )
-            })}
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <StatusBadge status={item.status} />
+                    <StatusBadge status={item.priority} isPriority />
+                    {!isClient && <ActionButtons entityName="Case" record={item} onEdit={openEdit} onDeleted={loadData} size="sm" />}
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
           <PaginationControls page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
         </>
@@ -293,47 +293,48 @@ export default function Cases() {
                 <TabsTrigger value="result">النتيجة</TabsTrigger>
                 <TabsTrigger value="finance">الأتعاب</TabsTrigger>
               </TabsList>
+
               <TabsContent value="core" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="space-y-1 md:col-span-2"><Label>عنوان القضية *</Label><Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>رقم القضية</Label><Input value={form.case_number} onChange={e => setForm({...form, case_number: e.target.value})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>اسم الموكل *</Label><ChoiceInput value={form.client_name} onChange={applyClient} options={clients.map(cl => cl.full_name)} listId="clients-list" /></div>
-                  <div className="space-y-1"><Label>نوع القضية</Label><ChoiceInput value={form.case_type} onChange={v => setForm({...form, case_type: v})} options={CASE_TYPES} listId="case-types" /></div>
-                  <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={v => setForm({...form, status: v})} options={STATUSES} listId="case-statuses" /></div>
-                  <div className="space-y-1"><Label>الأولوية</Label><ChoiceInput value={form.priority} onChange={v => setForm({...form, priority: v})} options={PRIORITIES} listId="case-priority" /></div>
-                  <div className="space-y-1"><Label>المحكمة</Label><Input value={form.court} onChange={e => setForm({...form, court: e.target.value})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>القاضي</Label><Input value={form.judge} onChange={e => setForm({...form, judge: e.target.value})} className="h-11" /></div>
+                  <div className="space-y-1 md:col-span-2"><Label>عنوان القضية *</Label><Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} className="h-11" /></div>
+                  <div className="space-y-1"><Label>رقم القضية</Label><Input value={form.case_number} onChange={(event) => setForm({ ...form, case_number: event.target.value })} className="h-11" /></div>
+                  <div className="space-y-1"><Label>اسم الموكل *</Label><ChoiceInput value={form.client_name} onChange={applyClient} options={clients.map((client) => client.full_name)} listId="clients-list" /></div>
+                  <div className="space-y-1"><Label>نوع القضية</Label><ChoiceInput value={form.case_type} onChange={(value) => setForm({ ...form, case_type: value })} options={CASE_TYPES} listId="case-types" /></div>
+                  <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={STATUSES} listId="case-statuses" /></div>
+                  <div className="space-y-1"><Label>الأولوية</Label><ChoiceInput value={form.priority} onChange={(value) => setForm({ ...form, priority: value })} options={PRIORITIES} listId="case-priority" /></div>
+                  <div className="space-y-1"><Label>المحكمة</Label><Input value={form.court} onChange={(event) => setForm({ ...form, court: event.target.value })} className="h-11" /></div>
+                  <div className="space-y-1"><Label>القاضي</Label><Input value={form.judge} onChange={(event) => setForm({ ...form, judge: event.target.value })} className="h-11" /></div>
                 </div>
               </TabsContent>
+
               <TabsContent value="timeline" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="space-y-1"><Label>تاريخ الجلسة القادمة</Label><DateSmartInput type="datetime-local" value={form.next_session_date} onChange={v => setForm({...form, next_session_date: v})} /></div>
-                  <div className="space-y-1"><Label>تاريخ الرفع</Label><DateSmartInput type="date" value={form.filing_date} onChange={v => setForm({...form, filing_date: v})} /></div>
-                  <div className="space-y-1 md:col-span-2"><Label>وصف القضية</Label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="min-h-[120px]" /></div>
+                  <div className="space-y-1"><Label>تاريخ الجلسة القادمة</Label><DateSmartInput type="datetime-local" value={form.next_session_date} onChange={(value) => setForm({ ...form, next_session_date: value })} /></div>
+                  <div className="space-y-1"><Label>تاريخ الرفع</Label><DateSmartInput type="date" value={form.filing_date} onChange={(value) => setForm({ ...form, filing_date: value })} /></div>
+                  <div className="space-y-1 md:col-span-2"><Label>وصف القضية</Label><Textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="min-h-[120px]" /></div>
                 </div>
               </TabsContent>
+
               <TabsContent value="result" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                   <div className="space-y-1"><Label>نتيجة القضية</Label><ChoiceInput value={form.case_result} onChange={applyResult} options={CASE_RESULTS} listId="case-results" /></div>
-                  <div className="space-y-1"><Label>نسبة النجاح %</Label><Input type="number" min="0" max="100" step="1" value={form.success_percentage} onChange={e => setForm({...form, success_percentage: e.target.value})} className="h-11" placeholder="0 إلى 100" /></div>
-                  <div className="space-y-1 md:col-span-2"><Label>ملخص النتيجة</Label><Textarea value={form.result_notes} onChange={e => setForm({...form, result_notes: e.target.value})} className="min-h-[120px]" placeholder="اكتب منطوق النتيجة أو التسوية وأهم أثر على الموكل" /></div>
+                  <div className="space-y-1"><Label>نسبة النجاح %</Label><Input type="number" min="0" max="100" step="1" value={form.success_percentage} onChange={(event) => setForm({ ...form, success_percentage: event.target.value })} className="h-11" placeholder="0 إلى 100" /></div>
+                  <div className="space-y-1 md:col-span-2"><Label>ملخص النتيجة</Label><Textarea value={form.result_notes} onChange={(event) => setForm({ ...form, result_notes: event.target.value })} className="min-h-[120px]" placeholder="اكتب منطوق النتيجة أو التسوية وأهم أثر على الموكل" /></div>
                 </div>
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-900">اختيار النتيجة يقترح نسبة مبدئية قابلة للتعديل. القضايا غير المحسومة لا تدخل في معدل النجاح.</div>
               </TabsContent>
+
               <TabsContent value="finance" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="space-y-1"><Label>الخصم</Label><Input value={form.opponent_name} onChange={e => setForm({...form, opponent_name: e.target.value})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>محامي الخصم</Label><Input value={form.opponent_lawyer} onChange={e => setForm({...form, opponent_lawyer: e.target.value})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>المحامي المكلف</Label><Input value={form.assigned_lawyer} onChange={e => setForm({...form, assigned_lawyer: e.target.value})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>الأتعاب (درهم)</Label><Input type="number" value={form.fees} onChange={e => setForm({...form, fees: e.target.value, broker_commission_amount: calcBrokerCommission(e.target.value, form.broker_commission_percent)})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>المدفوع (درهم)</Label><Input type="number" value={form.paid_amount} onChange={e => setForm({...form, paid_amount: e.target.value})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>البروكر / مصدر القضية</Label><ChoiceInput value={form.broker_name} onChange={applyBroker} options={brokerNameOptions} listId="case-brokers" placeholder="اختر أو اكتب اسم البروكر" /></div>
-                  <div className="space-y-1"><Label>نسبة البروكر من أتعاب القضية %</Label><Input type="number" min="0" max="100" step="0.01" value={form.broker_commission_percent} onChange={e => setForm({...form, broker_commission_percent: e.target.value, broker_commission_amount: calcBrokerCommission(form.fees, e.target.value)})} className="h-11" /></div>
-                  <div className="space-y-1"><Label>مستحق البروكر المحسوب (درهم)</Label><Input type="number" value={form.broker_commission_amount} onChange={e => setForm({...form, broker_commission_amount: e.target.value})} className="h-11" placeholder={String(commissionPreview)} /></div>
-                  <div className="space-y-1"><Label>معاينة</Label><p className="text-sm text-primary font-bold pt-3">المستحق التقديري: {commissionPreview.toFixed(2)} د.إ</p></div>
+                  <div className="space-y-1"><Label>الخصم</Label><Input value={form.opponent_name} onChange={(event) => setForm({ ...form, opponent_name: event.target.value })} className="h-11" /></div>
+                  <div className="space-y-1"><Label>محامي الخصم</Label><Input value={form.opponent_lawyer} onChange={(event) => setForm({ ...form, opponent_lawyer: event.target.value })} className="h-11" /></div>
+                  <div className="space-y-1"><Label>المحامي المكلف</Label><Input value={form.assigned_lawyer} onChange={(event) => setForm({ ...form, assigned_lawyer: event.target.value })} className="h-11" /></div>
+                  <div className="space-y-1"><Label>الأتعاب (درهم)</Label><Input type="number" value={form.fees} onChange={(event) => setForm({ ...form, fees: event.target.value })} className="h-11" /></div>
+                  <div className="space-y-1"><Label>المدفوع (درهم)</Label><Input type="number" value={form.paid_amount} onChange={(event) => setForm({ ...form, paid_amount: event.target.value })} className="h-11" /></div>
                 </div>
               </TabsContent>
             </Tabs>
+
             <div className="flex justify-end gap-3 mt-4">
               <Button variant="outline" onClick={() => setShowDialog(false)}>إلغاء</Button>
               <Button onClick={handleSave} disabled={saving || !form.title || !form.client_name} className="bg-primary text-white">{saving ? "جارٍ الحفظ..." : editing ? "حفظ" : "إضافة"}</Button>

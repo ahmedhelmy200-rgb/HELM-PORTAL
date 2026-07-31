@@ -1,12 +1,14 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
   const isDesktopBuild = mode === 'desktop'
+  const enableOfflineSync = isDesktopBuild && env.VITE_DESKTOP_OFFLINE_SYNC === 'true'
 
   const alias = [
-    ...(isDesktopBuild
+    ...(enableOfflineSync
       ? [
           {
             find: '@/components/app/AppStatusBar',
@@ -31,6 +33,9 @@ export default defineConfig(({ mode }) => {
   return {
     base: isDesktopBuild ? './' : '/',
     resolve: { alias },
+    define: {
+      __HELM_DESKTOP_OFFLINE_SYNC__: JSON.stringify(enableOfflineSync),
+    },
     server: {
       host: true,
       port: 5173,

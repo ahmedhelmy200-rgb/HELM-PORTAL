@@ -1,10 +1,8 @@
-
 import React, { lazy } from 'react';
 
 const Cases = lazy(() => import('./pages/Cases'));
 const Clients = lazy(() => import('./pages/Clients'));
 const Contacts = lazy(() => import('./pages/Contacts'));
-const Brokers = lazy(() => import('./pages/Brokers'));
 const Dashboard = lazy(() => import('./pages/DashboardOptimized'));
 const Discover = lazy(() => import('./pages/Discover'));
 const Documents = lazy(() => import('./pages/Documents'));
@@ -22,10 +20,10 @@ const Tasks = lazy(() => import('./pages/Tasks'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const Income = lazy(() => import('./pages/Income'));
 const BankImport = lazy(() => import('./pages/BankImport'));
-const Reports        = lazy(() => import('./pages/Reports'));
+const Reports = lazy(() => import('./pages/Reports'));
 const Communications = lazy(() => import('./pages/Communications'));
-const Archive  = lazy(() => import('./pages/Archive'));
-const Payment  = lazy(() => import('./pages/Payment'));
+const Archive = lazy(() => import('./pages/Archive'));
+const Payment = lazy(() => import('./pages/Payment'));
 const HelmSmart = lazy(() => import('./pages/HelmSmart'));
 const __Layout = lazy(() => import('./Layout.jsx'));
 
@@ -33,7 +31,6 @@ export const PAGES = {
   Cases,
   Clients,
   Contacts,
-  Brokers,
   Dashboard,
   Discover,
   Documents,

@@ -3,18 +3,12 @@ import { Button } from '@/components/ui/button'
 import { Eye, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { base44 } from '@/api/base44Client'
 import { archiveRecord } from '@/lib/archive'
+import { useAuth } from '@/lib/AuthContext'
+
+const OPERATIONS_MANAGER_EMAIL = 'mahmoudmegally3@gmail.com'
 
 /**
  * أزرار الإجراءات القياسية — عرض / تعديل / حذف للأرشيف
- *
- * Props:
- *   entityName  — اسم الكيان في base44 (مثال: 'Client', 'Case')
- *   record      — السجل الكامل
- *   onEdit      — دالة تفتح نافذة التعديل
- *   onView      — دالة تفتح صفحة التفاصيل (اختياري)
- *   onDeleted   — callback بعد الحذف الناجح
- *   size        — 'sm' | 'default'
- *   showLabels  — إظهار النصوص بجانب الأيقونات
  */
 export default function ActionButtons({
   entityName,
@@ -26,10 +20,16 @@ export default function ActionButtons({
   showLabels = false,
   className = '',
 }) {
+  const { user } = useAuth()
   const [deleting, setDeleting] = useState(false)
+  const isOperationsManager = String(user?.email || '').trim().toLowerCase() === OPERATIONS_MANAGER_EMAIL
 
   const handleDelete = async (e) => {
     e.stopPropagation()
+    if (isOperationsManager) {
+      alert('مدير التشغيل غير مخول بحذف أي بيانات.')
+      return
+    }
     const name = record.full_name || record.title || record.invoice_number || record.case_title || 'هذا السجل'
     if (!window.confirm(`هل تريد حذف "${name}" وإرساله للأرشيف؟`)) return
     setDeleting(true)
@@ -45,10 +45,10 @@ export default function ActionButtons({
   }
 
   const btnBase = 'gap-1.5 transition-all'
-  const sm      = size === 'sm'
+  const sm = size === 'sm'
 
   return (
-    <div className={`flex items-center gap-1 ${className}`} onClick={e => e.stopPropagation()}>
+    <div className={`flex items-center gap-1 ${className}`} onClick={(e) => e.stopPropagation()}>
       {onView && (
         <Button
           variant="ghost"
@@ -75,20 +75,22 @@ export default function ActionButtons({
         </Button>
       )}
 
-      <Button
-        variant="ghost"
-        size={sm ? 'icon' : 'sm'}
-        className={`${btnBase} ${sm ? 'h-8 w-8' : ''} text-muted-foreground hover:text-destructive`}
-        onClick={handleDelete}
-        disabled={deleting}
-        title="حذف للأرشيف"
-      >
-        {deleting
-          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          : <Trash2 className="h-3.5 w-3.5" />
-        }
-        {showLabels && !sm && 'حذف'}
-      </Button>
+      {!isOperationsManager && (
+        <Button
+          variant="ghost"
+          size={sm ? 'icon' : 'sm'}
+          className={`${btnBase} ${sm ? 'h-8 w-8' : ''} text-muted-foreground hover:text-destructive`}
+          onClick={handleDelete}
+          disabled={deleting}
+          title="حذف للأرشيف"
+        >
+          {deleting
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : <Trash2 className="h-3.5 w-3.5" />
+          }
+          {showLabels && !sm && 'حذف'}
+        </Button>
+      )}
     </div>
   )
 }

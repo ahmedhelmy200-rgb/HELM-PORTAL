@@ -1,12 +1,11 @@
--- HELM Portal: operations manager role for Mahmoud Megally.
--- Grants staff-level read/create/update access, blocks settings, role changes and every DELETE.
--- Creates an immutable audit trail for business tables.
+-- HELM Portal: operations manager permissions for Mahmoud Megally.
+-- The stored profile role remains "staff" for compatibility with the current app.
+-- Database helpers identify Mahmoud's email as "operations_manager" and enforce stricter limits.
 
 begin;
 
 create extension if not exists pgcrypto;
 
--- Make the existing staff helper recognize the new operational role.
 create or replace function public.app_is_staff()
 returns boolean
 language sql
@@ -18,7 +17,7 @@ as $$
     select 1
     from public.user_profiles p
     where lower(p.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-      and p.role in ('admin', 'staff', 'lawyer', 'assistant', 'secretary', 'operations_manager')
+      and p.role in ('admin', 'staff', 'lawyer', 'assistant', 'secretary')
   );
 $$;
 
@@ -32,32 +31,36 @@ stable
 security definer
 set search_path = pg_catalog, public
 as $$
-  select coalesce((
-    select p.role
-    from public.user_profiles p
-    where lower(p.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-    limit 1
-  ), 'guest');
+  select case
+    when lower(coalesce(auth.jwt() ->> 'email', '')) = 'mahmoudmegally3@gmail.com'
+      then 'operations_manager'
+    else coalesce((
+      select p.role
+      from public.user_profiles p
+      where lower(p.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      limit 1
+    ), 'guest')
+  end;
 $$;
 
 revoke all on function public.app_current_role() from public;
 grant execute on function public.app_current_role() to authenticated, service_role;
 
--- Assign Mahmoud's account. If his profile is not created yet, the insert is attempted
--- only when the expected columns exist and their remaining columns have defaults.
+-- Keep Mahmoud compatible with the current frontend's staff role recognition.
 do $$
 begin
   update public.user_profiles
-     set role = 'operations_manager',
+     set role = 'staff',
          full_name = coalesce(nullif(full_name, ''), 'محمود مجلي')
    where lower(email) = 'mahmoudmegally3@gmail.com';
 
   if not found then
     begin
       insert into public.user_profiles (email, full_name, role)
-      values ('mahmoudmegally3@gmail.com', 'محمود مجلي', 'operations_manager');
-    exception when not_null_violation then
-      raise notice 'Mahmoud profile will receive operations_manager automatically after his first login/profile creation.';
+      values ('mahmoudmegally3@gmail.com', 'محمود مجلي', 'staff');
+    exception
+      when not_null_violation or unique_violation then
+        raise notice 'Mahmoud profile will be assigned staff after profile creation or migration rerun.';
     end;
   end if;
 end
@@ -93,7 +96,6 @@ for select
 to authenticated
 using (public.app_is_staff());
 
--- No browser role may insert/update/delete audit rows directly.
 revoke insert, update, delete on public.user_activity_logs from anon, authenticated;
 grant select on public.user_activity_logs to authenticated;
 
@@ -173,8 +175,6 @@ begin
 end
 $$;
 
--- A restrictive policy is ANDed with existing permissive policies.
--- It blocks the settings table only for the operations manager.
 do $$
 begin
   if to_regclass('public.office_settings') is not null then
@@ -193,7 +193,6 @@ begin
 end
 $$;
 
--- Install auditing and delete protection on the main business tables that exist.
 do $$
 declare
   t text;
@@ -221,7 +220,6 @@ begin
 end
 $$;
 
--- Protect the users table separately.
 do $$
 begin
   if to_regclass('public.user_profiles') is not null then

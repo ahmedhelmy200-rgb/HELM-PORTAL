@@ -25,6 +25,7 @@ const Communications = lazy(() => import('./pages/Communications'));
 const Archive = lazy(() => import('./pages/Archive'));
 const Payment = lazy(() => import('./pages/Payment'));
 const HelmSmart = lazy(() => import('./pages/HelmSmart'));
+const UserActivity = lazy(() => import('./pages/UserActivity'));
 const __Layout = lazy(() => import('./Layout.jsx'));
 
 export const PAGES = {
@@ -53,6 +54,7 @@ export const PAGES = {
   Archive,
   Payment,
   HelmSmart,
+  UserActivity,
 };
 
 export const pagesConfig = {

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Route, Routes, Navigate, Link } from 'react-router-dom'
 import PageNotFound from './lib/PageNotFound'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
@@ -26,6 +26,11 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : () => null
 const CLIENT_ALLOWED_PAGES = new Set(['Dashboard', 'Cases', 'Invoices', 'Documents', 'Notifications', 'Profile'])
 const PENDING_CLIENT_ALLOWED_PAGES = new Set(['ClientOnboarding'])
 const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
+const OPERATIONS_MANAGER_EMAIL = 'mahmoudmegally3@gmail.com'
+
+function isOperationsManager(user) {
+  return String(user?.email || '').trim().toLowerCase() === OPERATIONS_MANAGER_EMAIL
+}
 
 const PageFallback = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
@@ -57,16 +62,8 @@ const RetiredAccountAccess = () => (
     <section className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/[.06] p-7 text-center shadow-2xl">
       <img src="/icon-192.png" alt="HELM Portal" className="mx-auto h-20 w-20 rounded-3xl object-contain" />
       <h1 className="mt-5 text-2xl font-black">هذا النوع من الحسابات لم يعد مفعّلًا</h1>
-      <p className="mt-3 leading-8 text-slate-300">
-        تواصل مع إدارة المكتب لتحويل الحساب إلى موظف أو موكّل بحسب الصلاحية المطلوبة.
-      </p>
-      <button
-        type="button"
-        onClick={() => base44.auth.logout()}
-        className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-slate-950"
-      >
-        تسجيل الخروج
-      </button>
+      <p className="mt-3 leading-8 text-slate-300">تواصل مع إدارة المكتب لتحويل الحساب إلى موظف أو موكّل بحسب الصلاحية المطلوبة.</p>
+      <button type="button" onClick={() => base44.auth.logout()} className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-slate-950">تسجيل الخروج</button>
     </section>
   </main>
 )
@@ -74,6 +71,19 @@ const RetiredAccountAccess = () => (
 const LayoutWrapper = ({ children, currentPageName }) => Layout ? <Suspense fallback={<PageFallback />}><Layout currentPageName={currentPageName}>{children}</Layout></Suspense> : <>{children}</>
 
 function RealtimeBridge() { useEffect(() => { const stop = base44.realtime.subscribe(); return stop }, []); return null }
+
+function OperationsQuickAccess({ user }) {
+  if (!isOperationsManager(user) && user?.role !== 'admin') return null
+  return (
+    <Link
+      to={createPageUrl('UserActivity')}
+      className="fixed bottom-24 left-4 z-[90] rounded-2xl border border-white/15 bg-slate-950/90 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur hover:bg-slate-900 md:bottom-6"
+      title="سجل أعمال المستخدمين"
+    >
+      سجل أعمال المستخدمين
+    </Link>
+  )
+}
 
 function OnboardingRoute() {
   const { user, isAuthenticated } = useAuth()
@@ -104,10 +114,12 @@ const AuthenticatedApp = () => {
   if (user.role === 'broker') return <RetiredAccountAccess />
 
   const fallbackPage = 'Dashboard'
+  const operationsManager = isOperationsManager(user)
   const resolvePage = (path, Page) => user?.role === 'client' && path === 'Dashboard' ? ClientDashboard : Page
   const renderPage = (path, Page) => {
     if (user?.role === 'pending_client' && !PENDING_CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('ClientOnboarding')} replace />
     if (user?.role === 'client' && !CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Dashboard')} replace />
+    if (operationsManager && path === 'Settings') return <Navigate to={createPageUrl('Dashboard')} replace />
     const ResolvedPage = resolvePage(path, Page)
     return <LayoutWrapper currentPageName={path}><Suspense fallback={<ContentFallback />}><ResolvedPage /></Suspense></LayoutWrapper>
   }
@@ -125,6 +137,7 @@ const AuthenticatedApp = () => {
         <Route path="*" element={<PageNotFound />} />
       </Routes>
       <MobilePriorityDock />
+      <OperationsQuickAccess user={user} />
     </>
   )
 }

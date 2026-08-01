@@ -73,14 +73,16 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ? <Suspense fall
 function RealtimeBridge() { useEffect(() => { const stop = base44.realtime.subscribe(); return stop }, []); return null }
 
 function OperationsQuickAccess({ user }) {
-  if (!isOperationsManager(user) && user?.role !== 'admin') return null
+  const operationsManager = isOperationsManager(user)
+  if (!operationsManager && user?.role !== 'admin') return null
   return (
     <Link
       to={createPageUrl('UserActivity')}
-      className="fixed bottom-24 left-4 z-[90] rounded-2xl border border-white/15 bg-slate-950/90 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur hover:bg-slate-900 md:bottom-6"
+      className="fixed bottom-24 left-4 z-[90] flex items-center gap-2 rounded-2xl border border-amber-300/30 bg-slate-950/95 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur hover:bg-slate-900 md:bottom-6"
       title="سجل أعمال المستخدمين"
     >
-      سجل أعمال المستخدمين
+      {operationsManager && <span className="rounded-lg bg-amber-400 px-2 py-1 text-[11px] font-black text-slate-950">مدير عام</span>}
+      <span>سجل أعمال المستخدمين</span>
     </Link>
   )
 }

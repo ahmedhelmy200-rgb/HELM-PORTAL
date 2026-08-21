@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react'
 import { base44 } from '@/api/base44Client'
-import { loginWithCalendarScope } from '@/lib/googleCalendar'
 import { supabase } from '@/integrations/supabase/client'
 import { beginGoogleOAuth, getPublicAppOrigin, isHelmDesktop } from '@/lib/authRedirect'
 
@@ -10,6 +9,7 @@ const AUTH_TIMEOUT_MS = 12000
 const PROFILE_TIMEOUT_MS = 12000
 const SETTINGS_TIMEOUT_MS = 8000
 const OAUTH_SESSION_WAIT_MS = 10000
+const GOOGLE_CALENDAR_SCOPE = 'openid email profile https://www.googleapis.com/auth/calendar.events'
 
 function isAbortLike(error) {
   const message = String(error?.message || error || '').toLowerCase()
@@ -183,6 +183,8 @@ export const AuthProvider = ({ children }) => {
           if (!cancelled) {
             setAuthError({ type: 'oauth_error', message: oauthError })
             finishAsGuest(null)
+            setIsLoadingAuth(false)
+            setIsLoadingPublicSettings(false)
           }
           return
         }
@@ -286,10 +288,13 @@ export const AuthProvider = ({ children }) => {
 
   const navigateToLoginWithCalendar = async () => {
     try {
-      const redirectBase = getPublicAppOrigin()
-      await loginWithCalendarScope(redirectBase || undefined)
+      setAuthError(null)
+      await beginGoogleOAuth(supabase, {
+        scopes: GOOGLE_CALENDAR_SCOPE,
+        prompt: 'consent select_account',
+      })
     } catch (err) {
-      setAuthError({ type: 'oauth_error', message: err.message })
+      setAuthError({ type: 'oauth_error', message: err.message || 'تعذر طلب صلاحية Google Calendar.' })
     }
   }
 

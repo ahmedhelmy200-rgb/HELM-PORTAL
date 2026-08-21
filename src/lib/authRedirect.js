@@ -22,18 +22,29 @@ export function getConfiguredPublicOrigin() {
   )
 }
 
-export function getPublicAppOrigin() {
-  // On a real browser deployment, always trust the page that is actually open.
-  // This prevents a stale localhost value in Vercel env from breaking Google OAuth.
-  return getRuntimeWebOrigin() || getConfiguredPublicOrigin()
-}
-
 export function isHelmDesktop() {
   return typeof window !== 'undefined' && Boolean(window.helmDesktop?.isDesktop)
 }
 
-export async function beginGoogleOAuth(supabase) {
-  const queryParams = { access_type: 'offline', prompt: 'select_account' }
+export function getPublicAppOrigin() {
+  const runtimeOrigin = getRuntimeWebOrigin()
+  const configuredOrigin = getConfiguredPublicOrigin()
+
+  // Browser deployments must trust the page that is actually open. This prevents
+  // a stale localhost value in Vercel env from breaking Google OAuth.
+  if (!isHelmDesktop() && runtimeOrigin) return runtimeOrigin
+
+  // Desktop uses the published site for email links when it is configured,
+  // while the local 127.0.0.1 origin remains a safe fallback.
+  return configuredOrigin || runtimeOrigin
+}
+
+export async function beginGoogleOAuth(supabase, options = {}) {
+  const queryParams = {
+    access_type: 'offline',
+    prompt: options.prompt || 'select_account',
+    ...(options.queryParams || {}),
+  }
 
   if (isHelmDesktop()) {
     const callbackUrl = await window.helmDesktop.getOAuthCallbackUrl()
@@ -42,6 +53,7 @@ export async function beginGoogleOAuth(supabase) {
       options: {
         redirectTo: callbackUrl,
         skipBrowserRedirect: true,
+        ...(options.scopes ? { scopes: options.scopes } : {}),
         queryParams,
       },
     })
@@ -51,12 +63,16 @@ export async function beginGoogleOAuth(supabase) {
     return { desktop: true, redirectTo: callbackUrl }
   }
 
-  const redirectTo = getPublicAppOrigin()
+  const redirectTo = getRuntimeWebOrigin() || getConfiguredPublicOrigin()
   if (!redirectTo) throw new Error('تعذر تحديد عنوان الرجوع بعد تسجيل الدخول.')
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo, queryParams },
+    options: {
+      redirectTo,
+      ...(options.scopes ? { scopes: options.scopes } : {}),
+      queryParams,
+    },
   })
   if (error) throw error
   return { desktop: false, redirectTo }

@@ -12,24 +12,19 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
 }
 
 $envFile = Join-Path $PSScriptRoot '.env.local'
-if (-not (Test-Path $envFile)) {
-  if (Test-Path (Join-Path $PSScriptRoot '.env.example')) {
-    Copy-Item (Join-Path $PSScriptRoot '.env.example') $envFile
+if (Test-Path $envFile) {
+  $envText = Get-Content $envFile -Raw
+  if ($envText -match '(?m)^VITE_SUPABASE_URL=https://[a-z0-9-]+\.supabase\.co\s*$' -and
+      $envText -match '(?m)^VITE_SUPABASE_ANON_KEY=\S+' -and
+      $envText -notmatch 'YOUR_PROJECT|YOUR_SUPABASE_ANON_KEY') {
+    Write-Host "Using Supabase values from .env.local." -ForegroundColor Green
+  } else {
+    Write-Host "The existing .env.local does not contain complete Supabase values." -ForegroundColor Yellow
+    Write-Host "The EXE will still work: Windows first-run setup will ask for the public Supabase URL and Anon key." -ForegroundColor Yellow
   }
-  Write-Host "`nCreated .env.local. Add the real Supabase URL and anon key, then run this script again." -ForegroundColor Yellow
-  Start-Process notepad.exe $envFile
-  exit 1
-}
-
-$envText = Get-Content $envFile -Raw
-if ($envText -notmatch '(?m)^VITE_SUPABASE_URL=https://[a-z0-9-]+\.supabase\.co\s*$') {
-  throw 'VITE_SUPABASE_URL is missing or invalid in .env.local.'
-}
-if ($envText -notmatch '(?m)^VITE_SUPABASE_ANON_KEY=\S+') {
-  throw 'VITE_SUPABASE_ANON_KEY is missing in .env.local.'
-}
-if ($envText -match 'YOUR_PROJECT|YOUR_SUPABASE_ANON_KEY') {
-  throw 'Replace the placeholder Supabase values in .env.local first.'
+} else {
+  Write-Host "No .env.local found. Building a configurable Windows EXE." -ForegroundColor Yellow
+  Write-Host "On first launch, HELM Portal will ask once for the public Supabase URL and Anon key." -ForegroundColor Yellow
 }
 
 Write-Host "`n[1/4] Installing application dependencies..." -ForegroundColor Cyan

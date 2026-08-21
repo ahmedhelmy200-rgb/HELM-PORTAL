@@ -1,0 +1,43 @@
+name: Build HELM Windows Desktop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Build Vite application
+        run: npm run build
+
+      - name: Install Electron packaging tools
+        run: npm install --no-save --package-lock=false electron@39.2.7 electron-builder@26.0.12
+
+      - name: Build Installer and Portable EXE
+        run: npx electron-builder --config electron-builder.yml --win nsis portable
+
+      - name: Upload Windows EXE files
+        uses: actions/upload-artifact@v4
+        with:
+          name: HELM-Portal-Windows
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 14

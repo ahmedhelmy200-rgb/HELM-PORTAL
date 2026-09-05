@@ -7,41 +7,41 @@
 }
 
 /* Header identity and navigation: strong contrast on the charcoal bar. */
-header p {
+body:has(#login) header p {
   color: #f8f4ec !important;
 }
 
-header nav a {
+body:has(#login) header nav a {
   color: #f4efe7 !important;
 }
 
-header nav a:last-child {
+body:has(#login) header nav a:last-child {
   color: #111827 !important;
 }
 
 /* Dark hero text: replace low-contrast greige shades with clear warm whites. */
-.text-\[\#a9a397\] {
+body:has(#login) .text-\[\#a9a397\] {
   color: #e9e3d9 !important;
 }
 
-.text-\[\#c7c1b7\] {
+body:has(#login) .text-\[\#c7c1b7\] {
   color: #f3eee6 !important;
 }
 
-.text-\[\#bdb7ae\] {
+body:has(#login) .text-\[\#bdb7ae\] {
   color: #e8e2d9 !important;
 }
 
-.text-\[\#c1bbc0\] {
+body:has(#login) .text-\[\#c1bbc0\] {
   color: #eee9e1 !important;
 }
 
 /* Gold stays decorative but readable rather than muted. */
-.text-\[\#dcc084\],
-.text-\[\#dfc48e\],
-.text-\[\#dfc58f\],
-.text-\[\#e0c590\],
-.text-\[\#e2c993\] {
+body:has(#login) .text-\[\#dcc084\],
+body:has(#login) .text-\[\#dfc48e\],
+body:has(#login) .text-\[\#dfc58f\],
+body:has(#login) .text-\[\#e0c590\],
+body:has(#login) .text-\[\#e2c993\] {
   color: #f0d59b !important;
 }
 
@@ -70,8 +70,8 @@ header nav a:last-child {
   color: #72521f !important;
 }
 
-/* General light sections: body copy should never wash into the ivory background. */
-.text-\[\#696258\] {
+/* General light sections on the public entry page. */
+body:has(#login) .text-\[\#696258\] {
   color: #514a42 !important;
 }
 
@@ -92,7 +92,7 @@ header nav a:last-child {
 }
 
 @media (max-width: 767px) {
-  header p {
+  body:has(#login) header p {
     color: #ffffff !important;
   }
 }

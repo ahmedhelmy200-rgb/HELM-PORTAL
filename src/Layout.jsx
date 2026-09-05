@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Briefcase, Users, CalendarDays, FileText, CheckSquare,
   Bell, Menu, X, LogOut, Receipt, BookOpen, Settings, Wallet, BarChart2, MessageCircle,
   Archive, Search as SearchIcon, MoonStar, SunMedium, Volume2, VolumeX, Zap,
-  Landmark, ArrowRight, MonitorCog, BrainCircuit
+  Landmark, ArrowRight, MonitorCog, BrainCircuit, Megaphone
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,7 @@ const staffNavItems = [
   { label: "المصاريف", page: "Expenses", icon: Wallet, fx: "nav-fx-shift" },
   { label: "النماذج القانونية", page: "LegalTemplates", icon: BookOpen, fx: "nav-fx-float" },
   { label: "مركز التواصل", page: "Communications", icon: MessageCircle, fx: "nav-fx-breathe" },
+  { label: "مركز النشر", page: "SocialPublisher", icon: Megaphone, fx: "nav-fx-pulse" },
   { label: "التقارير", page: "Reports", icon: BarChart2, fx: "nav-fx-pulse" },
   { label: "حُلم سمارت", page: "HelmSmart", icon: BrainCircuit, fx: "nav-fx-spark" },
   { label: "الأرشيف", page: "Archive", icon: Archive, fx: "nav-fx-tilt" },
@@ -97,7 +98,10 @@ export default function Layout({ children, currentPageName }) {
   const desktopSidebarScrollRef = useRef(null)
   const mobileSidebarScrollRef = useRef(null)
 
-  const navItems = useMemo(() => user?.role === 'client' ? clientNavItems : staffNavItems, [user?.role])
+  const navItems = useMemo(() => {
+    if (user?.role === 'client') return clientNavItems
+    return staffNavItems.filter((item) => item.page !== 'SocialPublisher' || user?.role === 'admin')
+  }, [user?.role])
   const mobileTabs = user?.role === 'client' ? mobileTabsForRole.client : mobileTabsForRole.staff
   const resolvedTheme = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference
   const isPrimaryMobilePage = mobileTabs.some((item) => item.page === currentPageName)

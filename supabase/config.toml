@@ -1,0 +1,5 @@
+[functions.meta-oauth-callback]
+verify_jwt = false
+
+[functions.meta-process-queue]
+verify_jwt = false

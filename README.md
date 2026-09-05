@@ -11,3 +11,7 @@ Open `README_SUPABASE_VERCEL_AR.md` for migration and deployment instructions.
 
 ## Security hardening after Stage 3
 Run `FINAL_SECURITY_HARDENING.sql` in Supabase SQL Editor after the prior setup files. This protects `user_profiles`, notification access, and private storage read permissions for client documents.
+
+## Meta social publishing
+
+The admin-only Facebook/Instagram publishing center is documented in `docs/META_SOCIAL_PUBLISHING_SETUP_AR.md`.

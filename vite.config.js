@@ -22,7 +22,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-core': ['react', 'react-dom', 'react-router-dom'],
-          charts: ['recharts'],
           stripe: ['@stripe/stripe-js', '@stripe/react-stripe-js'],
           supabase: ['@supabase/supabase-js'],
           dates: ['date-fns'],

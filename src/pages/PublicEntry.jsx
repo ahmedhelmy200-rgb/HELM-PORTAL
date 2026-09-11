@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/lib/AuthContext'
 import OfficeBrandMark from '@/components/helm/OfficeBrandMark'
 import {
-  AlertCircle, BookOpen, Building2, ChevronLeft, Eye, EyeOff, FileText,
+  AlertCircle, BookOpen, ChevronLeft, Eye, EyeOff, FileText,
   Gavel, Globe2, Landmark, Lock, LogIn, Mail, MapPin, Scale, Search,
-  ShieldCheck, Sparkles, UserPlus, Users
+  ShieldCheck, Sparkles, UserPlus
 } from 'lucide-react'
 
 const publicHubs = [

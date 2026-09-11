@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
+import { escapeHtml, detachOpener } from "@/lib/htmlEscape";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Plus, Search, FileText, TrendingUp, DollarSign, AlertCircle, MessageCircle, Mail, Send, Building2, Scale, AlertTriangle, Copy } from "lucide-react";
+import { Plus, Search, FileText, TrendingUp, DollarSign, AlertCircle, Building2, Scale, AlertTriangle, Copy } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import EmptyState from "../components/helm/EmptyState";
 import InvoiceCard from "../components/invoices/InvoiceCard";
@@ -139,10 +140,10 @@ export default function Invoices() {
   const printInvoice = () => {
     const printContent = document.querySelector(".helm-invoice-print-root");
     if (!printContent) return;
-    const win = window.open("", "_blank", "width=980,height=1200,scrollbars=yes");
+    const win = detachOpener(window.open("", "_blank", "width=980,height=1200,scrollbars=yes"));
     if (!win) return alert("تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.");
     win.document.open();
-    win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>فاتورة ${previewInvoice?.invoice_number || ""}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet"><style>html,body{margin:0;padding:0;background:#fff;direction:rtl;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:'Cairo',Arial,sans-serif}.print-actions{padding:12px;background:#0f172a;color:#fff;display:flex;justify-content:center;gap:8px;position:sticky;top:0;z-index:99999}.print-actions button{border:0;border-radius:12px;padding:10px 16px;font-weight:900;cursor:pointer}@page{size:A4;margin:9mm}@media print{.print-actions{display:none!important}html,body{width:auto!important;height:auto!important;overflow:visible!important}}</style></head><body><div class="print-actions"><button onclick="window.print()">طباعة / حفظ PDF</button><button onclick="window.close()">إغلاق</button></div>${printContent.outerHTML}<script>window.onload=function(){setTimeout(function(){window.focus();window.print()},450)}</script></body></html>`);
+    win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>فاتورة ${escapeHtml(previewInvoice?.invoice_number || "")}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet"><style>html,body{margin:0;padding:0;background:#fff;direction:rtl;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:'Cairo',Arial,sans-serif}.print-actions{padding:12px;background:#0f172a;color:#fff;display:flex;justify-content:center;gap:8px;position:sticky;top:0;z-index:99999}.print-actions button{border:0;border-radius:12px;padding:10px 16px;font-weight:900;cursor:pointer}@page{size:A4;margin:9mm}@media print{.print-actions{display:none!important}html,body{width:auto!important;height:auto!important;overflow:visible!important}}</style></head><body><div class="print-actions"><button onclick="window.print()">طباعة / حفظ PDF</button><button onclick="window.close()">إغلاق</button></div>${printContent.outerHTML}<script>window.onload=function(){setTimeout(function(){window.focus();window.print()},450)}</script></body></html>`);
     win.document.close();
   };
 

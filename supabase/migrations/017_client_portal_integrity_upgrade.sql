@@ -65,58 +65,52 @@ $$;
 
 -- -----------------------------------------------------------------------------
 -- Stable client_id linking. Only unambiguous normalized-name matches are used.
--- -----------------------------------------------------------------------------
-with unique_clients as (
-  select min(id) as id, public.helm_norm_text(full_name) as normalized_name
-  from public.clients
-  where public.helm_norm_text(full_name) <> ''
-  group by public.helm_norm_text(full_name)
-  having count(*) = 1
-)
-update public.cases target
-set client_id = source.id
-from unique_clients source
-where target.client_id is null
-  and public.helm_norm_text(target.client_name) = source.normalized_name;
+--
+-- ملاحظتان تقنيتان عالجتهما هنا:
+--  1) لا توجد دالة min(uuid) في PostgreSQL — كان الملف يفشل بالكامل:
+--       ERROR: function min(uuid) does not exist (SQLSTATE 42883)
+--     الحل: min(id::text)::uuid
+--  2) نوع client_id يختلف بين الجداول: text في cases/invoices/documents
+--     (من 001 و 008) و uuid في sessions/tasks (من 010)، فالإسناد الثابت
+--     يفشل على أحد النوعين. لذلك نتحقق من النوع ونُسند بما يناسبه.
+do $link$
+declare
+  r record;
+  col_type text;
+  id_expr text;
+begin
+  for r in
+    select * from (values ('cases'), ('invoices'), ('documents'), ('sessions')) as t(tbl)
+  loop
+    select c.data_type into col_type
+      from information_schema.columns c
+     where c.table_schema = 'public'
+       and c.table_name = r.tbl
+       and c.column_name = 'client_id';
 
-with unique_clients as (
-  select min(id) as id, public.helm_norm_text(full_name) as normalized_name
-  from public.clients
-  where public.helm_norm_text(full_name) <> ''
-  group by public.helm_norm_text(full_name)
-  having count(*) = 1
-)
-update public.invoices target
-set client_id = source.id
-from unique_clients source
-where target.client_id is null
-  and public.helm_norm_text(target.client_name) = source.normalized_name;
+    if col_type is null then
+      continue;
+    end if;
 
-with unique_clients as (
-  select min(id) as id, public.helm_norm_text(full_name) as normalized_name
-  from public.clients
-  where public.helm_norm_text(full_name) <> ''
-  group by public.helm_norm_text(full_name)
-  having count(*) = 1
-)
-update public.documents target
-set client_id = source.id
-from unique_clients source
-where target.client_id is null
-  and public.helm_norm_text(target.client_name) = source.normalized_name;
+    id_expr := case when col_type = 'uuid' then 'source.id' else 'source.id::text' end;
 
-with unique_clients as (
-  select min(id) as id, public.helm_norm_text(full_name) as normalized_name
-  from public.clients
-  where public.helm_norm_text(full_name) <> ''
-  group by public.helm_norm_text(full_name)
-  having count(*) = 1
-)
-update public.sessions target
-set client_id = source.id
-from unique_clients source
-where target.client_id is null
-  and public.helm_norm_text(target.client_name) = source.normalized_name;
+    execute format($sql$
+      with unique_clients as (
+        select min(id::text)::uuid as id,
+               public.helm_norm_text(full_name) as normalized_name
+          from public.clients
+         where public.helm_norm_text(full_name) <> ''
+         group by public.helm_norm_text(full_name)
+        having count(*) = 1
+      )
+      update public.%I target
+         set client_id = %s
+        from unique_clients source
+       where target.client_id is null
+         and public.helm_norm_text(target.client_name) = source.normalized_name
+    $sql$, r.tbl, id_expr);
+  end loop;
+end $link$;
 
 create index if not exists idx_clients_norm_email on public.clients(public.helm_norm_email(email));
 create index if not exists idx_clients_norm_phone on public.clients(public.helm_norm_phone(phone));

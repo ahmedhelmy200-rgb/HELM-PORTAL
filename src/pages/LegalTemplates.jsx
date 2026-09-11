@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { escapeHtml, detachOpener } from "@/lib/htmlEscape";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Plus, Search, FileText, Star, StarOff, Edit, Trash2, Copy, Download,
-  BookOpen, Filter, ChevronDown, Wand2
+  BookOpen, Wand2
 } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import EmptyState from "../components/helm/EmptyState";
@@ -372,11 +373,12 @@ export default function LegalTemplates() {
   };
 
   const printTemplate = (t) => {
-    const win = window.open("", "_blank");
+    const win = detachOpener(window.open("", "_blank"));
+    if (!win) return alert("تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.");
     win.document.write(`
       <html dir="rtl">
         <head>
-          <title>${t.title}</title>
+          <title>${escapeHtml(t.title)}</title>
           <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
           <style>
             body { font-family: 'Cairo', Arial; padding: 40px; line-height: 1.8; direction: rtl; }
@@ -386,8 +388,8 @@ export default function LegalTemplates() {
           </style>
         </head>
         <body>
-          <h1>${t.title}</h1>
-          <pre>${t.content}</pre>
+          <h1>${escapeHtml(t.title)}</h1>
+          <pre>${escapeHtml(t.content)}</pre>
           <script>window.onload = () => { window.print(); };</script>
         </body>
       </html>

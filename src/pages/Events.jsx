@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Calendar, Plus, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import EventCard from "../components/shared/EventCard";
 import EmptyState from "../components/shared/EmptyState";

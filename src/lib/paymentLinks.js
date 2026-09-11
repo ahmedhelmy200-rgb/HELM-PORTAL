@@ -6,11 +6,27 @@ export function generatePaymentToken(invoiceId) {
   return btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
+// base64 في المتصفح يشترط أن يكون الطول من مضاعفات 4.
+// الطريقة القديمة كانت تضيف '==' دائمًا، فتفشل الروابط التي لا يوافق طولها ذلك
+// (مثال: معرّفات نصية مثل INV-2026-001) وتظهر للموكّل رسالة "رابط الدفع غير صالح".
+// هنا نحسب الحشو الصحيح حسب الطول الفعلي.
+function base64UrlToBase64(value) {
+  const normalized = String(value || '')
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .replace(/[^A-Za-z0-9+/]/g, '')
+
+  const remainder = normalized.length % 4
+  if (remainder === 1) return null // طول غير صالح في base64 ولا يمكن إكماله
+  return remainder === 0 ? normalized : normalized + '='.repeat(4 - remainder)
+}
+
 export function parsePaymentToken(token) {
   try {
-    const padded = String(token || '').replace(/-/g, '+').replace(/_/g, '/')
-    const json = atob(padded + '==')
-    return JSON.parse(json)
+    const padded = base64UrlToBase64(token)
+    if (!padded) return null
+    const parsed = JSON.parse(atob(padded))
+    return parsed && typeof parsed === 'object' ? parsed : null
   } catch {
     return null
   }

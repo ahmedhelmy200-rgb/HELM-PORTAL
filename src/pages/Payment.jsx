@@ -7,8 +7,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import {
   CreditCard, Shield, CheckCircle2, AlertCircle, Loader2,
-  Receipt, Copy, Banknote, Phone, MessageCircle,
-  ChevronLeft, Lock, Star,
+  Receipt, Copy, Banknote, Phone, MessageCircle, Lock, Star,
 } from 'lucide-react'
 import { format, isValid } from 'date-fns'
 

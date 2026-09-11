@@ -11,16 +11,15 @@ import { usePageRefresh } from '@/hooks/usePageRefresh'
 import { getInvoiceTotals } from '@/lib/invoiceMath'
 import {
   sessionTomorrowMessage, sessionReminderMessage, sessionResultMessage,
-  invoiceReminderMessage, invoiceOverdueMessage, invoicePaidThankMessage,
-  caseUpdateMessage, welcomeNewClientMessage,
+  invoiceReminderMessage, invoiceOverdueMessage, welcomeNewClientMessage,
   openWhatsApp, TEMPLATE_TYPES,
 } from '@/lib/whatsappTemplates'
 import {
   MessageCircle, Send, Clock, AlertCircle, CheckCircle2,
-  CalendarDays, Receipt, Users, Briefcase, Zap, Eye,
-  Copy, ChevronDown, ChevronUp, Phone, RefreshCw, X,
+  CalendarDays, Receipt, Users, Zap, Eye,
+  Copy, ChevronDown, ChevronUp, Phone, RefreshCw,
 } from 'lucide-react'
-import { format, isValid, isToday, isTomorrow, isPast, addDays } from 'date-fns'
+import { format, isValid, isTomorrow, isPast, addDays } from 'date-fns'
 import { useAuth } from '@/lib/AuthContext'
 
 // ── مساعدات ───────────────────────────────────────────────────────────────────

@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Download,
-  ExternalLink,
   Scale,
   TrendingUp,
   Clock3,

@@ -5,22 +5,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 0) تنظيف: إزالة أي سياسات أو فهارس قديمة إن وُجدت
--- ─────────────────────────────────────────────────────────────────────────────
-
-drop policy if exists "staff_can_manage_archive" on public.archived_records;
-drop policy if exists "archived_records staff select" on public.archived_records;
-drop policy if exists "archived_records staff insert" on public.archived_records;
-drop policy if exists "archived_records staff update" on public.archived_records;
-drop policy if exists "archived_records staff delete" on public.archived_records;
-drop policy if exists "archived_records admin delete" on public.archived_records;
-drop index if exists public.idx_archived_records_entity;
-drop index if exists public.idx_archived_records_archived_by;
-drop index if exists public.idx_archived_records_archived_at;
-drop index if exists public.idx_archived_records_record_lookup;
-drop index if exists public.idx_archived_unique_active;
-
--- ─────────────────────────────────────────────────────────────────────────────
 -- 1) إنشاء الجدول
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -45,7 +29,23 @@ create table if not exists public.archived_records (
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2) قيد فريد: منع تكرار أرشفة نفس السجل من نفس الكيان
+-- 2) تنظيف: إزالة أي سياسات أو فهارس قديمة إن وُجدت
+-- ─────────────────────────────────────────────────────────────────────────────
+
+drop policy if exists "staff_can_manage_archive" on public.archived_records;
+drop policy if exists "archived_records staff select" on public.archived_records;
+drop policy if exists "archived_records staff insert" on public.archived_records;
+drop policy if exists "archived_records staff update" on public.archived_records;
+drop policy if exists "archived_records staff delete" on public.archived_records;
+drop policy if exists "archived_records admin delete" on public.archived_records;
+drop index if exists public.idx_archived_records_entity;
+drop index if exists public.idx_archived_records_archived_by;
+drop index if exists public.idx_archived_records_archived_at;
+drop index if exists public.idx_archived_records_record_lookup;
+drop index if exists public.idx_archived_unique_active;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3) قيد فريد: منع تكرار أرشفة نفس السجل من نفس الكيان
 -- ─────────────────────────────────────────────────────────────────────────────
 
 create unique index if not exists idx_archived_unique_active
@@ -53,7 +53,7 @@ create unique index if not exists idx_archived_unique_active
   where is_permanent = false;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 3) فهارس الأداء
+-- 4) فهارس الأداء
 -- ─────────────────────────────────────────────────────────────────────────────
 
 create index if not exists idx_archived_records_entity
@@ -72,13 +72,13 @@ create index if not exists idx_archived_records_record_lookup
   on public.archived_records (record_id, entity_name);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 4) تفعيل RLS
+-- 5) تفعيل RLS
 -- ─────────────────────────────────────────────────────────────────────────────
 
 alter table public.archived_records enable row level security;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 5) سياسات الوصول RLS
+-- 6) سياسات الوصول RLS
 -- الموكلون لا يرون الأرشيف — فقط أدوار الفريق
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -120,7 +120,7 @@ create policy "archived_records admin delete"
   );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 6) دوال مساعدة آمنة
+-- 7) دوال مساعدة آمنة
 -- ─────────────────────────────────────────────────────────────────────────────
 
 create or replace function public.get_archive_counts()
@@ -180,7 +180,7 @@ revoke all on function public.purge_old_archive(int) from public;
 grant execute on function public.purge_old_archive(int) to authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 7) Realtime — إضافة آمنة بدون كسر التكرار
+-- 8) Realtime — إضافة آمنة بدون كسر التكرار
 -- ─────────────────────────────────────────────────────────────────────────────
 
 do $$
@@ -202,7 +202,7 @@ begin
 end $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 8) تعليقات توضيحية
+-- 9) تعليقات توضيحية
 -- ─────────────────────────────────────────────────────────────────────────────
 
 comment on table  public.archived_records              is 'الأرشيف — حذف ناعم مع إمكانية الاسترجاع لكل سجلات HELM';

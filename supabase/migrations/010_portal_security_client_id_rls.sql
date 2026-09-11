@@ -249,32 +249,32 @@ with check (user_id = auth.uid() or lower(coalesce(email,'')) = public.helm_curr
 -- client-owned tables
 create policy helm_phase1_cases_select on public.cases
 for select to authenticated
-using (public.helm_is_staff() or client_id = public.helm_my_client_id());
+using (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text);
 
 create policy helm_phase1_invoices_select on public.invoices
 for select to authenticated
-using (public.helm_is_staff() or client_id = public.helm_my_client_id());
+using (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text);
 
 create policy helm_phase1_documents_select on public.documents
 for select to authenticated
-using (public.helm_is_staff() or client_id = public.helm_my_client_id() or lower(coalesce(created_by,'')) = public.helm_current_email());
+using (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text or lower(coalesce(created_by,'')) = public.helm_current_email());
 
 create policy helm_phase1_sessions_select on public.sessions
 for select to authenticated
-using (public.helm_is_staff() or client_id = public.helm_my_client_id());
+using (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text);
 
 create policy helm_phase1_tasks_select on public.tasks
 for select to authenticated
-using (public.helm_is_staff() or client_id = public.helm_my_client_id() or lower(coalesce(created_by,'')) = public.helm_current_email());
+using (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text or lower(coalesce(created_by,'')) = public.helm_current_email());
 
 create policy helm_phase1_documents_client_insert on public.documents
 for insert to authenticated
-with check (public.helm_is_staff() or client_id = public.helm_my_client_id() or lower(coalesce(created_by,'')) = public.helm_current_email());
+with check (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text or lower(coalesce(created_by,'')) = public.helm_current_email());
 
 create policy helm_phase1_documents_client_update on public.documents
 for update to authenticated
-using (public.helm_is_staff() or client_id = public.helm_my_client_id() or lower(coalesce(created_by,'')) = public.helm_current_email())
-with check (public.helm_is_staff() or client_id = public.helm_my_client_id() or lower(coalesce(created_by,'')) = public.helm_current_email());
+using (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text or lower(coalesce(created_by,'')) = public.helm_current_email())
+with check (public.helm_is_staff() or client_id::text = public.helm_my_client_id()::text or lower(coalesce(created_by,'')) = public.helm_current_email());
 
 create policy helm_phase1_staff_all_cases on public.cases for all to authenticated using (public.helm_is_staff()) with check (public.helm_is_staff());
 create policy helm_phase1_staff_all_invoices on public.invoices for all to authenticated using (public.helm_is_staff()) with check (public.helm_is_staff());

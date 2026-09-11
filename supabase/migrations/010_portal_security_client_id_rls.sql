@@ -11,6 +11,31 @@ begin;
 create extension if not exists pgcrypto;
 
 -- -----------------------------------------------------------------------------
+-- Add stable columns. These are nullable to avoid breaking old data.
+-- -----------------------------------------------------------------------------
+alter table if exists public.user_profiles add column if not exists user_id uuid;
+alter table if exists public.user_profiles add column if not exists email text;
+alter table if exists public.user_profiles add column if not exists role text default 'client';
+
+alter table if exists public.clients add column if not exists user_id uuid;
+alter table if exists public.clients add column if not exists email text;
+alter table if exists public.clients add column if not exists created_date timestamptz default now();
+alter table if exists public.clients add column if not exists updated_date timestamptz default now();
+
+alter table if exists public.cases add column if not exists client_id uuid;
+alter table if exists public.invoices add column if not exists client_id uuid;
+alter table if exists public.documents add column if not exists client_id uuid;
+alter table if exists public.sessions add column if not exists client_id uuid;
+alter table if exists public.tasks add column if not exists client_id uuid;
+alter table if exists public.notifications add column if not exists user_id uuid;
+alter table if exists public.notifications add column if not exists user_email text;
+
+-- ملاحظة ترتيب: يجب أن تسبق إضافة الأعمدة تعريف الدوال أدناه.
+-- دوال language sql تُتحقَّق من أعمدتها وقت الإنشاء (check_function_bodies)،
+-- وكان helm_my_client_id() يشير إلى clients.user_id قبل إضافته فيفشل الملف بالكامل:
+--   ERROR: column c.user_id does not exist (SQLSTATE 42703)
+
+-- -----------------------------------------------------------------------------
 -- Helpers
 -- -----------------------------------------------------------------------------
 create or replace function public.helm_current_email()
@@ -51,26 +76,6 @@ as $$
   order by c.created_date nulls last
   limit 1;
 $$;
-
--- -----------------------------------------------------------------------------
--- Add stable columns. These are nullable to avoid breaking old data.
--- -----------------------------------------------------------------------------
-alter table if exists public.user_profiles add column if not exists user_id uuid;
-alter table if exists public.user_profiles add column if not exists email text;
-alter table if exists public.user_profiles add column if not exists role text default 'client';
-
-alter table if exists public.clients add column if not exists user_id uuid;
-alter table if exists public.clients add column if not exists email text;
-alter table if exists public.clients add column if not exists created_date timestamptz default now();
-alter table if exists public.clients add column if not exists updated_date timestamptz default now();
-
-alter table if exists public.cases add column if not exists client_id uuid;
-alter table if exists public.invoices add column if not exists client_id uuid;
-alter table if exists public.documents add column if not exists client_id uuid;
-alter table if exists public.sessions add column if not exists client_id uuid;
-alter table if exists public.tasks add column if not exists client_id uuid;
-alter table if exists public.notifications add column if not exists user_id uuid;
-alter table if exists public.notifications add column if not exists user_email text;
 
 -- Foreign keys are added defensively. If old inconsistent data exists, constraints are not forced.
 do $$

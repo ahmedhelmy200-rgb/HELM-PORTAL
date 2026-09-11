@@ -9,7 +9,6 @@ import EmptyState from "../components/helm/EmptyState";
 import { FileText } from "lucide-react";
 import CaseFolderView from "../components/documents/CaseFolderView";
 import DocCard from "../components/documents/DocCard";
-import ActionButtons from "@/components/shared/ActionButtons";
 import DocFormDialog from "../components/documents/DocFormDialog";
 import { useAuth } from "@/lib/AuthContext";
 import { searchInFields } from "@/lib/search";

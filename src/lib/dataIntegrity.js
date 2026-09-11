@@ -36,12 +36,13 @@ function asMoney(value) {
 }
 
 export function clientIdentity(record = {}) {
+  const row = record || {}
   return {
-    id: record.id || null,
-    name: normalizeText(record.full_name),
-    phone: normalizePhone(record.phone),
-    email: normalizeEmail(record.email),
-    idNumber: normalizeIdNumber(record.id_number),
+    id: row.id || null,
+    name: normalizeText(row.full_name),
+    phone: normalizePhone(row.phone),
+    email: normalizeEmail(row.email),
+    idNumber: normalizeIdNumber(row.id_number),
   }
 }
 

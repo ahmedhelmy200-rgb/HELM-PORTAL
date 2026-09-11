@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import SupabaseSetup from "@/components/app/SupabaseSetup";
-import { loginWithCalendarScope, hasCalendarPermission } from "@/lib/googleCalendar";
+import { loginWithCalendarScope } from "@/lib/googleCalendar";
 import { MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -18,7 +18,7 @@ import {
   Upload, Save, CheckCircle, CheckCircle2, Image, Stamp, PenTool, FileText,
   Clock, Link2, Download, Database, Shield, Wifi, Volume2, VolumeX,
   RefreshCw, HardDrive, Cloud, AlertCircle, Sparkles, Zap, Music,
-  Printer, Hash, Banknote, Users, Briefcase, UploadCloud, Type, Star
+  Printer, Hash, Banknote, Users, Briefcase, UploadCloud, Type
 } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 
@@ -221,7 +221,7 @@ function SoundsPanel() {
 
 
 import { applyVisualIdentity } from "@/lib/theme";
-import { collectBackupData, downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
+import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
 import { useAuth } from "@/lib/AuthContext";
 import { appParams } from "@/lib/app-params";
 

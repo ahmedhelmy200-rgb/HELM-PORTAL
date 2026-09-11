@@ -7,14 +7,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Briefcase, Receipt, CalendarDays, CheckSquare,
-  Clock, AlertTriangle, ArrowLeft, Bell, FileText,
-  ShieldCheck, MessageCircle, Mail, Upload, Activity,
+  Clock, AlertTriangle, Bell, FileText,
+  ShieldCheck, MessageCircle, Upload, Activity,
   Wallet, Sparkles, TrendingUp, Users, ChevronRight,
   CalendarPlus, Star, BarChart3, Target, Award,
 } from "lucide-react"
 import {
-  format, isToday, isTomorrow, differenceInHours,
-  differenceInDays, isValid, subMonths,
+  format, isToday, isTomorrow, differenceInHours, isValid, subMonths,
 } from "date-fns"
 import { useAuth } from '@/lib/AuthContext'
 import { usePageRefresh } from "@/hooks/usePageRefresh"

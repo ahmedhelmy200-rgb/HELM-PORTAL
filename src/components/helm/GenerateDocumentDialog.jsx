@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { escapeHtml, detachOpener } from "@/lib/htmlEscape";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -106,9 +107,10 @@ export default function GenerateDocumentDialog({ open, onClose, initialTemplate 
 
   const handlePrint = () => {
     const template = templates.find(t => t.id === selectedTemplate);
-    const win = window.open("", "_blank");
+    const win = detachOpener(window.open("", "_blank"));
+    if (!win) return alert("تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.");
     win.document.write(`
-      <html dir="rtl"><head><title>${template?.title || "وثيقة قانونية"}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>body { font-family: 'Cairo', Arial; padding: 40px; line-height: 1.9; direction: rtl; font-size: 14px; color: #1a1a1a; } h1 { color: #1d4ed8; border-bottom: 3px solid #1d4ed8; padding-bottom: 10px; font-size: 18px; } pre { white-space: pre-wrap; font-family: 'Cairo', Arial; font-size: 14px; line-height: 2; } .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; } .office-info { font-size: 12px; color: #64748b; } @media print { body { -webkit-print-color-adjust: exact; } }</style></head><body><div class="header"><div><h1>${template?.title || "وثيقة قانونية"}</h1></div><div class="office-info"><strong>${officeSettings?.office_name || ""}</strong><br/>${officeSettings?.phone || ""}${officeSettings?.phone ? "<br/>" : ""}${new Date().toLocaleDateString('ar-AE')}</div></div><pre>${generatedContent}</pre><script>window.onload = () => { window.print(); };</script></body></html>`);
+      <html dir="rtl"><head><title>${escapeHtml(template?.title || "وثيقة قانونية")}</title><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet"><style>body { font-family: 'Cairo', Arial; padding: 40px; line-height: 1.9; direction: rtl; font-size: 14px; color: #1a1a1a; } h1 { color: #1d4ed8; border-bottom: 3px solid #1d4ed8; padding-bottom: 10px; font-size: 18px; } pre { white-space: pre-wrap; font-family: 'Cairo', Arial; font-size: 14px; line-height: 2; } .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; } .office-info { font-size: 12px; color: #64748b; } @media print { body { -webkit-print-color-adjust: exact; } }</style></head><body><div class="header"><div><h1>${escapeHtml(template?.title || "وثيقة قانونية")}</h1></div><div class="office-info"><strong>${escapeHtml(officeSettings?.office_name || "")}</strong><br/>${escapeHtml(officeSettings?.phone || "")}${officeSettings?.phone ? "<br/>" : ""}${new Date().toLocaleDateString('ar-AE')}</div></div><pre>${escapeHtml(generatedContent)}</pre><script>window.onload = () => { window.print(); };</script></body></html>`);
     win.document.close();
   };
 

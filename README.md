@@ -2,6 +2,23 @@
 
 Open `README_SUPABASE_VERCEL_AR.md` for migration and deployment instructions.
 
+## Quality gate (بوابة الجودة)
+
+```bash
+npm ci            # تثبيت نظيف
+npm run lint      # ESLint — يجب أن يمر بلا أخطاء
+npm test          # اختبارات الوحدة (Vitest)
+npm run build     # بناء الإنتاج
+npm run verify    # الثلاثة معًا — نفّذها قبل أي نشر
+```
+
+تُشغَّل نفس الخطوات آليًا في `.github/workflows/ci.yml` على كل طلب دمج وعند الدفع إلى `main`.
+
+## المراجعة الشاملة وخطة التطوير
+
+راجع `docs/REVIEW_2026-09_AR.md` — مراجعة كاملة للمنصة (الأمان، الأداء، المعمارية،
+قاعدة البيانات، SEO) مع قائمة النتائج حسب الخطورة وخطة تطوير على أربع مراحل.
+
 ## Stage 3 update
 
 - Added Email/Password login beside Google OAuth.

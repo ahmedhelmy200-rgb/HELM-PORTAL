@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { base44 } from "@/api/base44Client"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { getInvoiceTotals } from "@/lib/invoiceMath"
 import { usePageRefresh } from "@/hooks/usePageRefresh"
 import { PageErrorState } from "@/components/app/AppStatusBar"
@@ -12,12 +11,12 @@ import {
 } from "recharts"
 import {
   TrendingUp, TrendingDown, DollarSign, AlertCircle, Briefcase, Users,
-  Receipt, CheckSquare, BarChart2, Calendar, Scale, Trophy,
-  Clock, ArrowUpRight, Target, Zap, Award, PieChart as PieIcon,
+  Receipt, CheckSquare, BarChart2, Scale, Trophy,
+  Clock, ArrowUpRight, Target, Award, PieChart as PieIcon,
 } from "lucide-react"
 import {
-  format, subMonths, isWithinInterval, startOfMonth, endOfMonth,
-  isSameMonth, differenceInDays,
+  format, subMonths,
+  isSameMonth,
 } from "date-fns"
 
 // ── ألوان حالات القضايا ────────────────────────────────────────────────────

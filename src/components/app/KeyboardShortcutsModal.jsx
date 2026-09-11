@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from '@/lib/app-events'
+import { subscribeAppEvent } from '@/lib/app-events'
 import { Keyboard, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 

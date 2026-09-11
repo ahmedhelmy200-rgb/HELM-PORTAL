@@ -1,4 +1,4 @@
--- HELM Portal — نقل صفة «مدير التشغيل» من الواجهة إلى قاعدة البيانات.
+-- HELM Portal — نقل صفة «مدير التشغيل / المدير العام» من الواجهة إلى قاعدة البيانات.
 --
 -- المشكلة: كانت الواجهة تقارن بريدًا شخصيًا مُثبَّتًا داخل حزمة المتصفح
 -- (src/App.jsx و src/components/shared/ActionButtons.jsx) لتحديد هذه الصفة،
@@ -6,10 +6,14 @@
 -- (ج) يجعل القاعدة والواجهة مصدرين مختلفين للحقيقة.
 --
 -- الحل: عمود واحد في user_profiles هو المصدر الوحيد للحقيقة، والواجهة تقرأه
--- من الملف الشخصي الذي تجلبه أصلًا. الحماية الفعلية للحذف وإدارة المستخدمين
--- موجودة في supabase/migrations/029 عبر app_current_role() والدعامات (triggers).
+-- من الملف الشخصي الذي تجلبه أصلًا.
 --
--- شغّل هذا الملف بعد 029 و 030.
+-- ملاحظة مهمة على التصميم: نستبدل هنا دالة واحدة فقط هي app_is_operations_manager()
+-- لأنها المسند (predicate) المخصّص لهذا السؤال. كل ما بُني عليها في 029 و 030
+-- (app_current_role و app_is_staff ودعامتا الحذف وحماية الأدوار) يقرأ منها تلقائيًا،
+-- فلا نحتاج تعديل أي منها، ونحافظ على شرط role = 'operations_manager' كما هو.
+--
+-- شغّل هذا الملف بعد 029 و 030 (020 → 031).
 
 begin;
 
@@ -21,13 +25,15 @@ alter table public.user_profiles
   add column if not exists is_operations_manager boolean not null default false;
 
 -- -------------------------------------------------------------------
--- 2) تعيين مدير التشغيل الحالي (المكان الوحيد الذي يظهر فيه البريد)
+-- 2) تعيين الصفة — المكان الوحيد الذي يظهر فيه البريد داخل قاعدة البيانات
 -- -------------------------------------------------------------------
 
 update public.user_profiles
    set is_operations_manager = true
- where lower(email) = 'mahmoudmegally3@gmail.com';
+ where lower(email) = 'mahmoudmegally3@gmail.com'
+    or role = 'operations_manager';
 
+-- في حال كان الجدول فارغًا تمامًا في بيئة جديدة، ننشئ الصف الأساسي.
 insert into public.user_profiles (email, full_name, role, is_operations_manager)
 select 'mahmoudmegally3@gmail.com', 'محمود مجلي', 'staff', true
 where not exists (
@@ -67,36 +73,33 @@ before update on public.user_profiles
 for each row execute function public.prevent_operations_manager_escalation();
 
 -- -------------------------------------------------------------------
--- 4) app_current_role يقرأ من العمود بدل مقارنة البريد
---    (نفس الاسم والتوقيع حتى تبقى دعامات 029 فعّالة بلا تغيير)
+-- 4) المسند الوحيد: app_is_operations_manager() يقرأ من العمود
+--    مع الحفاظ على الشرطين السابقين من 029 و 030:
+--      - البريد المطابق (يبقى كشبكة أمان إن لم يُنفَّذ التحديث أعلاه)
+--      - role = 'operations_manager'
 -- -------------------------------------------------------------------
 
-create or replace function public.app_current_role()
-returns text
+create or replace function public.app_is_operations_manager()
+returns boolean
 language sql
 stable
 security definer
 set search_path = pg_catalog, public
 as $$
-  select case
-    when coalesce((
-      select p.is_operations_manager
-      from public.user_profiles p
-      where lower(p.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-      limit 1
-    ), false)
-    then 'operations_manager'
-    else coalesce((
-      select p.role
-      from public.user_profiles p
-      where lower(p.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-      limit 1
-    ), 'guest')
-  end;
+  select exists (
+    select 1
+    from public.user_profiles p
+    where lower(p.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and (
+        p.is_operations_manager
+        or p.role = 'operations_manager'
+        or lower(p.email) = 'mahmoudmegally3@gmail.com'
+      )
+  );
 $$;
 
-revoke all on function public.app_current_role() from public;
-grant execute on function public.app_current_role() to authenticated, service_role;
+revoke all on function public.app_is_operations_manager() from public;
+grant execute on function public.app_is_operations_manager() to authenticated, service_role;
 
 -- -------------------------------------------------------------------
 -- 5) تحقق سريع
@@ -115,7 +118,8 @@ begin
 
   select is_operations_manager into flag
     from public.user_profiles
-   where lower(email) = 'mahmoudmegally3@gmail.com';
+   where lower(email) = 'mahmoudmegally3@gmail.com'
+   limit 1;
 
   if coalesce(flag, false) then
     raise notice 'تم تفعيل صفة مدير التشغيل بنجاح.';
@@ -129,7 +133,7 @@ commit;
 
 -- -------------------------------------------------------------------
 -- للتراجع (إن احتجت):
---   alter table public.user_profiles drop column if exists is_operations_manager;
---   drop trigger if exists trg_prevent_operations_manager_escalation on public.user_profiles;
---   ثم أعد تنفيذ تعريف app_current_role من 029.
+--   1) أعد تعريف app_is_operations_manager من 030.
+--   2) drop trigger if exists trg_prevent_operations_manager_escalation on public.user_profiles;
+--   3) alter table public.user_profiles drop column if exists is_operations_manager;
 -- -------------------------------------------------------------------

@@ -9,9 +9,12 @@
 ### خطوة واحدة مطلوبة منك قبل النشر
 
 ```sql
--- شغّل في Supabase SQL Editor بالترتيب بعد 029 و 030:
-supabase/migrations/032_operations_manager_flag.sql
+-- شغّل في Supabase SQL Editor بالترتيب بعد 020 و 021 (أي بعد كل ما قبله):
+supabase/migrations/023_operations_manager_flag.sql
 ```
+
+> **لتصحيح ملفات الهجرة المكررة:** كانت `003` و`010` و`022` مكررة وهذا كان **يمنع Supabase Preview و `supabase db push`**.
+> أُعيد الترقيم إلى `001`–`023`. راجع القسم 3.9 و **`docs/SQL_RUN_ORDER_AR.md`** — وخصوصًا خطوة التحقق من `schema_migrations` إن كانت قاعدتك مُدارة بالـ CLI.
 
 ---
 
@@ -140,9 +143,9 @@ src/components/shared/ActionButtons.jsx:8   نفس الثابت
 src/components/shared/ActionButtons.jsx:25  مقارنة نصية للبريد لمنع الحذف
 ```
 
-**ما اكتشفته المراجعة (نتيجة مهمة):** قاعدة البيانات **كانت مؤمّنة فعلًا** — الملف `029_operations_manager_and_activity_audit.sql` يعرّف `app_current_role()` لتُعيد `operations_manager`، ومعها دعامات `helm_block_operations_manager_delete()` و `helm_protect_user_roles()`، ويوجد مانع تصعيد صلاحيات ذاتي في `011_final_security_hardening.sql` (`prevent_self_role_escalation`). فالحماية الحقيقية لم تكن غائبة — الغائب كان **مصدرًا واحدًا للحقيقة**.
+**ما اكتشفته المراجعة (نتيجة مهمة):** قاعدة البيانات **كانت مؤمّنة فعلًا** — الملف `020_operations_manager_and_activity_audit.sql` يعرّف `app_current_role()` لتُعيد `operations_manager`، ومعها دعامات `helm_block_operations_manager_delete()` و `helm_protect_user_roles()`، ويوجد مانع تصعيد صلاحيات ذاتي في `011_final_security_hardening.sql` (`prevent_self_role_escalation`). فالحماية الحقيقية لم تكن غائبة — الغائب كان **مصدرًا واحدًا للحقيقة**.
 
-**المعالجة:** أُضيف `supabase/migrations/032_operations_manager_flag.sql`:
+**المعالجة:** أُضيف `supabase/migrations/023_operations_manager_flag.sql`:
 
 - عمود `user_profiles.is_operations_manager` — **المكان الوحيد** الذي يظهر فيه البريد.
 - دعامة `prevent_operations_manager_escalation` تمنع أي حساب من منح نفسه الصفة (تعديل SQL Editor الإداري مسموح).
@@ -154,7 +157,7 @@ src/components/shared/ActionButtons.jsx:25  مقارنة نصية للبريد �
 
 **النتيجة:** صفر بريد شخصي في الكود (`grep -rn "mahmoudmegally3" src` ← لا نتائج)، وتغيير الصفة مستقبلًا يتم بأمر SQL واحد بلا إعادة نشر.
 
-> ⚠️ **مطلوب منك:** تنفيذ `supabase/migrations/032_operations_manager_flag.sql` في Supabase. قبل تنفيذه تعمل الواجهة بشكل آمن (الدعامة في القاعدة تمنع الحذف فعلًا) لكن «مدير التشغيل» سيرى زر الحذف ثم يرفضه الخادم برسالة عربية.
+> ⚠️ **مطلوب منك:** تنفيذ `supabase/migrations/023_operations_manager_flag.sql` في Supabase. قبل تنفيذه تعمل الواجهة بشكل آمن (الدعامة في القاعدة تمنع الحذف فعلًا) لكن «مدير التشغيل» سيرى زر الحذف ثم يرفضه الخادم برسالة عربية.
 
 ### 3.8 إخراج `recharts` من المسار الحرج 🟡
 
@@ -172,7 +175,44 @@ src/components/shared/ActionButtons.jsx:25  مقارنة نصية للبريد �
 
 **التوفير: 431 KB خام / ~115 KB مضغوط من أول تحميل لكل مستخدم.** (recharts باقية في `package.json` لأن صفحة التقارير تستخدمها فعليًا.)
 
-### 3.9 حذف الكود الميت
+### 3.9 إصلاح ملفات الهجرة المكررة (اكتُشف من فشل Supabase Preview) 🔴
+
+عند فتح طلب الدمج، شغّل تكامل Supabase فحص **Supabase Preview** لأول مرة (كانت الفحوص السابقة على #32–#36 كلها `skipping`)، وفشل. رسالة الفشل الفعلية:
+
+```
+ERROR: duplicate key value violates unique constraint "schema_migrations_pkey"
+Key (version)=(003) already exists.
+At statement: 25
+INSERT INTO supabase_migrations.schema_migrations(version, name, statements) VALUES($1, $2, $3)
+```
+
+**هذا يؤكد النتيجة H3 في هذا التقرير عمليًا.** Supabase يعرّف كل هجرة برقم البادئة، والجدول `schema_migrations` مفتاحه الأساسي هذا الرقم — فوجود ملفين بالرقم `003` يعني أن الثاني يفشل دائمًا. والأمر نفسه في `010` و`022`.
+
+**الأثر:** Supabase Preview و `supabase db push` معطّلان تمامًا — أي أن أي نشر يعتمد على الهجرات كان سيفشل. **وهذا عيب سابق للمراجعة، وليس ناتجًا عن تغييراتي.**
+
+**المعالجة:** أُعيد ترقيم ملفات الهجرة إلى سلسلة متصلة **001 → 023** مع الحفاظ على الترتيب النسبي نفسه حرفيًا (فمحتوى القاعدة الناتج لا يتغير):
+
+| كان | صار |
+|---|---|
+| `003_portal_scope_separation` | `004_portal_scope_separation` |
+| `006` → `009` | `005` → `008` (إزاحة بمقدار 1) |
+| `010_email_password_auth_support` | `009_email_password_auth_support` |
+| `010_portal_security_client_id_rls` | **بقي `010`** |
+| `022_contacts_brokers` | `013_contacts_brokers` |
+| `022_income_transactions` | `014_income_transactions` |
+| `023` → `027` | `015` → `019` (إزاحة بمقدار 8) |
+| `029` → `031` | `020` → `022` (إزاحة بمقدار 9) |
+| `032_operations_manager_flag` | `023_operations_manager_flag` |
+
+وحُدّثت كل الإشارات إلى الأسماء القديمة في `README_MERGED_STAGE2_AR.md` و `docs/META_SOCIAL_PUBLISHING_SETUP_AR.md` و `src/App.jsx` ورسالة الخطأ في `src/api/base44Client.js`، مع توثيق الترتيب الكامل في **`docs/SQL_RUN_ORDER_AR.md`**.
+
+> ⚠️ **تحقّق قبل التطبيق:** إن كانت قاعدتك مُدارة بـ `supabase db push` فالأرقام المخزَّنة تغيّرت، فراجع:
+> ```sql
+> select version, name from supabase_migrations.schema_migrations order by version;
+> ```
+> إن كان الجدول فارغًا أو غير موجود، فقاعدتك مُدارة يدويًا ولا يلزم شيء. التفاصيل في `docs/SQL_RUN_ORDER_AR.md`.
+
+### 3.10 حذف الكود الميت
 
 | ما حُذف | الحجم | السبب |
 |---|---|---|
@@ -287,14 +327,14 @@ src/components/shared/ActionButtons.jsx:25  مقارنة نصية للبريد �
 
 | السؤال | قرارك | الحالة |
 |---|---|---|
-| نقل الصلاحيات إلى قاعدة البيانات (RLS) | نفّذها كاملة | ✅ هجرة `032` + إزالة البريد من الكود |
+| نقل الصلاحيات إلى قاعدة البيانات (RLS) | نفّذها كاملة | ✅ هجرة `023` + إزالة البريد من الكود |
 | مخطط اللوحة الرئيسية | استبداله بـ SVG مضمّن | ✅ −431 KB من أول تحميل |
 | `src/smart` | احذفه | ✅ نُقل المستخدم وحُذف 44 ملفًا |
 | الملفات الميتة | احذفها كلها | ✅ 6 ملفات (11,280 سطرًا) |
 
 ### ما ينتظر قرارك الآن
 
-1. **هل تريد تنفيذ `032_operations_manager_flag.sql` الآن؟** (ينبغي تشغيله في Supabase SQL Editor — راجع القسم 3.7).
+1. **هل تريد تنفيذ `023_operations_manager_flag.sql` الآن؟** (ينبغي تشغيله في Supabase SQL Editor — راجع القسم 3.7).
 2. **هل لديك مفتاح Gemini أو غيره يعمل داخل بوابة HELM؟** إن نعم فيجب تدويره ونقله إلى Edge Function.
 3. **ما مصير `src/smart` في تاريخ Git؟** حذفته من الفرع الحالي، لكنه موجود في تاريخ `main` وفي ملف الـzip عندك. إن أردت إزالته نهائيًا من التاريخ فأخبرني.
 4. **تحميل الخطوط المختارة فقط** — أكبر توفير أداء متبقٍ، لكنه يمسّ ميزة اختيار الخط في الإعدادات؛ أحتاجه أن تُجرّبه بصريًا.

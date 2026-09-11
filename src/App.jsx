@@ -31,7 +31,7 @@ const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary
 // صفة «مدير التشغيل» مصدرها قاعدة البيانات (user_profiles.is_operations_manager)
 // وتصل مع الملف الشخصي في base44.auth.me(). لا تُستنتج من البريد داخل الواجهة.
 // الحماية الفعلية للحذف وإدارة المستخدمين مفروضة في قاعدة البيانات — راجع
-// supabase/migrations/029 و supabase/migrations/032.
+// supabase/migrations/020 و supabase/migrations/023.
 function isOperationsManager(user) {
   return user?.is_operations_manager === true
 }

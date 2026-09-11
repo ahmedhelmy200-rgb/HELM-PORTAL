@@ -15,7 +15,7 @@
 
 شغّل الملف التالي على مشروع Supabase المرتبط بـ HELM Portal:
 
-`supabase/migrations/031_meta_social_publishing.sql`
+`supabase/migrations/022_meta_social_publishing.sql`
 
 ## 2. إنشاء تطبيق Meta
 

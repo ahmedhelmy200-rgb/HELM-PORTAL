@@ -5,8 +5,6 @@ import { base44 } from '@/api/base44Client'
 import { archiveRecord } from '@/lib/archive'
 import { useAuth } from '@/lib/AuthContext'
 
-const OPERATIONS_MANAGER_EMAIL = 'mahmoudmegally3@gmail.com'
-
 /**
  * أزرار الإجراءات القياسية — عرض / تعديل / حذف للأرشيف
  */
@@ -22,7 +20,7 @@ export default function ActionButtons({
 }) {
   const { user } = useAuth()
   const [deleting, setDeleting] = useState(false)
-  const isOperationsManager = String(user?.email || '').trim().toLowerCase() === OPERATIONS_MANAGER_EMAIL
+  const isOperationsManager = user?.is_operations_manager === true
 
   const handleDelete = async (e) => {
     e.stopPropagation()

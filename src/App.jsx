@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes, Navigate, Link } from 'react-router-dom'
-import PageNotFound from './lib/PageNotFound'
+import PageNotFound from './PageNotFound'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
 import ClientDashboard from './pages/ClientDashboard'
@@ -27,10 +27,13 @@ const MainPage = mainPageKey ? Pages[mainPageKey] : () => null
 const CLIENT_ALLOWED_PAGES = new Set(['Dashboard', 'Cases', 'Invoices', 'Documents', 'Notifications', 'Profile'])
 const PENDING_CLIENT_ALLOWED_PAGES = new Set(['ClientOnboarding'])
 const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
-const OPERATIONS_MANAGER_EMAIL = 'mahmoudmegally3@gmail.com'
 
+// صفة «مدير التشغيل» مصدرها قاعدة البيانات (user_profiles.is_operations_manager)
+// وتصل مع الملف الشخصي في base44.auth.me(). لا تُستنتج من البريد داخل الواجهة.
+// الحماية الفعلية للحذف وإدارة المستخدمين مفروضة في قاعدة البيانات — راجع
+// supabase/migrations/029 و supabase/migrations/032.
 function isOperationsManager(user) {
-  return String(user?.email || '').trim().toLowerCase() === OPERATIONS_MANAGER_EMAIL
+  return user?.is_operations_manager === true
 }
 
 const PageFallback = () => (

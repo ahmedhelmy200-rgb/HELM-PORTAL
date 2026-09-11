@@ -257,7 +257,7 @@ const auth = {
       const actor = await currentActor()
       if (!actor?.email) throw new Error('Not authenticated')
       const profile = actor.profile
-      return { ...profile, id: actor.user.id, email: actor.email, full_name: profile?.full_name || actor.broker?.full_name || actor.client?.full_name || actor.user.user_metadata?.full_name || actor.user.user_metadata?.name || actor.email, role: actor.role, registration_status: (actor.client || actor.broker || actor.role !== PENDING_CLIENT_ROLE) ? 'registered' : 'pending', avatar_url: profile?.avatar_url || actor.user.user_metadata?.avatar_url || null, client_id: actor.client?.id || null, client_name: actor.client?.full_name || null, broker_id: actor.broker?.id || null, broker_name: actor.broker?.full_name || null }
+      return { ...profile, id: actor.user.id, email: actor.email, full_name: profile?.full_name || actor.broker?.full_name || actor.client?.full_name || actor.user.user_metadata?.full_name || actor.user.user_metadata?.name || actor.email, role: actor.role, is_operations_manager: actor.profile?.is_operations_manager === true, registration_status: (actor.client || actor.broker || actor.role !== PENDING_CLIENT_ROLE) ? 'registered' : 'pending', avatar_url: profile?.avatar_url || actor.user.user_metadata?.avatar_url || null, client_id: actor.client?.id || null, client_name: actor.client?.full_name || null, broker_id: actor.broker?.id || null, broker_name: actor.broker?.full_name || null }
     })
   },
   async logout(redirectTo = null) { await supabase.auth.signOut(); if (redirectTo) window.location.href = redirectTo; else window.location.href = window.location.origin },

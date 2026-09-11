@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, isToday, isTomorrow, differenceInHours, isValid, subMonths } from 'date-fns'
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts'
 import {
   Activity,
   AlertTriangle,
@@ -61,17 +60,106 @@ function unwrapPage(result) {
   }
 }
 
-function MiniChart({ data }) {
+// مخطط شرارة خفيف (SVG مضمّن) — بديل لمكتبة recharts في الصفحة الرئيسية.
+// كان استيراد recharts هنا يجلب ~431KB (114KB مضغوط) في أول تحميل لرسم 6 نقاط فقط.
+const SPARK_W = 300
+const SPARK_H = 46
+const SPARK_PAD = 5
+
+function buildSparkPath(points) {
+  if (!points.length) return ''
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`
+
+  // منحنى تمريري (Catmull-Rom) مع تقييد نقاط التحكم داخل ارتفاع المخطط
+  // لمنع أي تجاوز أعلى أو أسفل الإطار.
+  const clampY = (value) => Math.min(SPARK_H, Math.max(0, value))
+  let path = `M ${points[0].x} ${points[0].y}`
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] || points[index]
+    const current = points[index]
+    const next = points[index + 1]
+    const after = points[index + 2] || next
+
+    const c1x = current.x + (next.x - previous.x) / 6
+    const c1y = clampY(current.y + (next.y - previous.y) / 6)
+    const c2x = next.x - (after.x - current.x) / 6
+    const c2y = clampY(next.y - (after.y - current.y) / 6)
+
+    path += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`
+  }
+
+  return path
+}
+
+function MiniChart({ data = [] }) {
+  const [hovered, setHovered] = useState(null)
+
+  const values = (Array.isArray(data) ? data : []).map((item) => {
+    const value = Number(item?.v)
+    return Number.isFinite(value) ? value : 0
+  })
+
+  if (!values.length) return <div className="h-[46px]" aria-hidden="true" />
+
+  const max = Math.max(...values, 1)
+  const lastIndex = Math.max(1, values.length - 1)
+  const points = values.map((value, index) => ({
+    x: (index / lastIndex) * SPARK_W,
+    y: SPARK_H - SPARK_PAD - (value / max) * (SPARK_H - SPARK_PAD * 2),
+  }))
+
+  const linePath = buildSparkPath(points)
+  const areaPath = `${linePath} L ${SPARK_W} ${SPARK_H} L 0 ${SPARK_H} Z`
+  const active = hovered === null ? null : values[hovered]
+
   return (
-    <ResponsiveContainer width="100%" height={46}>
-      <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-        <Tooltip content={({ active, payload }) => active && payload?.[0]
-          ? <div className="text-[10px] bg-black/80 text-white px-2 py-1 rounded-lg">{payload[0].value.toLocaleString('ar')}</div>
-          : null}
+    <div className="relative" dir="ltr">
+      <svg
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        preserveAspectRatio="none"
+        className="h-[46px] w-full overflow-visible"
+        role="img"
+        aria-label="مخطط الإيراد المحصّل خلال الأشهر الستة الأخيرة"
+      >
+        <path d={areaPath} fill="rgba(56,189,248,.18)" stroke="none" />
+        <path
+          d={linePath}
+          fill="none"
+          stroke="#38bdf8"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
         />
-        <Area type="monotone" dataKey="v" stroke="#38bdf8" strokeWidth={1.8} fill="rgba(56,189,248,.18)" dot={false} />
-      </AreaChart>
-    </ResponsiveContainer>
+        {hovered !== null && (
+          <circle cx={points[hovered].x} cy={points[hovered].y} r={2.6} fill="#38bdf8" vectorEffect="non-scaling-stroke" />
+        )}
+      </svg>
+
+      {/* مناطق التقاط المؤشر لكل نقطة (بديل Tooltip في recharts) */}
+      <div className="absolute inset-0 flex">
+        {values.map((value, index) => (
+          <button
+            key={`${index}-${value}`}
+            type="button"
+            tabIndex={-1}
+            aria-label={`${data[index]?.name || ''}: ${value.toLocaleString('ar')}`}
+            className="h-full flex-1 cursor-default bg-transparent"
+            onMouseEnter={() => setHovered(index)}
+            onMouseLeave={() => setHovered(null)}
+            onFocus={() => setHovered(index)}
+            onBlur={() => setHovered(null)}
+          />
+        ))}
+      </div>
+
+      {active !== null && (
+        <div className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black/80 px-2 py-1 text-[10px] text-white">
+          {data[hovered]?.name ? `${data[hovered].name} — ` : ''}{active.toLocaleString('ar')}
+        </div>
+      )}
+    </div>
   )
 }
 

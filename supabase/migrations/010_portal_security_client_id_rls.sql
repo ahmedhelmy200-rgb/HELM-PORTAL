@@ -77,62 +77,101 @@ as $$
   limit 1;
 $$;
 
--- Foreign keys are added defensively. If old inconsistent data exists, constraints are not forced.
-do $$
+-- المفاتيح الأجنبية تُضاف بحذر: لا نفرض قيدًا إلا إذا كان نوع العمود مطابقًا
+-- لنوع clients.id (uuid). بعض القواعد القديمة أنشأت cases.client_id من نوع text،
+-- ومحاولة إضافة القيد عليها تفشل وتُسقط الملف بالكامل:
+--   ERROR: foreign key constraint "cases_client_id_fkey" cannot be implemented
+--   Key columns "client_id" and "id" are of incompatible types: text and uuid.
+do $fk$
+declare
+  r record;
+  col_type text;
 begin
-  if exists (select 1 from information_schema.tables where table_schema='public' and table_name='clients') then
-    if exists (select 1 from information_schema.tables where table_schema='public' and table_name='cases') then
-      begin alter table public.cases add constraint cases_client_id_fkey foreign key (client_id) references public.clients(id) on delete set null not valid; exception when duplicate_object then null; end;
-    end if;
-    if exists (select 1 from information_schema.tables where table_schema='public' and table_name='invoices') then
-      begin alter table public.invoices add constraint invoices_client_id_fkey foreign key (client_id) references public.clients(id) on delete set null not valid; exception when duplicate_object then null; end;
-    end if;
-    if exists (select 1 from information_schema.tables where table_schema='public' and table_name='documents') then
-      begin alter table public.documents add constraint documents_client_id_fkey foreign key (client_id) references public.clients(id) on delete set null not valid; exception when duplicate_object then null; end;
-    end if;
-    if exists (select 1 from information_schema.tables where table_schema='public' and table_name='sessions') then
-      begin alter table public.sessions add constraint sessions_client_id_fkey foreign key (client_id) references public.clients(id) on delete set null not valid; exception when duplicate_object then null; end;
-    end if;
-    if exists (select 1 from information_schema.tables where table_schema='public' and table_name='tasks') then
-      begin alter table public.tasks add constraint tasks_client_id_fkey foreign key (client_id) references public.clients(id) on delete set null not valid; exception when duplicate_object then null; end;
-    end if;
+  if not exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'clients'
+  ) then
+    return;
   end if;
-end $$;
+
+  for r in
+    select * from (values
+      ('cases',     'cases_client_id_fkey'),
+      ('invoices',  'invoices_client_id_fkey'),
+      ('documents', 'documents_client_id_fkey'),
+      ('sessions',  'sessions_client_id_fkey'),
+      ('tasks',     'tasks_client_id_fkey')
+    ) as t(tbl, cname)
+  loop
+    select c.data_type into col_type
+      from information_schema.columns c
+     where c.table_schema = 'public'
+       and c.table_name = r.tbl
+       and c.column_name = 'client_id';
+
+    if col_type is null then
+      continue;
+    end if;
+
+    if col_type <> 'uuid' then
+      raise notice 'تم تجاوز قيد %.% لأن النوع % لا يطابق clients.id (uuid).',
+        r.tbl, r.cname, col_type;
+      continue;
+    end if;
+
+    begin
+      execute format(
+        'alter table public.%I add constraint %I foreign key (client_id) references public.clients(id) on delete set null not valid',
+        r.tbl, r.cname
+      );
+    exception
+      when duplicate_object then null;
+      when duplicate_table  then null;
+    end;
+  end loop;
+end $fk$;
 
 -- -----------------------------------------------------------------------------
--- Backfill client_id from legacy client_name where possible.
--- -----------------------------------------------------------------------------
-update public.cases t
-set client_id = c.id
-from public.clients c
-where t.client_id is null
-and lower(trim(coalesce(t.client_name, ''))) = lower(trim(coalesce(c.full_name, '')));
+-- تعبئة رجعية لـ client_id من client_name القديم، مع مراعاة نوع العمود:
+-- uuid يُسند مباشرة، و text يُسند بعد تحويل صريح.
+do $bf$
+declare
+  r record;
+  col_type text;
+begin
+  for r in
+    select * from (values ('cases'), ('invoices'), ('documents'), ('sessions'), ('tasks')) as t(tbl)
+  loop
+    select c.data_type into col_type
+      from information_schema.columns c
+     where c.table_schema = 'public'
+       and c.table_name = r.tbl
+       and c.column_name = 'client_id';
 
-update public.invoices t
-set client_id = c.id
-from public.clients c
-where t.client_id is null
-and lower(trim(coalesce(t.client_name, ''))) = lower(trim(coalesce(c.full_name, '')));
+    if col_type is null then
+      continue;
+    end if;
 
-update public.documents t
-set client_id = c.id
-from public.clients c
-where t.client_id is null
-and lower(trim(coalesce(t.client_name, ''))) = lower(trim(coalesce(c.full_name, '')));
+    if col_type = 'uuid' then
+      execute format($sql$
+        update public.%I t
+           set client_id = c.id
+          from public.clients c
+         where t.client_id is null
+           and lower(trim(coalesce(t.client_name, ''))) = lower(trim(coalesce(c.full_name, '')))
+      $sql$, r.tbl);
+    else
+      execute format($sql$
+        update public.%I t
+           set client_id = c.id::text
+          from public.clients c
+         where t.client_id is null
+           and lower(trim(coalesce(t.client_name, ''))) = lower(trim(coalesce(c.full_name, '')))
+      $sql$, r.tbl);
+    end if;
+  end loop;
+end $bf$;
 
-update public.sessions t
-set client_id = c.id
-from public.clients c
-where t.client_id is null
-and lower(trim(coalesce(t.client_name, ''))) = lower(trim(coalesce(c.full_name, '')));
-
-update public.tasks t
-set client_id = c.id
-from public.clients c
-where t.client_id is null
-and lower(trim(coalesce(t.client_name, ''))) = lower(trim(coalesce(c.full_name, '')));
-
--- -----------------------------------------------------------------------------
 -- Indexes
 -- -----------------------------------------------------------------------------
 create index if not exists idx_user_profiles_user_id on public.user_profiles(user_id);

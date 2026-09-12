@@ -59,6 +59,7 @@ as $$
 $$;
 
 revoke all on function public.app_is_operations_manager() from public;
+revoke execute on function public.app_is_operations_manager() from anon;
 grant execute on function public.app_is_operations_manager() to authenticated, service_role;
 
 -- تحقّق أن التعريف الساري لم يعد يحوي بريدًا حرفيًا.

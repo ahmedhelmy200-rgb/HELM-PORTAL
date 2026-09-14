@@ -9,6 +9,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   windows-desktop:
     runs-on: windows-latest
@@ -41,3 +44,21 @@ jobs:
           path: release/*.exe
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish latest Windows release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-${{ github.run_number }}
+          name: HELM Portal Windows ${{ github.run_number }}
+          body: |
+            أحدث نسخة Windows من HELM Portal.
+
+            الملفات:
+            - HELM Portal Setup x64
+            - HELM Portal Portable x64
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            release/HELM-Portal-Setup-1.0.0-x64.exe
+            release/HELM-Portal-Portable-1.0.0-x64.exe

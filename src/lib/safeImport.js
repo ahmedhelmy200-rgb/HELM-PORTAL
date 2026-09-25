@@ -64,7 +64,8 @@ function resolveClient(row, sourceClients, aliases, clients) {
   const name = useful(row.client_name)
   if (!name) return null
   const matching = sourceClients.filter(c => useful(c.full_name) === name)
-  if (matching.length === 1 && aliases.has(String(matching[0].id))) return aliases.get(String(matching[0].id))
+  if (matching.length === 1) return aliases.get(String(matching[0].id)) || null
+  if (matching.length > 1) return null
   const live = clients.filter(c => useful(c.full_name) === name)
   return live.length === 1 ? live[0].id : null
 }

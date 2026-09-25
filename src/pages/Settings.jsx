@@ -424,7 +424,7 @@ const handleApplyImport = async () => {
       type: result.errors.length || result.review.length ? "warning" : "success",
       msg: `أُضيف ${added} سجلًا. للمراجعة: ${result.review.length}.${result.errors.length ? " توقّف الاستيراد بعد أخطاء الحفظ؛ افحص البيانات قبل إعادة المحاولة." : ""}`,
     });
-    setImportPreview(null);
+    setImportPreview({ ...importPreview, completed: true, review: result.review });
     await loadSettings();
   } catch (error) {
     setRestoreStatus({ type: "error", msg: error?.message || "تعذّر إتمام الاستيراد" });
@@ -1113,7 +1113,7 @@ const exportAllData = async () => {
                 </Button>
                 {importPreview && (
                   <div className="mt-4 space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm" dir="rtl">
-                    <p className="font-semibold">معاينة الاستيراد: {importPreview.source}</p>
+                    <p className="font-semibold">{importPreview.completed ? "نتيجة الاستيراد" : "معاينة الاستيراد"}: {importPreview.source}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(importPreview.counts).map(([table, count]) => (
                         <p key={table}>{table}: إضافة {count.add}، موجود {count.existing}، مراجعة {count.review}</p>
@@ -1131,7 +1131,7 @@ const exportAllData = async () => {
                       </details>
                     )}
                     <div className="flex gap-2">
-                      <Button onClick={handleApplyImport} disabled={restoring} className="flex-1">إضافة السجلات الآمنة</Button>
+                      {!importPreview.completed && <Button onClick={handleApplyImport} disabled={restoring} className="flex-1">إضافة السجلات الآمنة</Button>}
                       <Button variant="outline" onClick={() => setImportPreview(null)} disabled={restoring}>إلغاء</Button>
                     </div>
                   </div>

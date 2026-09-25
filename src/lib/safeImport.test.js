@@ -4,7 +4,7 @@ const database = vi.hoisted(() => ({}))
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: table => ({
-      select: () => ({ range: async (from, to) => ({ data: (database[table] || []).slice(from, to + 1), error: null }) }),
+      select: () => ({ order: () => ({ range: async (from, to) => ({ data: (database[table] || []).slice(from, to + 1), error: null }) }) }),
       insert: async row => { database[table].push(row); return { error: null } },
     }),
   },

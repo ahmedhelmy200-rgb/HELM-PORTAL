@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const database = {}
+const database = vi.hoisted(() => ({}))
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: table => ({

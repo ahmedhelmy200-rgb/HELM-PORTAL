@@ -36,7 +36,7 @@ const generatedId = () => crypto.randomUUID()
 async function listAll(table) {
   const result = []
   for (let from = 0; ; from += 500) {
-    const { data, error } = await supabase.from(table).select('*').range(from, from + 499)
+    const { data, error } = await supabase.from(table).select('*').order('id', { ascending: true }).range(from, from + 499)
     if (error) throw new Error(`${table}: ${error.message}`)
     result.push(...(data || []))
     if (!data || data.length < 500) return result

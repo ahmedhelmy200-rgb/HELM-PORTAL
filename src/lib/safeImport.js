@@ -29,8 +29,7 @@ const hasConflict = (a, b) => ['id', 'email'].some(key => a[key] && b[key] && a[
 const evidence = (a, b) => Boolean(
   (a.id && a.id === b.id) ||
   (a.email && a.email === b.email) ||
-  (a.phone && a.phone === b.phone && a.name && a.name === b.name) ||
-  false
+  (a.phone && a.phone === b.phone && a.name && a.name === b.name)
 )
 const generatedId = () => crypto.randomUUID()
 

@@ -44,6 +44,20 @@ describe('safe import', () => {
     expect(preview.counts.cases.review).toBe(1)
   })
 
+  it('attaches an invoice only when its stale case reference identifies one case', async () => {
+    const backup = {
+      clients: [{ id: 'person', full_name: 'منى سالم', id_number: '784-Z' }],
+      cases: [{ id: 'case-a', title: 'مطالبة', case_number: '7', court: 'دبي', client_id: 'legacy', client_name: 'منى سالم' }],
+      invoices: [{ id: 'bill', invoice_number: 'INV-1', client_name: 'منى سالم', case_id: 'stale-case', case_title: 'مطالبة' }],
+    }
+    const preview = await prepareSafeImport(backup)
+    expect(preview.counts.invoices.add).toBe(1)
+    expect(preview.planned.invoices[0].case_id).toBe('case-a')
+    backup.cases.push({ id: 'case-b', title: 'مطالبة', case_number: '8', court: 'دبي', client_name: 'منى سالم' })
+    const ambiguous = await prepareSafeImport(backup)
+    expect(ambiguous.counts.invoices.review).toBe(1)
+  })
+
   it('does not overwrite an existing person with a conflicting identity', async () => {
     database.clients.push({ id: 'live', full_name: 'سارة خالد', id_number: '784-A', email: 'one@example.com' })
     const preview = await prepareSafeImport({

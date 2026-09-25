@@ -70,6 +70,23 @@ function resolveClient(row, sourceClients, aliases, clients) {
   return live.length === 1 ? live[0].id : null
 }
 
+function resolveCase(row, caseAliases, plannedCases, liveCases, clientId) {
+  const oldId = row.case_id && String(row.case_id)
+  if (oldId && caseAliases.has(oldId)) return caseAliases.get(oldId)
+  if (oldId) {
+    const direct = [...plannedCases, ...liveCases].find(item => String(item.id) === oldId)
+    if (direct) return direct.id
+  }
+  const title = useful(row.case_title)
+  const number = useful(row.case_number)
+  if (!title && !number) return null
+  const matches = [...plannedCases, ...liveCases].filter(item =>
+    String(item.client_id || '') === String(clientId) &&
+    (!title || useful(item.title) === title) &&
+    (!number || useful(item.case_number) === number))
+  return matches.length === 1 ? matches[0].id : null
+}
+
 function cleanRow(row, table) {
   const data = { ...row }
   delete data.is_sample
@@ -130,9 +147,7 @@ export async function prepareSafeImport(backup) {
       const data = cleanRow(row, table)
       data.client_id = clientId
       if (data.case_id) {
-        const target = caseAliases.get(String(data.case_id)) ||
-          planned.cases.find(c => String(c.id) === String(data.case_id))?.id ||
-          live.cases.find(c => String(c.id) === String(data.case_id))?.id
+        const target = resolveCase(data, caseAliases, planned.cases, live.cases, clientId)
         if (!target) { review.push({ table, id: oldId, reason: 'القضية المرتبطة غير محددة' }); continue }
         data.case_id = target
       }

@@ -72,7 +72,7 @@ function resolveClient(row, sourceClients, aliases, clients) {
 
 function cleanRow(row, table) {
   const data = { ...row }
-  for (const key of ['created_by', 'created_by_id', 'updated_date', 'created_date', 'is_sample']) delete data[key]
+  delete data.is_sample
   if (table === 'clients') {
     delete data.portal_password
     delete data.linked_cases

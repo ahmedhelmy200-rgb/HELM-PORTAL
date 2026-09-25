@@ -100,7 +100,7 @@ export async function restoreBackupFromCloud() {
   const { data, error } = await supabase.storage.from(bucketName()).download(path);
   if (error) throw error;
   const text = await data.text();
-  return JSON.parse(text);
+  return JSON.parse(text.replace(/^\uFEFF/, ''));
 }
 
 async function upsertRows(table, rows) {
@@ -155,5 +155,5 @@ export async function restoreBackupData(backup) {
 
 export async function readBackupFile(file) {
   const text = await file.text();
-  return JSON.parse(text);
+  return JSON.parse(text.replace(/^\uFEFF/, ''));
 }

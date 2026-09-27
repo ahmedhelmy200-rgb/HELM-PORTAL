@@ -24,12 +24,15 @@ import PageHeader from "../components/helm/PageHeader";
 
 // ── Themes + visual effects panel ──────────────────────────────────────────────
 function ThemesPanel({ settings, setSettings }) {
-  const [active, setActive] = useState(() => settings?.features?.appearance?.theme_id || getActiveThemeId())
+  const [active, setActive] = useState(() => localStorage.getItem('helm_active_theme') || settings?.features?.appearance?.theme_id || getActiveThemeId())
 
   const appearance = settings?.features?.appearance || {}
-  const effectPower = Number(appearance.effect_power ?? localStorage.getItem('helm_electric_intensity') ?? 1.15)
-  const networkEnabled = appearance.network_enabled !== false
-  const shapesEnabled = appearance.ambient_shapes_enabled !== false
+  const localEffectPower = localStorage.getItem('helm_electric_intensity')
+  const effectPower = Number(localEffectPower ?? appearance.effect_power ?? 1.15)
+  const localNetwork = localStorage.getItem('helm_network_enabled')
+  const localShapes = localStorage.getItem('helm_shapes_enabled')
+  const networkEnabled = localNetwork === null ? appearance.network_enabled !== false : localNetwork !== 'false'
+  const shapesEnabled = localShapes === null ? appearance.ambient_shapes_enabled !== false : localShapes !== 'false'
 
   const updateAppearance = (patch) => {
     const nextAppearance = { ...appearance, ...patch }
@@ -188,8 +191,8 @@ function ThemesPanel({ settings, setSettings }) {
 // ── Sounds Panel ──────────────────────────────────────────────────────────────
 function SoundsPanel({ settings, setSettings }) {
   const savedAppearance = settings?.features?.appearance || {}
-  const [activeTheme, setActiveTheme] = useState(savedAppearance.sound_theme || getSoundTheme())
-  const [enabled, setEnabled] = useState(savedAppearance.sound_enabled ?? getSoundEnabled())
+  const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('helm_sound_theme') || savedAppearance.sound_theme || getSoundTheme())
+  const [enabled, setEnabled] = useState(() => localStorage.getItem('helm_sound_enabled') === null ? (savedAppearance.sound_enabled ?? getSoundEnabled()) : getSoundEnabled())
 
   const updateAppearance = (patch) => {
     setSettings((current) => ({

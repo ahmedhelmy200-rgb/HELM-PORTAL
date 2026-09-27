@@ -119,6 +119,12 @@ export function applyVisualIdentity(settings = {}, resolvedTheme = 'dark') {
   root.style.setProperty('--chart-3', hexToHsl(chart3, '#a855f7'));
   root.style.setProperty('--chart-4', hexToHsl(chart4, '#22c55e'));
   root.style.setProperty('--chart-5', hexToHsl(chart5, '#f59e0b'));
+  const primaryRgb = hexToRgb(primary);
+  const accentRgb = hexToRgb(accent);
+  const sidebarRgb = hexToRgb(sidebar);
+  root.style.setProperty('--helm-primary-rgb', `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`);
+  root.style.setProperty('--helm-accent-rgb', `${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}`);
+  root.style.setProperty('--helm-sidebar-rgb', `${sidebarRgb.r}, ${sidebarRgb.g}, ${sidebarRgb.b}`);
   root.style.setProperty('--sidebar-background', hexToHsl(sidebar, sidebarDefault));
   root.style.setProperty('--sidebar-foreground', isLight ? '0 0% 100%' : '213 31% 92%');
   root.style.setProperty('--sidebar-border', hexToHsl(mixHex(sidebar, '#94a3b8', isLight ? 0.24 : 0.09), '#1f2d48'));

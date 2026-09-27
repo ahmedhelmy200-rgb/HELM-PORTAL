@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router-dom"
 import { createPageUrl } from "@/utils"
 import { base44 } from "@/api/base44Client"
 import AnimatedBackground from "@/components/helm/AnimatedBackground"
-import { playUiTone } from "@/lib/sound"
+import { playUiTone, setSoundTheme } from "@/lib/sound"
 import { applyVisualIdentity, getStoredThemePreference, setStoredThemePreference } from '@/lib/theme'
+import { THEME_CHANGE_EVENT } from '@/lib/themes'
 import { useAuth } from '@/lib/AuthContext'
 import {
   LayoutDashboard, Briefcase, Users, CalendarDays, FileText, CheckSquare,
@@ -65,6 +66,8 @@ const mobileTabsForRole = {
 const themeCycle = ["system", "dark", "light"]
 const SOUND_KEY = 'helm_sound_enabled'
 const EFFECT_KEY = 'helm_electric_intensity'
+const NETWORK_KEY = 'helm_network_enabled'
+const SHAPES_KEY = 'helm_shapes_enabled'
 
 function getStoredSound() {
   if (typeof window === 'undefined') return true
@@ -96,6 +99,8 @@ export default function Layout({ children, currentPageName }) {
     const raw = Number(localStorage.getItem(EFFECT_KEY) || '1.15')
     return Number.isFinite(raw) ? raw : 1.15
   })
+  const [networkEnabled, setNetworkEnabled] = useState(() => typeof window === 'undefined' ? true : localStorage.getItem(NETWORK_KEY) !== 'false')
+  const [shapesEnabled, setShapesEnabled] = useState(() => typeof window === 'undefined' ? true : localStorage.getItem(SHAPES_KEY) !== 'false')
   const desktopSidebarScrollRef = useRef(null)
   const mobileSidebarScrollRef = useRef(null)
 
@@ -132,6 +137,19 @@ export default function Layout({ children, currentPageName }) {
       setUnreadCount(notifs.length)
       const settingsRow = settings?.[0] || null
       setOfficeSettings(settingsRow)
+
+      const appearance = settingsRow?.features?.appearance || {}
+      if (typeof window !== 'undefined') {
+        if (localStorage.getItem(SOUND_KEY) === null && typeof appearance.sound_enabled === 'boolean') setSoundEnabled(appearance.sound_enabled)
+        if (!localStorage.getItem('helm_sound_theme') && appearance.sound_theme) setSoundTheme(appearance.sound_theme)
+        if (localStorage.getItem(EFFECT_KEY) === null && Number.isFinite(Number(appearance.effect_power))) setEffectPower(Number(appearance.effect_power))
+        if (localStorage.getItem(NETWORK_KEY) === null && typeof appearance.network_enabled === 'boolean') setNetworkEnabled(appearance.network_enabled)
+        if (localStorage.getItem(SHAPES_KEY) === null && typeof appearance.ambient_shapes_enabled === 'boolean') setShapesEnabled(appearance.ambient_shapes_enabled)
+        if (localStorage.getItem('helm_theme_preference') === null && ['system', 'dark', 'light'].includes(settingsRow?.theme_mode)) {
+          setThemePreference(settingsRow.theme_mode)
+        }
+      }
+
       if (settingsRow?.app_font || settingsRow?.primary_color || settingsRow?.secondary_color || settingsRow?.sidebar_color) {
         applyVisualIdentity(settingsRow, resolvedTheme)
       }
@@ -165,6 +183,44 @@ export default function Layout({ children, currentPageName }) {
     if (typeof window === 'undefined') return
     localStorage.setItem(EFFECT_KEY, String(effectPower))
   }, [effectPower])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(NETWORK_KEY, networkEnabled ? 'true' : 'false')
+  }, [networkEnabled])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(SHAPES_KEY, shapesEnabled ? 'true' : 'false')
+  }, [shapesEnabled])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const handleAppearanceChange = (event) => {
+      const detail = event?.detail || {}
+      if (typeof detail.sound_enabled === 'boolean') setSoundEnabled(detail.sound_enabled)
+      if (detail.sound_theme) setSoundTheme(detail.sound_theme)
+      if (Number.isFinite(Number(detail.effect_power))) setEffectPower(Number(detail.effect_power))
+      if (typeof detail.network_enabled === 'boolean') setNetworkEnabled(detail.network_enabled)
+      if (typeof detail.ambient_shapes_enabled === 'boolean') setShapesEnabled(detail.ambient_shapes_enabled)
+      if (['system', 'dark', 'light'].includes(detail.theme_mode)) setThemePreference(detail.theme_mode)
+    }
+
+    const handleThemeChange = (event) => {
+      const nextSettings = event?.detail?.settings
+      const nextMode = event?.detail?.resolvedTheme
+      if (nextSettings) setOfficeSettings((current) => ({ ...(current || {}), ...nextSettings }))
+      if (['dark', 'light'].includes(nextMode)) setThemePreference(nextMode)
+    }
+
+    window.addEventListener('helm:appearance-change', handleAppearanceChange)
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange)
+    return () => {
+      window.removeEventListener('helm:appearance-change', handleAppearanceChange)
+      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange)
+    }
+  }, [])
 
   useEffect(() => {
     const handler = (event) => {
@@ -260,7 +316,7 @@ export default function Layout({ children, currentPageName }) {
           <button onClick={handleSoundToggle} className="control-chip">{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}<span>{soundEnabled ? "الصوت" : "صامت"}</span></button>
         </div>
         <div className="control-chip w-full justify-between md:hidden">
-          <span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> شبكة الكهرباء</span>
+          <span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> الشبكة العنكبوتية</span>
           <input type="range" min="0.6" max="2.2" step="0.05" value={effectPower} onChange={(e) => setEffectPower(Number(e.target.value))} className="w-24 accent-sky-400" />
         </div>
         {user && (
@@ -285,7 +341,7 @@ export default function Layout({ children, currentPageName }) {
           <NotificationTopButton />
           <button onClick={handleThemeToggle} className="control-chip min-w-[92px]" title="تبديل الثيم"><ThemeIcon className="h-4 w-4" /><span>{themeMeta.label}</span></button>
           <button onClick={handleSoundToggle} className="control-chip min-w-[84px]">{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}<span>{soundEnabled ? "الصوت" : "صامت"}</span></button>
-          <div className="control-chip min-w-[210px] justify-between"><span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> شبكة الكهرباء</span><input type="range" min="0.6" max="2.2" step="0.05" value={effectPower} onChange={(e) => setEffectPower(Number(e.target.value))} className="w-24 accent-sky-400" /></div>
+          <div className="control-chip min-w-[210px] justify-between"><span className="inline-flex items-center gap-1.5"><Zap className="h-4 w-4" /> الشبكة العنكبوتية</span><input type="range" min="0.6" max="2.2" step="0.05" value={effectPower} onChange={(e) => setEffectPower(Number(e.target.value))} className="w-24 accent-sky-400" /></div>
         </div>
       </div>
     )
@@ -293,8 +349,20 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className={cn("min-h-screen md:h-screen flex app-shell md:overflow-hidden")} dir="rtl">
-      <AnimatedBackground active intensity={effectPower} theme={resolvedTheme} />
-      <div className="ambient-orb orb-one" /><div className="ambient-orb orb-two" /><div className="ambient-orb orb-three" />
+      <AnimatedBackground
+        active={networkEnabled}
+        intensity={effectPower}
+        theme={resolvedTheme}
+        primaryColor={officeSettings?.primary_color || appPublicSettings?.primary_color || '#3b82f6'}
+        accentColor={officeSettings?.secondary_color || appPublicSettings?.secondary_color || '#06b6d4'}
+      />
+      {shapesEnabled && (
+        <>
+          <div className="ambient-orb orb-one" />
+          <div className="ambient-orb orb-two" />
+          <div className="ambient-orb orb-three" />
+        </>
+      )}
 
       <aside className="hidden md:flex flex-col w-64 sidebar-shell h-screen fixed right-0 top-0 z-40" onWheelCapture={(event) => handleSidebarWheel(event, desktopSidebarScrollRef)}>
         <div className="flex items-center gap-3 px-5 py-5 border-b border-white/8"><LogoMark /><div className="min-w-0"><h1 className="text-white font-bold text-sm leading-tight truncate">HELM Portal</h1><p className="text-white/55 text-xs leading-tight">{roleSubtitle(user?.role)}</p></div></div>

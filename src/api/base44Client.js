@@ -10,7 +10,7 @@ const PENDING_CLIENT_ROLE = 'pending_client'
 const BROKER_ROLE = 'broker'
 const MAX_UPLOAD_SIZE_BYTES = 15 * 1024 * 1024
 const SIGNED_FILE_EXPIRES_IN = 60 * 60 * 24 * 7
-const CLIENT_SCOPED_ENTITIES = new Set(['Case', 'Invoice', 'Document', 'Session', 'Task'])
+const CLIENT_SCOPED_ENTITIES = new Set(['Case', 'CaseClient', 'Invoice', 'Document', 'Session', 'Task'])
 const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
 const BROKER_WRITABLE_ENTITIES = new Set(['Client', 'Case'])
 
@@ -30,6 +30,7 @@ const ALLOWED_UPLOAD_TYPES = [
 
 const entityTableMap = {
   Case: 'cases',
+  CaseClient: 'case_clients',
   Client: 'clients',
   Broker: 'brokers',
   ConnectionRequest: 'connection_requests',
@@ -168,6 +169,11 @@ function applyActorRestrictions(query, entityName, actor, options = {}) {
   switch (entityName) {
     case 'Client': return query.eq('email', actor.email)
     case 'Case':
+      // Shared cases are authorized by the database RLS policy through case_clients.
+      return query
+    case 'CaseClient':
+      if (clientId) return query.eq('client_id', clientId)
+      return query.eq('id', '__forbidden__')
     case 'Invoice':
     case 'Document':
     case 'Session':

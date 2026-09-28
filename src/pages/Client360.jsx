@@ -8,12 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowRight, Briefcase, CalendarDays, CheckSquare, FileText, Mail, MapPin,
-  MessageCircle, Phone, Receipt, ShieldCheck, UserRound, Wallet, Clock3,
-  Scale, Banknote, ExternalLink, Activity, Building2,
+  MessageCircle, Phone, Receipt, ShieldCheck, UserRound, Wallet,
+  Scale, Banknote, ExternalLink, Activity,
 } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import StatusBadge from "../components/helm/StatusBadge";
-import EmptyState from "../components/helm/EmptyState";
 import { getInvoiceTotals } from "@/lib/invoiceMath";
 
 function normalize(value) {

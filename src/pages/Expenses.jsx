@@ -160,8 +160,10 @@ export default function Expenses() {
       : [payload, ...expenses];
 
     try {
-      if (editing && !String(editing.id || "").startsWith("expense-")) await base44.entities.Expense.update(editing.id, payload);
-      else await base44.entities.Expense.create(payload);
+      const databasePayload = { ...payload };
+      if (String(databasePayload.id || "").startsWith("expense-")) delete databasePayload.id;
+      if (editing && !String(editing.id || "").startsWith("expense-")) await base44.entities.Expense.update(editing.id, databasePayload);
+      else await base44.entities.Expense.create(databasePayload);
       setSource("supabase");
       setShowForm(false);
       setEditing(null);

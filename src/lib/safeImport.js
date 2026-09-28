@@ -1,14 +1,18 @@
 import { supabase } from '@/integrations/supabase/client'
+import { BACKUP_SECTIONS } from './backup'
 
-// Imports are additive. An uncertain match is held for manual review.
-const ORDER = ['clients', 'cases', 'tasks', 'documents', 'invoices', 'expenses']
+// Keep import coverage aligned with every section written by collectBackupData.
+const ORDER = BACKUP_SECTIONS
 const BUSINESS_KEY = {
   cases: row => [row.case_number, row.court, row.title].every(Boolean)
     ? [row.case_number, row.court, row.title].map(normalize).join('|') : '',
-  invoices: row => row.invoice_number && normalize(row.invoice_number),
+  invoices: row => {
+    const number = normalize(row.invoice_number)
+    if (!number) return ''
+    const scope = normalize(row.portal_scope || row.business_unit || 'helm')
+    return `${scope}|${number}`
+  },
   documents: row => row.file_url && normalize(row.file_url),
-  tasks: () => '',
-  expenses: () => '',
 }
 const normalize = value => String(value ?? '').normalize('NFKC').trim().toLowerCase()
   .replace(/[\u064b-\u065f\u0670ـ]/g, '').replace(/[أإآٱ]/g, 'ا')
@@ -81,7 +85,7 @@ function resolveCase(row, caseAliases, plannedCases, liveCases, clientId) {
   const number = useful(row.case_number)
   if (!title && !number) return null
   const matches = [...plannedCases, ...liveCases].filter(item =>
-    String(item.client_id || '') === String(clientId) &&
+    String(item.client_id || '') === String(clientId || '') &&
     (!title || useful(item.title) === title) &&
     (!number || useful(item.case_number) === number))
   return matches.length === 1 ? matches[0].id : null
@@ -98,19 +102,27 @@ function cleanRow(row, table) {
   return data
 }
 
+function addForReview(review, table, row, reason) {
+  review.push({ table, id: row?.id, name: row?.client_name, reason })
+}
+
 export async function prepareSafeImport(backup) {
-  if (!backup || typeof backup !== 'object' || !Array.isArray(backup.clients)) throw new Error('ملف الاستيراد غير صالح')
-  for (const table of ORDER) if (backup[table] != null && !Array.isArray(backup[table])) throw new Error(`القسم ${table} غير صالح`)
+  if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('ملف الاستيراد غير صالح')
+  for (const table of ORDER) {
+    if (backup[table] != null && !Array.isArray(backup[table])) throw new Error(`القسم ${table} غير صالح`)
+  }
+  const sourceClients = backup.clients || []
   const live = Object.fromEntries(await Promise.all(ORDER.map(async table => [table, await listAll(table)])))
   const planned = Object.fromEntries(ORDER.map(key => [key, []]))
   const review = []
   const skipped = Object.fromEntries(ORDER.map(key => [key, 0]))
   const aliases = new Map()
   const clients = [...live.clients]
-  for (const row of backup.clients) {
-    if (!row || !useful(row.full_name)) { review.push({ table: 'clients', id: row?.id, reason: 'اسم الموكل مفقود' }); continue }
+
+  for (const row of sourceClients) {
+    if (!row || !useful(row.full_name)) { addForReview(review, 'clients', row, 'اسم الموكل مفقود'); continue }
     const { match, conflict } = clientMatch(row, clients)
-    if (conflict) { review.push({ table: 'clients', id: row.id, name: row.full_name, reason: 'هوية موكل متعارضة أو متعددة' }); continue }
+    if (conflict) { addForReview(review, 'clients', row, 'هوية موكل متعارضة أو متعددة'); continue }
     if (match) {
       aliases.set(String(row.id), match.id)
       skipped.clients++
@@ -118,49 +130,92 @@ export async function prepareSafeImport(backup) {
     }
     const data = cleanRow(row, 'clients')
     data.id = data.id && !clients.some(c => c.id === data.id) ? data.id : generatedId()
-    if (data.phone === '-') data.phone = null
+    // public.clients.phone is NOT NULL; retain placeholders and normalize nullish values to text.
+    data.phone = data.phone ?? ''
     planned.clients.push(data)
     clients.push(data)
     aliases.set(String(row.id), data.id)
   }
 
   const caseAliases = new Map()
-  for (const table of ORDER.slice(1)) {
-    const seenIds = new Set(live[table].map(row => String(row.id)))
-    const seenKeys = new Set(live[table].map(BUSINESS_KEY[table]).filter(Boolean))
+  const conversationAliases = new Map()
+  for (const table of ORDER.filter(key => key !== 'clients')) {
+    const liveRows = live[table]
+    const getBusinessKey = BUSINESS_KEY[table] || (() => '')
+    const seenIds = new Set(liveRows.map(row => String(row.id)))
+    const seenKeys = new Set(liveRows.map(getBusinessKey).filter(Boolean))
+
     for (const row of backup[table] || []) {
-      if (!row || !row.id) { review.push({ table, reason: 'معرّف السجل مفقود' }); continue }
+      if (!row || !row.id) { addForReview(review, table, row, 'معرّف السجل مفقود'); continue }
       const oldId = String(row.id)
-      const existing = live[table].find(item => String(item.id) === oldId)
-      const key = BUSINESS_KEY[table](row)
+      const existing = liveRows.find(item => String(item.id) === oldId)
+      const key = getBusinessKey(row)
       if (existing || seenIds.has(oldId) || (key && seenKeys.has(key))) {
         skipped[table]++
         if (table === 'cases') {
-          const sameKey = key && live.cases.filter(item => BUSINESS_KEY.cases(item) === key)
+          const sameKey = key && live.cases.filter(item => getBusinessKey(item) === key)
           const target = existing || (sameKey && sameKey.length === 1 && sameKey[0])
           if (target) caseAliases.set(oldId, target.id)
         }
+        if (table === 'conversations') conversationAliases.set(oldId, existing?.id || oldId)
         continue
       }
-      const clientId = resolveClient(row, backup.clients, aliases, clients)
-      if (!clientId) { review.push({ table, id: oldId, name: row.client_name, reason: 'تعذر تحديد موكل واحد' }); continue }
+
+      const clientReference = useful(row.client_id) || useful(row.client_name)
+      let clientId = null
+      if (clientReference) {
+        clientId = resolveClient(row, sourceClients, aliases, clients)
+        if (!clientId) { addForReview(review, table, row, 'تعذر تحديد موكل واحد'); continue }
+      }
+
       const data = cleanRow(row, table)
-      data.client_id = clientId
-      if (data.case_id) {
+      // client_id exists only on cases; other tables keep their client name without an invented column.
+      if (table === 'cases') {
+        data.client_id = clientId
+        if (data.client_name == null) data.client_name = ''
+      } else {
+        delete data.client_id
+      }
+      if (table === 'invoices' && data.client_name == null) data.client_name = ''
+
+      const caseReference = useful(row.case_id)
+      if (table === 'sessions' && !caseReference) {
+        addForReview(review, table, row, 'القضية المرتبطة غير محددة')
+        continue
+      }
+      if (caseReference) {
         const target = resolveCase(data, caseAliases, planned.cases, live.cases, clientId)
-        if (!target) { review.push({ table, id: oldId, reason: 'القضية المرتبطة غير محددة' }); continue }
+        if (!target) { addForReview(review, table, row, 'القضية المرتبطة غير محددة'); continue }
         data.case_id = target
       }
+
+      if (table === 'messages') {
+        const conversationId = useful(row.conversation_id)
+        const target = conversationAliases.get(conversationId) ||
+          (live.conversations.some(item => String(item.id) === conversationId) ? conversationId : null)
+        if (!target) { addForReview(review, table, row, 'المحادثة المرتبطة غير محددة'); continue }
+        data.conversation_id = target
+      }
+
       planned[table].push(data)
       seenIds.add(oldId)
       if (key) seenKeys.add(key)
       if (table === 'cases') caseAliases.set(oldId, oldId)
+      if (table === 'conversations') conversationAliases.set(oldId, oldId)
     }
   }
-  return { planned, review, skipped, counts: Object.fromEntries(ORDER.map(key => [key, {
-    incoming: (backup[key] || []).length, add: planned[key].length, existing: skipped[key],
-    review: review.filter(item => item.table === key).length,
-  }])) }
+
+  return {
+    planned,
+    review,
+    skipped,
+    counts: Object.fromEntries(ORDER.map(key => [key, {
+      incoming: (backup[key] || []).length,
+      add: planned[key].length,
+      existing: skipped[key],
+      review: review.filter(item => item.table === key).length,
+    }])),
+  }
 }
 
 export async function applySafeImport(backup, expectedCounts) {
@@ -172,12 +227,11 @@ export async function applySafeImport(backup, expectedCounts) {
   for (const table of ORDER) {
     for (const row of plan.planned[table]) {
       const { error } = await supabase.from(table).insert(row)
-      if (error) {
-        errors.push({ table, id: row.id, reason: error.message })
-      } else inserted[table]++
+      if (error) errors.push({ table, id: row.id, reason: error.message })
+      else inserted[table]++
     }
-    // A failed client or case must not cause related rows to be filed under a missing parent.
-    if ((table === 'clients' || table === 'cases') && errors.some(item => item.table === table)) break
+    // Do not file children under a parent whose insert failed.
+    if (['clients', 'cases', 'conversations'].includes(table) && errors.some(item => item.table === table)) break
   }
   return { inserted, review: [...plan.review, ...errors], errors }
 }

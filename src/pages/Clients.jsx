@@ -277,6 +277,23 @@ export default function Clients() {
     return filtered.slice(start, start + pageSize);
   }, [filtered, page]);
 
+  const duplicateReviewGroups = useMemo(() => {
+    if (!search.trim()) return duplicateGroups;
+    return duplicateGroups
+      .map((group) => ({
+        ...group,
+        records: group.records.filter((record) =>
+          searchInFields(record, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search),
+        ),
+      }))
+      .filter((group) => group.records.length > 0);
+  }, [duplicateGroups, search]);
+
+  const duplicateReviewCount = useMemo(
+    () => new Set(duplicateReviewGroups.flatMap((group) => group.records.map((record) => record.id))).size,
+    [duplicateReviewGroups],
+  );
+
   useEffect(() => {
     setPage(1);
   }, [search, activeTab]);
@@ -371,7 +388,7 @@ export default function Clients() {
         </div>
       </Card>
 
-      {!loading && !loadError && activeTab === "duplicates" && duplicateGroups.length > 0 && (
+      {!loading && !loadError && activeTab === "duplicates" && duplicateReviewGroups.length > 0 && (
         <div className="space-y-4">
           <Card className="p-5 border-amber-300/60 bg-amber-500/5">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -379,12 +396,12 @@ export default function Clients() {
                 <h3 className="font-black text-lg text-foreground">مركز مراجعة المكررات</h3>
                 <p className="text-sm text-muted-foreground mt-1">راجع كل مجموعة كسجل واحد مترابط قبل أي حذف. افتح الملف الشامل أو عدّل السجل الصحيح ثم انقل الارتباطات عند الحاجة.</p>
               </div>
-              <Badge className="w-fit bg-amber-500/15 text-amber-500 border border-amber-500/20">{duplicateGroups.length} مجموعة · {duplicateClientIds.size} سجل</Badge>
+              <Badge className="w-fit bg-amber-500/15 text-amber-500 border border-amber-500/20">{duplicateReviewGroups.length} مجموعة · {duplicateReviewCount} سجل</Badge>
             </div>
           </Card>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {duplicateGroups.map((group, groupIndex) => (
+            {duplicateReviewGroups.map((group, groupIndex) => (
               <Card key={group.key} className="overflow-hidden border-amber-300/50 bg-card/95">
                 <div className="h-1 bg-amber-400" />
                 <div className="p-5">

@@ -12,7 +12,7 @@ import {
 
 const ENTITY_CONFIG = [
   { key: 'cases',     label: 'القضايا',    icon: Briefcase,   page: 'Cases',    fields: ['title','client_name','case_number','court'] },
-  { key: 'clients',   label: 'الموكلون',   icon: Users,       page: 'Clients',  fields: ['full_name','phone','email','id_number'] },
+  { key: 'clients',   label: 'الموكلون',   icon: Users,       page: 'Clients',  fields: ['full_name','client_role','phone','email','id_number'] },
   { key: 'sessions',  label: 'الجلسات',    icon: CalendarDays,page: 'Sessions', fields: ['case_title','client_name','court'] },
   { key: 'documents', label: 'المستندات',  icon: FileText,    page: 'Documents',fields: ['title','file_name','client_name','case_title'] },
   { key: 'invoices',  label: 'الفواتير',   icon: Receipt,     page: 'Invoices', fields: ['invoice_number','client_name','case_title'] },
@@ -132,8 +132,9 @@ export default function GlobalSearch() {
     return () => clearTimeout(t)
   }, [query])
 
-  const handleSelect = (cfg) => {
-    navigate(createPageUrl(cfg.page))
+  const handleSelect = (cfg, item) => {
+    if (cfg.key === 'clients' && item?.id) navigate(createPageUrl('Client360') + `?id=${item.id}`)
+    else navigate(createPageUrl(cfg.page))
     setOpen(false)
   }
 
@@ -202,7 +203,7 @@ export default function GlobalSearch() {
                   item={item}
                   config={cfg}
                   query={query}
-                  onClick={() => handleSelect(cfg)}
+                  onClick={() => handleSelect(cfg, item)}
                 />
               ))}
             </div>

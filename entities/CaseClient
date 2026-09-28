@@ -1,0 +1,25 @@
+{
+  "name": "CaseClient",
+  "type": "object",
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "description": "معرف القضية المرتبطة"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "معرف الموكل المرتبط"
+    },
+    "relation_role": {
+      "type": "string",
+      "default": "موكل",
+      "description": "صفة الموكل داخل القضية"
+    },
+    "is_primary": {
+      "type": "boolean",
+      "default": false,
+      "description": "هل هو الموكل الرئيسي في القضية"
+    }
+  },
+  "required": ["case_id", "client_id"]
+}

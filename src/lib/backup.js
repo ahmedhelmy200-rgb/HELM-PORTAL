@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { appParams } from "@/lib/app-params";
 
 const entityTableMap = {
   Case: 'cases',
@@ -42,7 +43,7 @@ function nowStamp() {
 }
 
 function bucketName() {
-  return import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || 'backups';
+  return appParams.storageBucket || 'uploads';
 }
 
 function fileName(prefix = 'helm-backup') {

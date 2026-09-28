@@ -78,7 +78,6 @@ function belongsToClient(record, client) {
 
 export default function Clients() {
   const navigate = useNavigate();
-  const [clients, setClients] = useState([]);
   const [allClients, setAllClients] = useState([]);
   const [cases, setCases] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -93,7 +92,6 @@ export default function Clients() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setTab] = useState("all");
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState("");
   const pageSize = 12;
@@ -104,17 +102,14 @@ export default function Clients() {
     setLoading(true);
     setError("");
     try {
-      const [{ data: pageRows, total: totalRows }, allRows, caseRows, sessionRows, docRows, invoiceRows] = await Promise.all([
-        base44.entities.Client.listPage("-created_date", { page, pageSize }),
-        base44.entities.Client.list("-created_date", 2000),
-        base44.entities.Case.list("-created_date", 2000),
-        base44.entities.Session.list("-session_date", 2000),
-        base44.entities.Document.list("-created_date", 2000),
-        base44.entities.Invoice.list("-created_date", 2000),
+      const [allRows, caseRows, sessionRows, docRows, invoiceRows] = await Promise.all([
+        base44.entities.Client.list("-created_date", 5000),
+        base44.entities.Case.list("-created_date", 5000),
+        base44.entities.Session.list("-session_date", 5000),
+        base44.entities.Document.list("-created_date", 5000),
+        base44.entities.Invoice.list("-created_date", 5000),
       ]);
-      setClients(pageRows || []);
       setAllClients(allRows || []);
-      setTotal(totalRows || 0);
       setCases(caseRows || []);
       setSessions(sessionRows || []);
       setDocs(docRows || []);
@@ -124,7 +119,7 @@ export default function Clients() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
   usePageRefresh(loadData, ["clients", "cases", "sessions", "documents", "invoices"]);
@@ -212,7 +207,7 @@ export default function Clients() {
     );
   };
 
-  const metrics = useMemo(() => clients.map((client) => {
+  const metrics = useMemo(() => allClients.map((client) => {
     const clientCases = cases.filter((item) => belongsToClient(item, client));
     const clientSessions = sessions.filter((item) => belongsToClient(item, client));
     const clientDocuments = documents.filter((item) => belongsToClient(item, client));
@@ -256,18 +251,18 @@ export default function Clients() {
       decidedCases: success.decided,
       isDuplicate: duplicateClientIds.has(client.id),
     };
-  }), [clients, cases, sessions, documents, invoices, duplicateClientIds]);
+  }), [allClients, cases, sessions, documents, invoices, duplicateClientIds]);
 
-  const ratedMetrics = metrics.filter((client) => client.successRate !== null);
+  const ratedMetrics = useMemo(() => metrics.filter((client) => client.successRate !== null), [metrics]);
   const stats = useMemo(() => ({
-    total,
+    total: metrics.length,
     active: metrics.filter((client) => client.status === "نشط").length,
     neglected: metrics.filter((client) => client.isNeglected).length,
     duplicates: duplicateClientIds.size,
     averageSuccess: ratedMetrics.length
       ? Math.round((ratedMetrics.reduce((sum, client) => sum + client.successRate, 0) / ratedMetrics.length) * 10) / 10
       : null,
-  }), [metrics, total, duplicateClientIds, ratedMetrics]);
+  }), [metrics, duplicateClientIds, ratedMetrics]);
 
   const filtered = useMemo(() => metrics.filter((client) => {
     if (!searchInFields(client, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search)) return false;
@@ -276,6 +271,44 @@ export default function Clients() {
     if (activeTab === "duplicates") return client.isDuplicate;
     return true;
   }), [metrics, search, activeTab]);
+
+  const pagedClients = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page]);
+
+  const duplicateReviewGroups = useMemo(() => {
+    if (!search.trim()) return duplicateGroups;
+    return duplicateGroups
+      .map((group) => ({
+        ...group,
+        records: group.records.filter((record) =>
+          searchInFields(record, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search),
+        ),
+      }))
+      .filter((group) => group.records.length > 0);
+  }, [duplicateGroups, search]);
+
+  const duplicateReviewCount = useMemo(
+    () => new Set(duplicateReviewGroups.flatMap((group) => group.records.map((record) => record.id))).size,
+    [duplicateReviewGroups],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, activeTab]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (page > maxPage) setPage(maxPage);
+  }, [filtered.length, page]);
+
+  const duplicateReason = (key = "") => {
+    if (key.startsWith("id:")) return "تطابق رقم الهوية / السجل";
+    if (key.startsWith("email:")) return "تطابق البريد الإلكتروني";
+    if (key.startsWith("phone:")) return "تطابق رقم الهاتف";
+    return "تطابق بيانات";
+  };
 
   const sendWhatsApp = (client) => {
     const message = encodeURIComponent(`مرحباً ${client.full_name}، نود متابعة ملفكم القانوني.`);
@@ -293,7 +326,7 @@ export default function Clients() {
     <div className="space-y-6">
       <PageHeader
         title="الموكلون"
-        subtitle={`${total} موكل — ربط موحد بالقضايا والمستندات والفواتير`}
+        subtitle={`${stats.total} موكل — ملف 360 موحد للقضايا والمستندات والفواتير والماليات`}
         action={(
           <div className="flex flex-wrap gap-2 justify-end">
             <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvImport} />
@@ -327,7 +360,7 @@ export default function Clients() {
                 ))}
               </div>
             </div>
-            <Button variant="outline" onClick={() => setTab("duplicates")}>عرض المكررات</Button>
+            <Button variant="outline" onClick={() => { setTab("duplicates"); setPage(1); }}>عرض المكررات</Button>
           </div>
         </Card>
       )}
@@ -347,7 +380,7 @@ export default function Clients() {
           </div>
           <div className="flex flex-wrap gap-2">
             {tabs.map((tab) => (
-              <Button key={tab.key} variant={activeTab === tab.key ? "default" : "outline"} className="rounded-full h-9 gap-1.5" onClick={() => setTab(tab.key)}>
+              <Button key={tab.key} variant={activeTab === tab.key ? "default" : "outline"} className="rounded-full h-9 gap-1.5" onClick={() => { setTab(tab.key); setPage(1); }}>
                 {tab.label}<span className="opacity-70 text-xs">{tab.count}</span>
               </Button>
             ))}
@@ -355,16 +388,81 @@ export default function Clients() {
         </div>
       </Card>
 
+      {!loading && !loadError && activeTab === "duplicates" && duplicateReviewGroups.length > 0 && (
+        <div className="space-y-4">
+          <Card className="p-5 border-amber-300/60 bg-amber-500/5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div>
+                <h3 className="font-black text-lg text-foreground">مركز مراجعة المكررات</h3>
+                <p className="text-sm text-muted-foreground mt-1">راجع كل مجموعة كسجل واحد مترابط قبل أي حذف. افتح الملف الشامل أو عدّل السجل الصحيح ثم انقل الارتباطات عند الحاجة.</p>
+              </div>
+              <Badge className="w-fit bg-amber-500/15 text-amber-500 border border-amber-500/20">{duplicateReviewGroups.length} مجموعة · {duplicateReviewCount} سجل</Badge>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {duplicateReviewGroups.map((group, groupIndex) => (
+              <Card key={group.key} className="overflow-hidden border-amber-300/50 bg-card/95">
+                <div className="h-1 bg-amber-400" />
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <p className="text-xs font-black text-amber-500">مجموعة #{groupIndex + 1}</p>
+                      <h4 className="font-black mt-1">{duplicateReason(group.key)}</h4>
+                    </div>
+                    <Badge variant="outline">{group.records.length} سجلات</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {group.records.map((record) => {
+                      const metric = metrics.find((item) => item.id === record.id) || record;
+                      return (
+                        <div key={record.id} className="rounded-2xl border border-border bg-muted/20 p-4">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-black truncate">{record.full_name}</p>
+                                <StatusBadge status={record.status} />
+                                <Badge className="bg-primary/10 text-primary border border-primary/15 text-[10px]">{record.client_role || "موكل"}</Badge>
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                {record.phone && <span>هاتف: {record.phone}</span>}
+                                {record.email && <span>بريد: {record.email}</span>}
+                                {record.id_number && <span>هوية/سجل: {record.id_number}</span>}
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <Badge variant="outline">{metric.totalCases || 0} قضية</Badge>
+                                <Badge variant="outline">{metric.invoicesCount || 0} فاتورة</Badge>
+                                <Badge variant="outline">{metric.documentsCount || 0} مستند</Badge>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 shrink-0">
+                              <Button size="sm" onClick={() => navigate(createPageUrl("Client360") + `?id=${record.id}`)} className="gap-1.5">
+                                <ShieldCheck className="h-3.5 w-3.5" />الملف الشامل
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => openEdit(record)}>تعديل</Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center h-48"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>
       ) : loadError ? (
         <PageErrorState message={loadError} onRetry={loadData} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Users} title="لا توجد نتائج" description="غيّر الفلتر أو أضف موكلًا جديدًا." action={<Button onClick={openCreate}>إضافة موكل</Button>} />
+        <EmptyState icon={Users} title="لا توجد نتائج" description={activeTab === "duplicates" ? "لا توجد سجلات مكررة ضمن البيانات الحالية." : "غيّر البحث أو الفلتر، أو أضف موكلًا جديدًا."} action={activeTab !== "duplicates" ? <Button onClick={openCreate}>إضافة موكل</Button> : undefined} />
       ) : (
         <>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {filtered.map((client) => (
+          {activeTab !== "duplicates" && <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {pagedClients.map((client) => (
               <Card key={client.id} className={`group relative overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-xl ${client.isDuplicate ? "border-amber-300 bg-amber-50/30" : "border-primary/15 hover:border-primary/35 bg-card/90"}`}>
                 <div className="h-1.5 bg-gradient-to-l from-primary via-cyan-500 to-amber-400 opacity-80" />
                 <div className="p-5">
@@ -422,8 +520,8 @@ export default function Clients() {
                 </div>
               </Card>
             ))}
-          </div>
-          <PaginationControls page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+          </div>}
+          {activeTab !== "duplicates" && <PaginationControls page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />}
         </>
       )}
 

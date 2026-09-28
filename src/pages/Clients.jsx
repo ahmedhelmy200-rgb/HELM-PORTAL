@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, Clock3, Upload, UserCheck, AlertTriangle, Trophy, Wallet, Receipt, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, Clock3, Upload, UserCheck, AlertTriangle, Wallet, Receipt, ArrowLeft, ShieldCheck } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import StatusBadge from "../components/helm/StatusBadge";
 import EmptyState from "../components/helm/EmptyState";
@@ -259,6 +259,7 @@ export default function Clients() {
     active: metrics.filter((client) => client.status === "نشط").length,
     neglected: metrics.filter((client) => client.isNeglected).length,
     duplicates: duplicateClientIds.size,
+    activeCases: metrics.reduce((sum, client) => sum + Number(client.activeCases || 0), 0),
     averageSuccess: ratedMetrics.length
       ? Math.round((ratedMetrics.reduce((sum, client) => sum + client.successRate, 0) / ratedMetrics.length) * 10) / 10
       : null,
@@ -346,21 +347,19 @@ export default function Clients() {
       {importSummary && <Card className="p-3 border-primary/10 bg-primary/5 text-sm font-bold text-primary">{importSummary}</Card>}
 
       {duplicateGroups.length > 0 && (
-        <Card className="border-amber-300 bg-amber-50 p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
-            <div className="flex-1">
-              <h3 className="font-black text-amber-950">تنبيه سلامة البيانات: {duplicateGroups.length} مجموعة موكلين محتملة التكرار</h3>
-              <p className="mt-1 text-sm font-bold leading-7 text-amber-800">لن يتم حذف أو دمج أي سجل تلقائيًا. راجع المكررات واعتمد سجلًا واحدًا ثم انقل ارتباطات القضايا والفواتير إليه قبل حذف الزائد.</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {duplicateGroups.slice(0, 5).map((group) => (
-                  <Badge key={group.key} className="bg-white text-amber-900 border border-amber-200">
-                    {group.records.map((record) => record.full_name).join(" / ")}
-                  </Badge>
-                ))}
-              </div>
+        <Card className="border-amber-500/30 bg-amber-500/5 p-3 md:p-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
             </div>
-            <Button variant="outline" onClick={() => { setTab("duplicates"); setPage(1); }}>عرض المكررات</Button>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-black text-foreground">مراجعة المكررات مطلوبة</h3>
+                <Badge className="bg-amber-500/15 text-amber-500 border border-amber-500/20">{duplicateGroups.length} مجموعة · {duplicateClientIds.size} سجل</Badge>
+              </div>
+              <p className="mt-1 text-xs md:text-sm text-muted-foreground">لا حذف تلقائيًا. افتح مركز المراجعة وحدد السجل الصحيح قبل نقل الارتباطات أو حذف أي نسخة زائدة.</p>
+            </div>
+            <Button variant="outline" className="border-amber-500/30 hover:bg-amber-500/10" onClick={() => { setTab("duplicates"); setPage(1); }}>مراجعة الآن</Button>
           </div>
         </Card>
       )}
@@ -368,7 +367,7 @@ export default function Clients() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="إجمالي الموكلين" value={stats.total} icon={Users} color="primary" />
         <StatCard title="النشطون" value={stats.active} icon={Briefcase} color="success" />
-        <StatCard title="متوسط نجاح القضايا" value={stats.averageSuccess === null ? "—" : `${stats.averageSuccess}%`} icon={Trophy} color="accent" />
+        <StatCard title="القضايا النشطة" value={stats.activeCases} icon={Briefcase} color="accent" />
         <StatCard title="سجلات محتملة التكرار" value={stats.duplicates} icon={AlertTriangle} color="warning" />
       </div>
 
@@ -378,12 +377,13 @@ export default function Clients() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input ref={searchRef} placeholder="بحث بالاسم أو الهاتف أو الهوية أو البريد..." value={search} onChange={(event) => setSearch(event.target.value)} className="pr-10 h-11" />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {tabs.map((tab) => (
               <Button key={tab.key} variant={activeTab === tab.key ? "default" : "outline"} className="rounded-full h-9 gap-1.5" onClick={() => { setTab(tab.key); setPage(1); }}>
                 {tab.label}<span className="opacity-70 text-xs">{tab.count}</span>
               </Button>
             ))}
+            <span className="px-2 text-xs font-bold text-muted-foreground">المعروض {filtered.length}</span>
           </div>
         </div>
       </Card>

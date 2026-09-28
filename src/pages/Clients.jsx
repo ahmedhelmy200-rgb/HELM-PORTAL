@@ -235,9 +235,11 @@ export default function Clients() {
         .map((link) => String(link.case_id)),
     );
     const clientCases = cases.filter((item) => belongsToClient(item, client) || linkedCaseIds.has(String(item.id)));
-    const clientSessions = sessions.filter((item) => belongsToClient(item, client));
-    const clientDocuments = documents.filter((item) => belongsToClient(item, client));
-    const clientInvoices = invoices.filter((item) => belongsToClient(item, client));
+    const clientCaseIds = new Set(clientCases.map((item) => String(item.id)));
+    const relatedToCase = (item) => item?.case_id && clientCaseIds.has(String(item.case_id));
+    const clientSessions = sessions.filter((item) => belongsToClient(item, client) || relatedToCase(item));
+    const clientDocuments = documents.filter((item) => belongsToClient(item, client) || relatedToCase(item));
+    const clientInvoices = invoices.filter((item) => belongsToClient(item, client) || relatedToCase(item));
     const invoiceFinance = clientInvoices.reduce((acc, invoice) => {
       const totals = getInvoiceTotals(invoice);
       acc.total += totals.total;

@@ -68,7 +68,7 @@ export default function Client360() {
   const clientId = params.get("id") || "";
   const [client, setClient] = useState(null);
   const [data, setData] = useState({
-    cases: [], invoices: [], documents: [], sessions: [], tasks: [], expenses: [],
+    cases: [], caseLinks: [], invoices: [], documents: [], sessions: [], tasks: [], expenses: [],
   });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -82,9 +82,10 @@ export default function Client360() {
     setLoading(true);
     setLoadError("");
     try {
-      const [clientRows, cases, invoices, documents, sessions, tasks, expenses] = await Promise.all([
+      const [clientRows, cases, caseLinks, invoices, documents, sessions, tasks, expenses] = await Promise.all([
         base44.entities.Client.filter({ id: clientId }, null, 1),
         base44.entities.Case.list("-created_date", 3000),
+        base44.entities.CaseClient.filter({ client_id: clientId }, "-created_date", 3000),
         base44.entities.Invoice.list("-created_date", 3000),
         base44.entities.Document.list("-created_date", 3000),
         base44.entities.Session.list("-session_date", 3000),
@@ -93,9 +94,11 @@ export default function Client360() {
       ]);
       const selected = clientRows?.[0] || null;
       if (!selected) throw new Error("لم يتم العثور على ملف الموكل.");
+      const linkedCaseIds = new Set((caseLinks || []).map((link) => String(link.case_id)));
       setClient(selected);
       setData({
-        cases: (cases || []).filter((row) => belongsToClient(row, selected)),
+        cases: (cases || []).filter((row) => belongsToClient(row, selected) || linkedCaseIds.has(String(row.id))),
+        caseLinks: caseLinks || [],
         invoices: (invoices || []).filter((row) => belongsToClient(row, selected)),
         documents: (documents || []).filter((row) => belongsToClient(row, selected)),
         sessions: (sessions || []).filter((row) => belongsToClient(row, selected)),
@@ -185,6 +188,12 @@ export default function Client360() {
                   <Badge className="bg-primary/12 text-primary border border-primary/20">{client.client_role || "موكل"}</Badge>
                   <Badge variant="outline">{client.client_type || "فرد"}</Badge>
                 </div>
+                {client.name_en && normalize(client.name_en) !== normalize(client.full_name) && (
+                  <p className="mt-1 text-sm font-semibold text-muted-foreground" dir="ltr">{client.name_en}</p>
+                )}
+                {client.name_ar && normalize(client.name_ar) !== normalize(client.full_name) && (
+                  <p className="mt-1 text-sm font-semibold text-muted-foreground">{client.name_ar}</p>
+                )}
                 <p className="mt-2 text-sm text-muted-foreground">
                   {client.nationality || "الجنسية غير مسجلة"}
                   {client.id_number ? ` · الهوية/السجل: ${client.id_number}` : ""}
@@ -233,6 +242,8 @@ export default function Client360() {
                 {[
                   ["الصفة القانونية", client.client_role || "موكل"],
                   ["النوع", client.client_type || "—"],
+                  ["الاسم بالعربية", client.name_ar || "—"],
+                  ["الاسم بالإنجليزية", client.name_en || "—"],
                   ["الهاتف", client.phone || "—"],
                   ["البريد", client.email || "—"],
                   ["الجنسية", client.nationality || "—"],
@@ -270,7 +281,13 @@ export default function Client360() {
                 <Card key={item.id} className="p-4 hover:border-primary/30 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2"><h4 className="font-black">{item.title}</h4><StatusBadge status={item.status} /></div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-black">{item.title}</h4>
+                        <StatusBadge status={item.status} />
+                        {data.caseLinks.some((link) => String(link.case_id) === String(item.id) && !link.is_primary) && (
+                          <Badge variant="outline" className="text-[10px]">قضية مشتركة</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">{item.case_number ? `#${item.case_number} · ` : ""}{item.case_type || "قضية"}{item.court ? ` · ${item.court}` : ""}</p>
                       {item.next_session_date && <p className="text-xs mt-2 flex items-center gap-1 text-primary"><CalendarDays className="h-3 w-3" />الجلسة القادمة: {dateLabel(item.next_session_date)}</p>}
                     </div>

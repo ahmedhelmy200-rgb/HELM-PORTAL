@@ -2,6 +2,7 @@ import React, { lazy } from 'react';
 
 const Cases = lazy(() => import('./pages/Cases'));
 const Clients = lazy(() => import('./pages/Clients'));
+const Client360 = lazy(() => import('./pages/Client360'));
 const Contacts = lazy(() => import('./pages/Contacts'));
 const Dashboard = lazy(() => import('./pages/DashboardOptimized'));
 const Discover = lazy(() => import('./pages/Discover'));
@@ -33,6 +34,7 @@ const __Layout = lazy(() => import('./Layout.jsx'));
 export const PAGES = {
   Cases,
   Clients,
+  Client360,
   Contacts,
   Dashboard,
   Discover,

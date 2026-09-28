@@ -27,6 +27,10 @@ import { createPageUrl } from "@/utils";
 
 const emptyForm = {
   full_name: "",
+  name_ar: "",
+  name_en: "",
+  name_aliases: [],
+  name_aliases_text: "",
   client_type: "فرد",
   client_role: "موكل",
   id_number: "",
@@ -57,8 +61,21 @@ function daysSince(value) {
 
 function cleanClientPayload(value = {}) {
   const source = { ...emptyForm, ...(value || {}) };
+  const aliases = Array.isArray(source.name_aliases)
+    ? source.name_aliases
+    : String(source.name_aliases_text || "")
+      .split(/[،,\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  const uniqueAliases = [...new Set(aliases.map((item) => String(item || "").trim()).filter(Boolean))];
+  const nameAr = String(source.name_ar || "").trim();
+  const nameEn = String(source.name_en || "").trim();
   return {
-    full_name: String(source.full_name || "").trim(),
+    full_name: String(source.full_name || nameAr || nameEn || "").trim(),
+    name_ar: nameAr,
+    name_en: nameEn,
+    name_aliases: uniqueAliases,
+    name_aliases_text: uniqueAliases.join("، "),
     client_type: source.client_type || "فرد",
     client_role: source.client_role || "موكل",
     id_number: String(source.id_number || "").trim(),
@@ -80,6 +97,7 @@ export default function Clients() {
   const navigate = useNavigate();
   const [allClients, setAllClients] = useState([]);
   const [cases, setCases] = useState([]);
+  const [caseLinks, setCaseLinks] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [documents, setDocs] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -102,15 +120,17 @@ export default function Clients() {
     setLoading(true);
     setError("");
     try {
-      const [allRows, caseRows, sessionRows, docRows, invoiceRows] = await Promise.all([
+      const [allRows, caseRows, caseLinkRows, sessionRows, docRows, invoiceRows] = await Promise.all([
         base44.entities.Client.list("-created_date", 5000),
         base44.entities.Case.list("-created_date", 5000),
+        base44.entities.CaseClient.list("-created_date", 10000),
         base44.entities.Session.list("-session_date", 5000),
         base44.entities.Document.list("-created_date", 5000),
         base44.entities.Invoice.list("-created_date", 5000),
       ]);
       setAllClients(allRows || []);
       setCases(caseRows || []);
+      setCaseLinks(caseLinkRows || []);
       setSessions(sessionRows || []);
       setDocs(docRows || []);
       setInvoices(invoiceRows || []);
@@ -122,7 +142,7 @@ export default function Clients() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-  usePageRefresh(loadData, ["clients", "cases", "sessions", "documents", "invoices"]);
+  usePageRefresh(loadData, ["clients", "cases", "case_clients", "sessions", "documents", "invoices"]);
 
   useEffect(() => {
     const offNew = subscribeAppEvent(APP_SHORTCUT_NEW, ({ page: current }) => current === "Clients" && openCreate());
@@ -149,7 +169,8 @@ export default function Clients() {
   };
 
   const handleSave = async () => {
-    const payload = cleanClientPayload(form);
+    const normalized = cleanClientPayload(form);
+    const { name_aliases_text, ...payload } = normalized;
     const duplicates = findClientDuplicates(payload, allClients, editing?.id);
     if (duplicates.length) {
       const details = duplicates
@@ -208,7 +229,12 @@ export default function Clients() {
   };
 
   const metrics = useMemo(() => allClients.map((client) => {
-    const clientCases = cases.filter((item) => belongsToClient(item, client));
+    const linkedCaseIds = new Set(
+      caseLinks
+        .filter((link) => String(link.client_id) === String(client.id))
+        .map((link) => String(link.case_id)),
+    );
+    const clientCases = cases.filter((item) => belongsToClient(item, client) || linkedCaseIds.has(String(item.id)));
     const clientSessions = sessions.filter((item) => belongsToClient(item, client));
     const clientDocuments = documents.filter((item) => belongsToClient(item, client));
     const clientInvoices = invoices.filter((item) => belongsToClient(item, client));
@@ -250,8 +276,9 @@ export default function Clients() {
       successRate: success.rate,
       decidedCases: success.decided,
       isDuplicate: duplicateClientIds.has(client.id),
+      search_aliases: Array.isArray(client.name_aliases) ? client.name_aliases.join(" ") : "",
     };
-  }), [allClients, cases, sessions, documents, invoices, duplicateClientIds]);
+  }), [allClients, cases, caseLinks, sessions, documents, invoices, duplicateClientIds]);
 
   const ratedMetrics = useMemo(() => metrics.filter((client) => client.successRate !== null), [metrics]);
   const stats = useMemo(() => ({
@@ -266,7 +293,7 @@ export default function Clients() {
   }), [metrics, duplicateClientIds, ratedMetrics]);
 
   const filtered = useMemo(() => metrics.filter((client) => {
-    if (!searchInFields(client, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search)) return false;
+    if (!searchInFields(client, ["full_name", "name_ar", "name_en", "search_aliases", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search)) return false;
     if (activeTab === "active") return client.status === "نشط";
     if (activeTab === "neglected") return client.isNeglected;
     if (activeTab === "duplicates") return client.isDuplicate;
@@ -284,7 +311,7 @@ export default function Clients() {
       .map((group) => ({
         ...group,
         records: group.records.filter((record) =>
-          searchInFields(record, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search),
+          searchInFields({ ...record, search_aliases: Array.isArray(record.name_aliases) ? record.name_aliases.join(" ") : "" }, ["full_name", "name_ar", "name_en", "search_aliases", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search),
         ),
       }))
       .filter((group) => group.records.length > 0);
@@ -308,6 +335,7 @@ export default function Clients() {
     if (key.startsWith("id:")) return "تطابق رقم الهوية / السجل";
     if (key.startsWith("email:")) return "تطابق البريد الإلكتروني";
     if (key.startsWith("phone:")) return "تطابق رقم الهاتف";
+    if (key.startsWith("name:")) return "تطابق اسم عربي / إنجليزي / بديل";
     return "تطابق بيانات";
   };
 
@@ -327,7 +355,7 @@ export default function Clients() {
     <div className="space-y-6">
       <PageHeader
         title="الموكلون"
-        subtitle={`${stats.total} موكل — ملف 360 موحد للقضايا والمستندات والفواتير والماليات`}
+        subtitle={`${stats.total} موكل — أسماء عربية وإنجليزية وربط موحد بالقضايا والماليات`}
         action={(
           <div className="flex flex-wrap gap-2 justify-end">
             <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvImport} />
@@ -375,7 +403,7 @@ export default function Clients() {
         <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input ref={searchRef} placeholder="بحث بالاسم أو الهاتف أو الهوية أو البريد..." value={search} onChange={(event) => setSearch(event.target.value)} className="pr-10 h-11" />
+            <Input ref={searchRef} placeholder="بحث بالاسم العربي أو الإنجليزي أو الاسم البديل أو الهاتف..." value={search} onChange={(event) => setSearch(event.target.value)} className="pr-10 h-11" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {tabs.map((tab) => (
@@ -476,6 +504,9 @@ export default function Clients() {
                         {client.isNeglected && <Badge className="bg-warning/15 text-warning border-warning/20 text-[10px]">مهمل</Badge>}
                         {client.isDuplicate && <Badge className="bg-amber-200 text-amber-900 border-0 text-[10px]">محتمل التكرار</Badge>}
                       </div>
+                      {client.name_en && normalizeText(client.name_en) !== normalizeText(client.full_name) && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5 truncate" dir="ltr">{client.name_en}</p>
+                      )}
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <Badge className="bg-primary/10 text-primary border border-primary/15 text-[10px]">{client.client_role || "موكل"}</Badge>
                         <span className="text-xs text-muted-foreground">{client.client_type}{client.nationality ? ` · ${client.nationality}` : ""}</span>
@@ -529,7 +560,10 @@ export default function Clients() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader><DialogTitle>{editing ? "تعديل بيانات الموكل" : "إضافة موكل جديد"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-            <div className="space-y-1 md:col-span-2"><Label>الاسم الكامل *</Label><Input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} className="h-11" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>اسم العرض الرئيسي *</Label><Input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} className="h-11" /></div>
+            <div className="space-y-1"><Label>الاسم بالعربية</Label><Input value={form.name_ar || ""} onChange={(event) => setForm({ ...form, name_ar: event.target.value })} className="h-11" /></div>
+            <div className="space-y-1"><Label>الاسم بالإنجليزية</Label><Input value={form.name_en || ""} onChange={(event) => setForm({ ...form, name_en: event.target.value })} className="h-11" dir="ltr" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>أسماء بديلة للبحث</Label><Input value={form.name_aliases_text || ""} onChange={(event) => setForm({ ...form, name_aliases_text: event.target.value, name_aliases: event.target.value.split(/[،,]/).map((item) => item.trim()).filter(Boolean) })} placeholder="مثال: أحمد قنديل، Ahmed Kandil" className="h-11" /><p className="text-[11px] text-muted-foreground mt-1">افصل الأسماء بفاصلة. تُستخدم في البحث وكشف التكرار ولا تغيّر الاسم القانوني.</p></div>
             <div className="space-y-1"><Label>نوع الموكل</Label><ChoiceInput value={form.client_type} onChange={(value) => setForm({ ...form, client_type: value })} options={CLIENT_TYPES} listId="cl-types" /></div>
             <div className="space-y-1"><Label>الصفة القانونية الشاملة</Label><ChoiceInput value={form.client_role} onChange={(value) => setForm({ ...form, client_role: value })} options={CLIENT_ROLES} listId="cl-roles" /></div>
             <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={CLIENT_STATUSES} listId="cl-status" /></div>

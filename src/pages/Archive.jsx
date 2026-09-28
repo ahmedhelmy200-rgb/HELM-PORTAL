@@ -28,7 +28,7 @@ const ENTITY_ICONS = {
 }
 
 const ENTITY_RESTORE_FIELDS = {
-  Client  : ['full_name','phone','email','client_type','client_role','nationality','address','notes','status','id_number'],
+  Client  : ['full_name','name_ar','name_en','name_aliases','phone','email','client_type','client_role','nationality','address','notes','status','id_number'],
   Case    : ['title','client_id','client_name','case_number','case_type','status','court','judge','assigned_lawyer','priority','description','fees','paid_amount','opponent_name','opponent_lawyer','filing_date'],
   Session : ['case_title','case_id','case_number','client_id','client_name','session_date','court','hall','session_type','status','result','notes','next_session_date'],
   Document: ['title','client_id','client_name','case_id','case_title','doc_type','folder','status','notes','file_url','file_name'],
@@ -125,7 +125,18 @@ export default function ArchivePage() {
         if (record[f] !== undefined && record[f] !== null) payload[f] = record[f]
       }
 
-      await base44.entities[entityName].create(payload)
+      const restored = await base44.entities[entityName].create(payload)
+      if (entityName === 'Client' && restored?.id && Array.isArray(record._case_client_links) && record._case_client_links.length) {
+        const links = record._case_client_links
+          .filter((link) => link?.case_id)
+          .map((link) => ({
+            case_id: link.case_id,
+            client_id: restored.id,
+            relation_role: link.relation_role || 'موكل',
+            is_primary: Boolean(link.is_primary),
+          }))
+        if (links.length) await base44.entities.CaseClient.bulkCreate(links)
+      }
       await markArchiveRestored(entry.id)
       await reload()
     } catch (err) {

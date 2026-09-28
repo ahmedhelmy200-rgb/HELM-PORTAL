@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, Clock3, Upload, UserCheck, AlertTriangle, Trophy } from "lucide-react";
+import { Plus, Search, Users, Phone, Mail, MessageCircle, Briefcase, FileText, Clock3, Upload, UserCheck, AlertTriangle, Trophy, Wallet, Receipt, ArrowLeft, ShieldCheck } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import StatusBadge from "../components/helm/StatusBadge";
 import EmptyState from "../components/helm/EmptyState";
@@ -21,10 +22,13 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
 import { importContactsCsvFile, importFormerEmployeesFromLocalData } from "@/lib/clientImport";
 import { buildClientDuplicateGroups, caseSuccessStats, findClientDuplicates, normalizeText } from "@/lib/dataIntegrity";
+import { getInvoiceTotals } from "@/lib/invoiceMath";
+import { createPageUrl } from "@/utils";
 
 const emptyForm = {
   full_name: "",
   client_type: "فرد",
+  client_role: "موكل",
   id_number: "",
   phone: "",
   email: "",
@@ -35,6 +39,7 @@ const emptyForm = {
 };
 
 const CLIENT_TYPES = ["فرد", "شركة", "مؤسسة", "جهة حكومية", "ورثة"];
+const CLIENT_ROLES = ["موكل", "خصم", "شاهد", "ممثل شركة", "مفوض بالتوقيع", "ولي / وصي", "خبير", "وسيط", "جهة ذات صلة", "أخرى"];
 const CLIENT_STATUSES = ["نشط", "غير نشط", "مهمل"];
 const COMMON_NATS = ["الإمارات", "مصر", "السعودية", "الهند", "باكستان", "سوريا", "الأردن", "السودان"];
 
@@ -55,6 +60,7 @@ function cleanClientPayload(value = {}) {
   return {
     full_name: String(source.full_name || "").trim(),
     client_type: source.client_type || "فرد",
+    client_role: source.client_role || "موكل",
     id_number: String(source.id_number || "").trim(),
     phone: String(source.phone || "").trim(),
     email: String(source.email || "").trim().toLowerCase(),
@@ -71,6 +77,7 @@ function belongsToClient(record, client) {
 }
 
 export default function Clients() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [allClients, setAllClients] = useState([]);
   const [cases, setCases] = useState([]);
@@ -210,6 +217,13 @@ export default function Clients() {
     const clientSessions = sessions.filter((item) => belongsToClient(item, client));
     const clientDocuments = documents.filter((item) => belongsToClient(item, client));
     const clientInvoices = invoices.filter((item) => belongsToClient(item, client));
+    const invoiceFinance = clientInvoices.reduce((acc, invoice) => {
+      const totals = getInvoiceTotals(invoice);
+      acc.total += totals.total;
+      acc.paid += totals.paid;
+      acc.remaining += totals.remaining;
+      return acc;
+    }, { total: 0, paid: 0, remaining: 0 });
     const dates = [
       client.created_date,
       ...clientCases.map((item) => item.updated_date || item.created_date),
@@ -231,6 +245,9 @@ export default function Clients() {
       sessionsCount: clientSessions.length,
       documentsCount: clientDocuments.length,
       invoicesCount: clientInvoices.length,
+      invoicedAmount: invoiceFinance.total,
+      paidAmount: invoiceFinance.paid,
+      remainingAmount: invoiceFinance.remaining,
       overdueInvoices,
       lastActivity,
       inactivityDays,
@@ -253,7 +270,7 @@ export default function Clients() {
   }), [metrics, total, duplicateClientIds, ratedMetrics]);
 
   const filtered = useMemo(() => metrics.filter((client) => {
-    if (!searchInFields(client, ["full_name", "phone", "email", "id_number", "address", "nationality"], search)) return false;
+    if (!searchInFields(client, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search)) return false;
     if (activeTab === "active") return client.status === "نشط";
     if (activeTab === "neglected") return client.isNeglected;
     if (activeTab === "duplicates") return client.isDuplicate;
@@ -348,7 +365,9 @@ export default function Clients() {
         <>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {filtered.map((client) => (
-              <Card key={client.id} className={`p-5 transition-all hover:shadow-md ${client.isDuplicate ? "border-amber-300 bg-amber-50/30" : "border-primary/10 hover:border-primary/25"}`}>
+              <Card key={client.id} className={`group relative overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-xl ${client.isDuplicate ? "border-amber-300 bg-amber-50/30" : "border-primary/15 hover:border-primary/35 bg-card/90"}`}>
+                <div className="h-1.5 bg-gradient-to-l from-primary via-cyan-500 to-amber-400 opacity-80" />
+                <div className="p-5">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-primary font-black text-lg">{(client.full_name || "?")[0]}</div>
@@ -359,25 +378,30 @@ export default function Clients() {
                         {client.isNeglected && <Badge className="bg-warning/15 text-warning border-warning/20 text-[10px]">مهمل</Badge>}
                         {client.isDuplicate && <Badge className="bg-amber-200 text-amber-900 border-0 text-[10px]">محتمل التكرار</Badge>}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{client.client_type}{client.nationality ? ` · ${client.nationality}` : ""}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <Badge className="bg-primary/10 text-primary border border-primary/15 text-[10px]">{client.client_role || "موكل"}</Badge>
+                        <span className="text-xs text-muted-foreground">{client.client_type}{client.nationality ? ` · ${client.nationality}` : ""}</span>
+                      </div>
                     </div>
                   </div>
                   <ActionButtons entityName="Client" record={client} onEdit={openEdit} onDeleted={loadData} size="sm" />
                 </div>
 
-                <div className="grid grid-cols-5 gap-2 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                   {[
-                    { label: "كل القضايا", value: client.totalCases },
-                    { label: "النشطة", value: client.activeCases },
-                    { label: "المستندات", value: client.documentsCount },
-                    { label: "الفواتير", value: client.invoicesCount },
-                    { label: "النجاح", value: client.successRate === null ? "—" : `${client.successRate}%` },
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-xl bg-muted/40 p-2.5 text-center">
-                      <p className="font-black text-foreground text-lg leading-none">{item.value}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">{item.label}</p>
-                    </div>
-                  ))}
+                    { label: "القضايا", value: client.totalCases, icon: Briefcase },
+                    { label: "المستندات", value: client.documentsCount, icon: FileText },
+                    { label: "الفواتير", value: client.invoicesCount, icon: Receipt },
+                    { label: "المتبقي", value: `${Number(client.remainingAmount || 0).toLocaleString("ar-AE")} د.إ`, icon: Wallet },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.label} className="rounded-2xl border border-border/70 bg-muted/25 p-3">
+                        <div className="flex items-center gap-2"><Icon className="h-3.5 w-3.5 text-primary" /><p className="text-[10px] text-muted-foreground">{item.label}</p></div>
+                        <p className="font-black text-foreground text-base mt-1 truncate">{item.value}</p>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-4">
@@ -388,9 +412,13 @@ export default function Clients() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
-                  <Button variant="outline" size="sm" onClick={() => openEdit(client)} className="gap-1.5 h-8"><FileText className="h-3.5 w-3.5" />فتح الملف</Button>
-                  {client.phone && <Button variant="outline" size="sm" onClick={() => sendWhatsApp(client)} className="gap-1.5 h-8"><MessageCircle className="h-3.5 w-3.5" />واتساب</Button>}
-                  {client.email && <Button variant="outline" size="sm" onClick={() => { window.location.href = `mailto:${client.email}`; }} className="gap-1.5 h-8"><Mail className="h-3.5 w-3.5" />بريد</Button>}
+                  <Button size="sm" onClick={() => navigate(createPageUrl("Client360") + `?id=${client.id}`)} className="gap-1.5 h-9 bg-primary text-white">
+                    <ShieldCheck className="h-3.5 w-3.5" />الملف الشامل <ArrowLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => openEdit(client)} className="gap-1.5 h-9"><FileText className="h-3.5 w-3.5" />تعديل</Button>
+                  {client.phone && <Button variant="outline" size="sm" onClick={() => sendWhatsApp(client)} className="gap-1.5 h-9"><MessageCircle className="h-3.5 w-3.5" />واتساب</Button>}
+                  {client.email && <Button variant="outline" size="sm" onClick={() => { window.location.href = `mailto:${client.email}`; }} className="gap-1.5 h-9"><Mail className="h-3.5 w-3.5" />بريد</Button>}
+                </div>
                 </div>
               </Card>
             ))}
@@ -404,7 +432,8 @@ export default function Clients() {
           <DialogHeader><DialogTitle>{editing ? "تعديل بيانات الموكل" : "إضافة موكل جديد"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
             <div className="space-y-1 md:col-span-2"><Label>الاسم الكامل *</Label><Input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} className="h-11" /></div>
-            <div className="space-y-1"><Label>الصفة</Label><ChoiceInput value={form.client_type} onChange={(value) => setForm({ ...form, client_type: value })} options={CLIENT_TYPES} listId="cl-types" /></div>
+            <div className="space-y-1"><Label>نوع الموكل</Label><ChoiceInput value={form.client_type} onChange={(value) => setForm({ ...form, client_type: value })} options={CLIENT_TYPES} listId="cl-types" /></div>
+            <div className="space-y-1"><Label>الصفة القانونية الشاملة</Label><ChoiceInput value={form.client_role} onChange={(value) => setForm({ ...form, client_role: value })} options={CLIENT_ROLES} listId="cl-roles" /></div>
             <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={CLIENT_STATUSES} listId="cl-status" /></div>
             <div className="space-y-1"><Label>الهاتف</Label><Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} className="h-11" /></div>
             <div className="space-y-1"><Label>البريد الإلكتروني</Label><Input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className="h-11" /></div>

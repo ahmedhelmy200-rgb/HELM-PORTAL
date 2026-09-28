@@ -49,6 +49,7 @@ const emptyForm = {
   category: "أخرى",
   expense_date: format(new Date(), "yyyy-MM-dd"),
   case_title: "",
+  client_id: "",
   client_name: "",
   payment_method: "نقداً",
   notes: "",
@@ -77,6 +78,7 @@ function normalizeExpense(row = {}) {
     category: CATEGORIES.includes(row.category) ? row.category : "أخرى",
     expense_date: row.expense_date || row.date || format(new Date(), "yyyy-MM-dd"),
     case_title: row.case_title || "",
+    client_id: row.client_id || "",
     client_name: row.client_name || "",
     payment_method: row.payment_method || "نقداً",
     notes: row.notes || "",
@@ -99,6 +101,7 @@ function money(value) {
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [source, setSource] = useState("loading");
@@ -115,9 +118,13 @@ export default function Expenses() {
     setLoading(true);
     setLoadError("");
     try {
-      const rows = await base44.entities.Expense.list("-expense_date");
+      const [rows, clientRows] = await Promise.all([
+        base44.entities.Expense.list("-expense_date"),
+        base44.entities.Client.list("full_name", 2500),
+      ]);
       const normalized = (Array.isArray(rows) ? rows : []).map(normalizeExpense);
       setExpenses(normalized);
+      setClients(Array.isArray(clientRows) ? clientRows : []);
       setSource("supabase");
       if (normalized.length) writeLocalExpenses(normalized);
     } catch (error) {
@@ -153,8 +160,10 @@ export default function Expenses() {
       : [payload, ...expenses];
 
     try {
-      if (editing && !String(editing.id || "").startsWith("expense-")) await base44.entities.Expense.update(editing.id, payload);
-      else await base44.entities.Expense.create(payload);
+      const databasePayload = { ...payload };
+      if (String(databasePayload.id || "").startsWith("expense-")) delete databasePayload.id;
+      if (editing && !String(editing.id || "").startsWith("expense-")) await base44.entities.Expense.update(editing.id, databasePayload);
+      else await base44.entities.Expense.create(databasePayload);
       setSource("supabase");
       setShowForm(false);
       setEditing(null);
@@ -199,6 +208,19 @@ export default function Expenses() {
       setLoadError("تم حذف المصروف محلياً لأن قاعدة البيانات غير متاحة حالياً.");
       console.warn("[Expenses] delete fallback:", error?.message || error);
     }
+  };
+
+  const selectClient = (value) => {
+    if (value === "__none__") {
+      setForm((current) => ({ ...current, client_id: "", client_name: "" }));
+      return;
+    }
+    const selected = clients.find((client) => String(client.id) === String(value));
+    setForm((current) => ({
+      ...current,
+      client_id: selected?.id || "",
+      client_name: selected?.full_name || "",
+    }));
   };
 
   const filtered = useMemo(() => {
@@ -298,7 +320,21 @@ export default function Expenses() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>القضية</Label><Input value={form.case_title} onChange={(e) => setForm((f) => ({ ...f, case_title: e.target.value }))} placeholder="اختياري" /></div>
-              <div className="space-y-1.5"><Label>الموكل</Label><Input value={form.client_name} onChange={(e) => setForm((f) => ({ ...f, client_name: e.target.value }))} placeholder="اختياري" /></div>
+              <div className="space-y-1.5">
+                <Label>الموكل</Label>
+                <Select value={form.client_id || "__none__"} onValueChange={selectClient}>
+                  <SelectTrigger><SelectValue placeholder="اختر الموكل" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">بدون موكل</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={String(client.id)}>
+                        {client.full_name}{client.client_role ? ` · ${client.client_role}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!form.client_id && form.client_name && <p className="text-[11px] text-amber-500">ارتباط قديم بالاسم: {form.client_name}</p>}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>الحالة</Label><Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select></div>

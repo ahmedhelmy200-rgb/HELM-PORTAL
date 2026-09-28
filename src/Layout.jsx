@@ -112,6 +112,7 @@ export default function Layout({ children, currentPageName }) {
   const resolvedTheme = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference
   const isPrimaryMobilePage = mobileTabs.some((item) => item.page === currentPageName)
   const shouldShowBack = !isPrimaryMobilePage
+  const currentPageLabel = currentPageName === "Client360" ? "الملف الشامل للموكل" : currentPageName
   const officeName = officeSettings?.office_name || appPublicSettings?.office_name || "مكتب المستشار أحمد حلمي"
   const logoUrl = officeSettings?.logo_url || appPublicSettings?.logo_url || null
   const themeMeta = themePreference === "system"
@@ -374,7 +375,7 @@ export default function Layout({ children, currentPageName }) {
         <div className="flex items-center gap-2">
           {shouldShowBack ? <button onClick={goBack} className="icon-glass-btn mobile-back-emphasis"><ArrowRight className="h-5 w-5 text-white" /></button> : <button onClick={() => { playUiTone("nav", soundEnabled); setSidebarOpen(true) }} className="icon-glass-btn"><Menu className="h-5 w-5 text-white" /></button>}
         </div>
-        <div className="flex items-center gap-2 min-w-0"><LogoMark compact /><div className="min-w-0"><span className="text-white font-bold text-sm truncate block">HELM Portal</span>{shouldShowBack && <span className="text-white/55 text-[11px] truncate block">{currentPageName}</span>}</div></div>
+        <div className="flex items-center gap-2 min-w-0"><LogoMark compact /><div className="min-w-0"><span className="text-white font-bold text-sm truncate block">HELM Portal</span>{shouldShowBack && <span className="text-white/55 text-[11px] truncate block">{currentPageLabel}</span>}</div></div>
         <div className="flex items-center gap-2"><button onClick={handleThemeToggle} className="icon-glass-btn" title={themeMeta.label}>{themeMeta.label.startsWith("تلقائي") ? <MonitorCog className="h-4.5 w-4.5 text-white" /> : resolvedTheme === "dark" ? <SunMedium className="h-4.5 w-4.5 text-white" /> : <MoonStar className="h-4.5 w-4.5 text-white" />}</button><button onClick={() => window.dispatchEvent(new Event(GLOBAL_SEARCH_EVENT))} className="icon-glass-btn" title="بحث شامل (Ctrl+K)"><SearchIcon className="h-4 w-4 text-white" /></button><NotificationTopButton mobile /></div>
       </header>
 

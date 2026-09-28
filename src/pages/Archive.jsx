@@ -8,7 +8,7 @@ import PageHeader from '@/components/helm/PageHeader'
 import {
   Trash2, RotateCcw, Archive, Search, AlertTriangle,
   Briefcase, Users, CalendarDays, FileText, Receipt,
-  CheckSquare, X, Loader2, Database,
+  CheckSquare, X, Loader2, Database, Wallet,
 } from 'lucide-react'
 import { format, isValid } from 'date-fns'
 import {
@@ -24,15 +24,17 @@ const ENTITY_ICONS = {
   Document: FileText,
   Invoice : Receipt,
   Task    : CheckSquare,
+  Expense : Wallet,
 }
 
 const ENTITY_RESTORE_FIELDS = {
-  Client  : ['full_name','phone','email','client_type','nationality','address','notes','status','id_number'],
-  Case    : ['title','client_name','case_number','case_type','status','court','judge','assigned_lawyer','priority','description','fees','paid_amount','opponent_name','opponent_lawyer','filing_date'],
-  Session : ['case_title','case_id','case_number','client_name','session_date','court','hall','session_type','status','result','notes','next_session_date'],
-  Document: ['title','client_name','case_id','case_title','doc_type','folder','status','notes','file_url','file_name'],
-  Invoice : ['invoice_number','client_name','case_id','case_title','total_fees','paid_amount','discount','vat_rate','status','issue_date','due_date','notes','items'],
-  Task    : ['title','client_name','case_id','case_title','status','priority','due_date','notes'],
+  Client  : ['full_name','phone','email','client_type','client_role','nationality','address','notes','status','id_number'],
+  Case    : ['title','client_id','client_name','case_number','case_type','status','court','judge','assigned_lawyer','priority','description','fees','paid_amount','opponent_name','opponent_lawyer','filing_date'],
+  Session : ['case_title','case_id','case_number','client_id','client_name','session_date','court','hall','session_type','status','result','notes','next_session_date'],
+  Document: ['title','client_id','client_name','case_id','case_title','doc_type','folder','status','notes','file_url','file_name'],
+  Invoice : ['invoice_number','client_id','client_name','case_id','case_title','total_fees','paid_amount','discount','vat_rate','status','issue_date','due_date','notes','items'],
+  Task    : ['title','client_id','client_name','case_id','case_title','status','priority','due_date','notes'],
+  Expense : ['title','amount','category','expense_date','case_id','case_title','client_id','client_name','payment_method','receipt_url','notes','is_billable','status'],
 }
 
 function safeFmt(v, pat = 'dd/MM/yyyy HH:mm') {

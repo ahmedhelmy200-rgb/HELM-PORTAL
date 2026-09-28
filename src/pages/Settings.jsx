@@ -270,6 +270,24 @@ const UploadArea = ({ label, value, onUpload, uploading, accept = "image/*" }) =
 
 const SPECIALIZATIONS = ["مدني", "جزائي", "تجاري", "عمالي", "أسري", "إداري", "عقاري", "ملكية فكرية", "تحكيم دولي", "قانون شركات"];
 
+const BACKUP_SECTION_LABELS = {
+  clients: "الموكلون",
+  cases: "القضايا",
+  sessions: "الجلسات",
+  tasks: "المهام",
+  documents: "المستندات",
+  invoices: "الفواتير",
+  expenses: "المصروفات",
+  legal_templates: "النماذج القانونية",
+  notifications: "الإشعارات",
+  events: "الفعاليات",
+  conversations: "المحادثات",
+  messages: "الرسائل",
+  connection_requests: "طلبات الربط",
+  founder_profiles: "ملفات المؤسسين",
+  office_settings: "إعدادات المكتب",
+};
+
 export default function Settings() {
   const { user } = useAuth();
   const [settings, setSettings] = useState(null);
@@ -1116,7 +1134,7 @@ const exportAllData = async () => {
                     <p className="font-semibold">{importPreview.completed ? "نتيجة الاستيراد" : "معاينة الاستيراد"}: {importPreview.source}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(importPreview.counts).map(([table, count]) => (
-                        <p key={table}>{table}: إضافة {count.add}، موجود {count.existing}، مراجعة {count.review}</p>
+                        <p key={table}>{BACKUP_SECTION_LABELS[table] || table}: إضافة {count.add}، موجود {count.existing}، مراجعة {count.review}</p>
                       ))}
                     </div>
                     <p>السجلات المؤجلة للمراجعة: {importPreview.review.length}. لن تُنشأ لها روابط تلقائية.</p>

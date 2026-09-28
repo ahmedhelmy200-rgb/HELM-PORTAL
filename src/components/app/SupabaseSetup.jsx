@@ -53,7 +53,7 @@ VALUES (
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'image/jpeg', 'image/png', 'image/webp', 'text/plain'
+    'image/jpeg', 'image/png', 'image/webp', 'text/plain', 'application/json'
   ]
 )
 ON CONFLICT (id) DO NOTHING;

@@ -96,14 +96,15 @@ export default function Client360() {
       if (!selected) throw new Error("لم يتم العثور على ملف الموكل.");
       const linkedCaseIds = new Set((caseLinks || []).map((link) => String(link.case_id)));
       setClient(selected);
+      const relatedToLinkedCase = (row) => row?.case_id && linkedCaseIds.has(String(row.case_id));
       setData({
         cases: (cases || []).filter((row) => belongsToClient(row, selected) || linkedCaseIds.has(String(row.id))),
         caseLinks: caseLinks || [],
-        invoices: (invoices || []).filter((row) => belongsToClient(row, selected)),
-        documents: (documents || []).filter((row) => belongsToClient(row, selected)),
-        sessions: (sessions || []).filter((row) => belongsToClient(row, selected)),
-        tasks: (tasks || []).filter((row) => belongsToClient(row, selected)),
-        expenses: (expenses || []).filter((row) => belongsToClient(row, selected)),
+        invoices: (invoices || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        documents: (documents || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        sessions: (sessions || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        tasks: (tasks || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        expenses: (expenses || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
       });
     } catch (error) {
       setLoadError(error?.message || "تعذر تحميل الملف الشامل للموكل.");

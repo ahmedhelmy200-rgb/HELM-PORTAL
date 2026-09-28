@@ -6,6 +6,21 @@
       "type": "string",
       "description": "الاسم الكامل"
     },
+    "name_ar": {
+      "type": "string",
+      "description": "الاسم بالعربية للعرض والبحث"
+    },
+    "name_en": {
+      "type": "string",
+      "description": "الاسم بالإنجليزية للعرض والبحث"
+    },
+    "name_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "أسماء بديلة أو صيغ كتابة أخرى لمنع التكرار وتحسين البحث"
+    },
     "client_type": {
       "type": "string",
       "enum": [

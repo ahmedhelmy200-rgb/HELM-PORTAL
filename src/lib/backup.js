@@ -37,6 +37,8 @@ const exportPlan = [
   ['OfficeSettings', 'office_settings'],
 ];
 
+export const BACKUP_SECTIONS = exportPlan.map(([, key]) => key);
+
 function nowStamp() {
   return new Date().toISOString().split('T')[0];
 }

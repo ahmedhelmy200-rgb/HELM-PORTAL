@@ -53,7 +53,7 @@ VALUES (
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'image/jpeg', 'image/png', 'image/webp', 'text/plain'
+    'image/jpeg', 'image/png', 'image/webp', 'text/plain', 'application/json'
   ]
 )
 ON CONFLICT (id) DO NOTHING;
@@ -78,6 +78,7 @@ CREATE POLICY "authenticated users can delete"
 
 export default function SupabaseSetup() {
   const bucketName = appParams.storageBucket || 'uploads'
+  const bucketWasCorrected = appParams.storageBucketWasCorrected
 
   const [checks, setChecks] = useState({
     connection : { status: STATUS.IDLE, detail: '' },
@@ -124,7 +125,13 @@ export default function SupabaseSetup() {
       const { data: bucketData, error: bucketErr } = await supabase.storage.getBucket(bucketName)
       if (bucketData) {
         const sizeMB = bucketData.file_size_limit ? `${Math.round(bucketData.file_size_limit / 1024 / 1024)} MB` : 'غير محدد'
-        setCheck('bucket', STATUS.OK, `الحاوية "${bucketName}" موجودة · الحد الأقصى: ${sizeMB}`)
+        setCheck(
+          'bucket',
+          STATUS.OK,
+          bucketWasCorrected
+            ? `الحاوية "${bucketName}" موجودة · تم تصحيح إعداد التخزين غير الصالح تلقائياً · الحد الأقصى: ${sizeMB}`
+            : `الحاوية "${bucketName}" موجودة · الحد الأقصى: ${sizeMB}`
+        )
       } else {
         setCheck('bucket', STATUS.ERROR, `الحاوية "${bucketName}" غير موجودة — يجب إنشاؤها`)
       }
@@ -156,7 +163,7 @@ export default function SupabaseSetup() {
     } catch (e) {
       setCheck('policy', STATUS.WARN, `تعذر اختبار الصلاحيات: ${e.message}`)
     }
-  }, [bucketName])
+  }, [bucketName, bucketWasCorrected])
 
   useEffect(() => { runChecks() }, [runChecks])
 
@@ -215,6 +222,21 @@ export default function SupabaseSetup() {
 
   return (
     <div className="space-y-5" dir="rtl">
+
+      {bucketWasCorrected && (
+        <Card className="p-4 bg-amber-500/8 border-amber-500/25">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-foreground">تم تصحيح إعداد حاوية التخزين تلقائياً</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                كانت قيمة VITE_SUPABASE_STORAGE_BUCKET عبارة عن رابط أو مسار وليست اسم حاوية.
+                يستخدم النظام الآن الحاوية الصحيحة <Badge variant="outline" className="font-mono mx-1">uploads</Badge>.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* ── نتيجة الفحص الشاملة ─────────────────────────────────────────── */}
       {allOk ? (

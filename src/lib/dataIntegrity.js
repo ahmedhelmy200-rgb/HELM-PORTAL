@@ -35,11 +35,29 @@ function asMoney(value) {
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0
 }
 
+export function clientNameKeys(record = {}) {
+  const row = record || {}
+  const aliases = Array.isArray(row.name_aliases) ? row.name_aliases : []
+  return [...new Set([
+    row.full_name,
+    row.name_ar,
+    row.name_en,
+    ...aliases,
+  ].map(normalizeText).filter(Boolean))]
+}
+
+function isSpecificClientName(value) {
+  const name = normalizeText(value)
+  if (!name) return false
+  const words = name.split(' ').filter(Boolean)
+  return words.length >= 2 || name.length >= 9
+}
+
 export function clientIdentity(record = {}) {
   const row = record || {}
   return {
     id: row.id || null,
-    name: normalizeText(row.full_name),
+    names: clientNameKeys(row),
     phone: normalizePhone(row.phone),
     email: normalizeEmail(row.email),
     idNumber: normalizeIdNumber(row.id_number),
@@ -48,7 +66,7 @@ export function clientIdentity(record = {}) {
 
 export function findClientDuplicates(candidate, records = [], ignoreId = null) {
   const current = clientIdentity(candidate)
-  if (!current.name && !current.phone && !current.email && !current.idNumber) return []
+  if (!current.names.length && !current.phone && !current.email && !current.idNumber) return []
 
   return records
     .filter((record) => record?.id !== ignoreId)
@@ -58,8 +76,11 @@ export function findClientDuplicates(candidate, records = [], ignoreId = null) {
       if (current.idNumber && current.idNumber === other.idNumber) matchedFields.push('رقم الهوية')
       if (current.email && current.email === other.email) matchedFields.push('البريد الإلكتروني')
       if (current.phone && current.phone === other.phone) matchedFields.push('رقم الهاتف')
-      if (current.name && current.name === other.name) matchedFields.push('الاسم')
-      const strongMatch = matchedFields.some((field) => field !== 'الاسم') || matchedFields.length >= 2
+
+      const matchingName = current.names.find((name) => other.names.includes(name) && isSpecificClientName(name))
+      if (matchingName) matchedFields.push('الاسم العربي/الإنجليزي أو الاسم البديل')
+
+      const strongMatch = matchedFields.length > 0
       return strongMatch ? { record, matchedFields } : null
     })
     .filter(Boolean)
@@ -73,6 +94,7 @@ export function buildClientDuplicateGroups(records = []) {
     if (identity.idNumber) keys.push(`id:${identity.idNumber}`)
     if (identity.email) keys.push(`email:${identity.email}`)
     if (identity.phone) keys.push(`phone:${identity.phone}`)
+    identity.names.filter(isSpecificClientName).forEach((name) => keys.push(`name:${name}`))
     keys.forEach((key) => {
       if (!links.has(key)) links.set(key, [])
       links.get(key).push(record)

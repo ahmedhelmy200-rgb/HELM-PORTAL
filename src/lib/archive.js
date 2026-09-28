@@ -52,11 +52,25 @@ function normalizeEntry(entry = {}) {
 // أرشفة سجل
 export async function archiveRecord(entityName, record, note = '') {
   const recordId = String(record?.id || '')
+  let recordData = { ...record }
+
+  if (entityName === 'Client' && recordId) {
+    try {
+      const { data: links, error } = await supabase
+        .from('case_clients')
+        .select('case_id,relation_role,is_primary')
+        .eq('client_id', recordId)
+      if (!error && Array.isArray(links) && links.length) {
+        recordData = { ...recordData, _case_client_links: links }
+      }
+    } catch {}
+  }
+
   const entry = {
     entity_name : entityName,
     entity_label: ENTITY_LABELS[entityName] || entityName,
     record_id   : recordId,
-    record_data : { ...record },
+    record_data : recordData,
     archived_at : new Date().toISOString(),
     note,
   }

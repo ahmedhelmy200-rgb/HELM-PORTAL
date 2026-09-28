@@ -5,14 +5,20 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     from: table => ({
       select: () => ({ order: () => ({ range: async (from, to) => ({ data: (database[table] || []).slice(from, to + 1), error: null }) }) }),
-      insert: async row => { database[table].push(row); return { error: null } },
+      insert: async row => {
+        if (table === 'clients' && row.phone == null) return { error: new Error('clients.phone may not be null') }
+        if (table !== 'cases' && Object.hasOwn(row, 'client_id')) return { error: new Error(`${table}.client_id does not exist`) }
+        database[table].push(row)
+        return { error: null }
+      },
     }),
   },
 }))
 import { prepareSafeImport, applySafeImport } from './safeImport'
+import { BACKUP_SECTIONS } from './backup'
 
 beforeEach(() => {
-  for (const table of ['clients', 'cases', 'tasks', 'documents', 'invoices', 'expenses']) database[table] = []
+  for (const table of BACKUP_SECTIONS) database[table] = []
 })
 
 describe('safe import', () => {
@@ -26,7 +32,7 @@ describe('safe import', () => {
     expect(preview.counts.cases.add).toBe(1)
     await applySafeImport(backup, preview.counts)
     expect(database.cases[0].client_id).toBe('old-client')
-    expect(database.clients[0].phone).toBeNull()
+    expect(database.clients[0].phone).toBe('-')
     const second = await prepareSafeImport(backup)
     expect(second.counts.clients.add).toBe(0)
     expect(second.counts.cases.add).toBe(0)
@@ -66,4 +72,51 @@ describe('safe import', () => {
     expect(preview.counts.clients.review).toBe(1)
     expect(preview.counts.clients.add).toBe(0)
   })
+
+
+  it('keeps unscoped tasks and expenses when no client is present', async () => {
+    const backup = {
+      tasks: [{ id: 'general-task', title: 'مهمة عامة' }],
+      expenses: [{ id: 'office-expense', title: 'مصروف مكتبي' }],
+    }
+    const preview = await prepareSafeImport(backup)
+    expect(preview.counts.tasks.add).toBe(1)
+    expect(preview.counts.expenses.add).toBe(1)
+    expect(preview.review).toEqual([])
+    const result = await applySafeImport(backup, preview.counts)
+    expect(result.inserted.tasks).toBe(1)
+    expect(result.inserted.expenses).toBe(1)
+    expect(database.tasks[0]).not.toHaveProperty('client_id')
+    expect(database.expenses[0]).not.toHaveProperty('client_id')
+  })
+
+  it('plans and restores every section produced by a full backup', async () => {
+    const backup = Object.fromEntries(BACKUP_SECTIONS.map(table => [table, []]))
+    backup.clients = [{ id: 'client', full_name: 'موكل', id_number: '784-1', phone: '-' }]
+    backup.cases = [{ id: 'case', title: 'دعوى', client_id: 'client', client_name: 'موكل' }]
+    backup.sessions = [{ id: 'session', case_id: 'case' }]
+    backup.conversations = [{ id: 'conversation', participants: [] }]
+    backup.messages = [{ id: 'message', conversation_id: 'conversation' }]
+    for (const table of BACKUP_SECTIONS) {
+      if (backup[table].length === 0) backup[table] = [{ id: table }]
+    }
+
+    const preview = await prepareSafeImport(backup)
+    expect(Object.keys(preview.counts)).toEqual(BACKUP_SECTIONS)
+    for (const table of BACKUP_SECTIONS) expect(preview.counts[table].add).toBe(1)
+    const result = await applySafeImport(backup, preview.counts)
+    for (const table of BACKUP_SECTIONS) expect(result.inserted[table]).toBe(1)
+    expect(result.errors).toEqual([])
+  })
+
+  it('treats invoice numbers as unique within their portal scope', async () => {
+    database.invoices.push({ id: 'live-bill', invoice_number: 'INV-1', portal_scope: 'helm_portal' })
+    const backup = {
+      invoices: [{ id: 'other-bill', invoice_number: 'INV-1', business_unit: 'badayat_al_khair' }],
+    }
+    const preview = await prepareSafeImport(backup)
+    expect(preview.counts.invoices.add).toBe(1)
+    expect(preview.counts.invoices.existing).toBe(0)
+  })
+
 })

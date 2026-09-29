@@ -7,7 +7,7 @@ import {
   MessageCircle, Mail, BellRing, Link2, Copy, CheckCircle2, ShieldCheck,
 } from "lucide-react";
 import { format, isValid } from "date-fns";
-import { buildPaymentUrl, buildPaymentWhatsAppMessage } from "@/lib/paymentLinks";
+import { buildSecurePaymentUrl, buildPaymentWhatsAppMessage } from "@/lib/paymentLinks";
 import { getInvoiceBrand } from "@/lib/portalScopes";
 
 const STATUS_STYLES = {
@@ -49,15 +49,17 @@ export default function InvoiceCard({
   const isPaid      = invoice.status === "مدفوعة" || remaining <= 0;
 
   // ── رابط الدفع ──────────────────────────────────────────────────────────
-  const paymentUrl = buildPaymentUrl(invoice.id);
+  const paymentUrl = buildSecurePaymentUrl(invoice.payment_token);
 
   const handleCopyLink = () => {
+    if (!paymentUrl) return;
     navigator.clipboard?.writeText(paymentUrl).catch(() => {});
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2500);
   };
 
   const handleSendPaymentWhatsApp = () => {
+    if (!paymentUrl) return;
     const msg = buildPaymentWhatsAppMessage(invoice, paymentUrl, officeSettings);
     const phone = String(
       (officeSettings
@@ -118,7 +120,7 @@ export default function InvoiceCard({
       </div>
 
       {/* ── رابط الدفع — يظهر للفواتير غير المدفوعة ──────────────────────── */}
-      {!isPaid && (
+      {!isPaid && paymentUrl && (
         <div className="mb-3 p-3 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Link2 className="h-4 w-4 text-primary shrink-0" />

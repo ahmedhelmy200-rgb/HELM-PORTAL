@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Briefcase, Calendar, Trophy } from "lucide-react";
+import { Plus, Search, Briefcase, Calendar, Trophy, ShieldCheck, Wallet, AlertTriangle, CheckCircle2 } from "lucide-react";
 import ActionButtons from "@/components/shared/ActionButtons";
 import { format, isValid } from "date-fns";
 import PageHeader from "../components/helm/PageHeader";
@@ -23,6 +24,7 @@ import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CASE_RESULTS, defaultCaseSuccessPercentage } from "@/lib/dataIntegrity";
+import { createPageUrl } from "@/utils";
 
 const CASE_TYPES = ["مدني", "جزائي", "تجاري", "عمالي", "أسري", "إداري", "عقاري", "أخرى"];
 const STATUSES = ["جارية", "متوقفة", "مكتملة", "مغلقة"];
@@ -75,8 +77,33 @@ function resultTone(value) {
   return "bg-slate-100 text-slate-700";
 }
 
+function clientDisplayName(client = {}) {
+  return client.name_ar || client.full_name || client.name_en || "";
+}
+
+function clientChoiceLabel(client = {}) {
+  const primary = clientDisplayName(client);
+  const secondary = client.name_en && client.name_en !== primary ? ` — ${client.name_en}` : "";
+  return `${primary}${secondary}`;
+}
+
+function clientMatchesValue(client = {}, value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return false;
+  const candidates = [
+    client.id,
+    client.full_name,
+    client.name_ar,
+    client.name_en,
+    clientChoiceLabel(client),
+    ...(Array.isArray(client.name_aliases) ? client.name_aliases : []),
+  ].map((item) => String(item || "").trim().toLowerCase()).filter(Boolean);
+  return candidates.includes(normalized);
+}
+
 export default function Cases() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isClient = user?.role === "client";
   const [cases, setCases] = useState([]);
   const [clients, setClients] = useState([]);
@@ -99,19 +126,20 @@ export default function Cases() {
     setLoading(true);
     setLoadError("");
     try {
-      const [{ data: caseRows, total: totalRows }, clientRows] = await Promise.all([
-        base44.entities.Case.listPage(sortBy, { page, pageSize }),
-        base44.entities.Client.list("full_name", 2000),
+      const [caseRows, clientRows] = await Promise.all([
+        base44.entities.Case.list(sortBy, 5000),
+        base44.entities.Client.list("full_name", 5000),
       ]);
-      setCases(caseRows || []);
-      setClients(clientRows || []);
-      setTotal(totalRows || 0);
+      const safeCases = Array.isArray(caseRows) ? caseRows : [];
+      setCases(safeCases);
+      setClients(Array.isArray(clientRows) ? clientRows : []);
+      setTotal(safeCases.length);
     } catch (error) {
       setLoadError(error.message || "تعذر تحميل القضايا.");
     } finally {
       setLoading(false);
     }
-  }, [page, sortBy]);
+  }, [sortBy]);
 
   useEffect(() => { loadData(); }, [loadData]);
   usePageRefresh(loadData, ["cases", "clients"]);
@@ -126,12 +154,12 @@ export default function Cases() {
     return () => { offNew(); offSearch(); };
   }, [isClient]);
 
-  const applyClient = (name) => {
-    const selected = clients.find((client) => client.full_name === name || client.id === name);
+  const applyClient = (value) => {
+    const selected = clients.find((client) => clientMatchesValue(client, value));
     setForm((previous) => ({
       ...previous,
       client_id: selected?.id || null,
-      client_name: selected?.full_name || name,
+      client_name: selected ? clientDisplayName(selected) : value,
     }));
   };
 
@@ -196,23 +224,70 @@ export default function Cases() {
     }
   };
 
-  const filtered = cases.filter((item) => {
+  const filtered = useMemo(() => cases.filter((item) => {
+    const linkedClient = clients.find((client) => String(client.id) === String(item.client_id));
+    const searchable = {
+      ...item,
+      client_name_ar: linkedClient?.name_ar || "",
+      client_name_en: linkedClient?.name_en || "",
+      client_aliases: linkedClient?.name_aliases || [],
+    };
     const matchSearch = searchInFields(
-      item,
-      ["title", "client_name", "case_number", "court", "assigned_lawyer", "opponent_name", "case_result"],
+      searchable,
+      ["title", "client_name", "client_name_ar", "client_name_en", "client_aliases", "case_number", "court", "assigned_lawyer", "opponent_name", "case_result"],
       search,
     );
     const matchStatus = statusFilter === "الكل" || item.status === statusFilter;
     return matchSearch && matchStatus;
-  });
+  }), [cases, clients, search, statusFilter]);
+
+  const pagedCases = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page]);
+
+  const caseStats = useMemo(() => {
+    const now = new Date();
+    return {
+      active: cases.filter((item) => item.status === "جارية").length,
+      highPriority: cases.filter((item) => item.status === "جارية" && item.priority === "عالية").length,
+      upcoming: cases.filter((item) => item.next_session_date && isValid(new Date(item.next_session_date)) && new Date(item.next_session_date) >= now).length,
+      completed: cases.filter((item) => ["مكتملة", "مغلقة"].includes(item.status)).length,
+    };
+  }, [cases]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (page > maxPage) setPage(maxPage);
+  }, [filtered.length, page]);
 
   return (
     <div className="space-y-5">
       <PageHeader
         title={isClient ? "قضاياي" : "القضايا"}
-        subtitle={`${total || cases.length} قضية`}
+        subtitle={`${filtered.length} قضية ظاهرة من أصل ${total || cases.length}`}
         action={!isClient ? <Button onClick={openCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4" />إضافة قضية</Button> : undefined}
       />
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {[
+          ["القضايا الجارية", caseStats.active, Briefcase, "text-primary"],
+          ["عالية الأولوية", caseStats.highPriority, AlertTriangle, "text-amber-500"],
+          ["جلسات قادمة", caseStats.upcoming, Calendar, "text-cyan-500"],
+          ["مكتملة / مغلقة", caseStats.completed, CheckCircle2, "text-emerald-500"],
+        ].map(([label, value, Icon, tone]) => (
+          <Card key={label} className="p-4 border-primary/10">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-muted/40 flex items-center justify-center"><Icon className={`h-5 w-5 ${tone}`} /></div>
+              <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-xl font-black">{value}</p></div>
+            </div>
+          </Card>
+        ))}
+      </div>
 
       <div className="flex flex-col xl:flex-row gap-3">
         <div className="relative flex-1">
@@ -246,7 +321,7 @@ export default function Cases() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3">
-            {filtered.map((item) => (
+            {pagedCases.map((item) => (
               <Card key={item.id} className={`p-4 hover:shadow-md transition-shadow ${!isClient ? "cursor-pointer" : ""}`} onClick={() => !isClient && openEdit(item)}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -268,17 +343,37 @@ export default function Cases() {
                         الجلسة القادمة: {isValid(new Date(item.next_session_date)) ? format(new Date(item.next_session_date), "yyyy/MM/dd") : "—"}
                       </p>
                     )}
+                    {(Number(item.fees || 0) > 0 || Number(item.paid_amount || 0) > 0) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge variant="outline" className="text-[10px]"><Wallet className="h-3 w-3" /> الأتعاب {Number(item.fees || 0).toLocaleString("ar-AE")} د.إ</Badge>
+                        <Badge variant="outline" className="text-[10px]">المتبقي {Math.max(0, Number(item.fees || 0) - Number(item.paid_amount || 0)).toLocaleString("ar-AE")} د.إ</Badge>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     <StatusBadge status={item.status} />
                     <StatusBadge status={item.priority} isPriority />
+                    {item.client_id && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-xs"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(createPageUrl("Client360") + `?id=${item.client_id}`);
+                        }}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> ملف الموكل
+                      </Button>
+                    )}
                     {!isClient && <ActionButtons entityName="Case" record={item} onEdit={openEdit} onDeleted={loadData} size="sm" />}
                   </div>
                 </div>
               </Card>
             ))}
           </div>
-          <PaginationControls page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+          <PaginationControls page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
         </>
       )}
 
@@ -298,7 +393,7 @@ export default function Cases() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                   <div className="space-y-1 md:col-span-2"><Label>عنوان القضية *</Label><Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} className="h-11" /></div>
                   <div className="space-y-1"><Label>رقم القضية</Label><Input value={form.case_number} onChange={(event) => setForm({ ...form, case_number: event.target.value })} className="h-11" /></div>
-                  <div className="space-y-1"><Label>اسم الموكل *</Label><ChoiceInput value={form.client_name} onChange={applyClient} options={clients.map((client) => client.full_name)} listId="clients-list" /></div>
+                  <div className="space-y-1"><Label>اسم الموكل *</Label><ChoiceInput value={form.client_name} onChange={applyClient} options={clients.map(clientChoiceLabel)} listId="clients-list" helper="ابحث بالعربي أو الإنجليزي؛ يُحفظ الربط بالمعرف الحقيقي للموكل" /></div>
                   <div className="space-y-1"><Label>نوع القضية</Label><ChoiceInput value={form.case_type} onChange={(value) => setForm({ ...form, case_type: value })} options={CASE_TYPES} listId="case-types" /></div>
                   <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={STATUSES} listId="case-statuses" /></div>
                   <div className="space-y-1"><Label>الأولوية</Label><ChoiceInput value={form.priority} onChange={(value) => setForm({ ...form, priority: value })} options={PRIORITIES} listId="case-priority" /></div>

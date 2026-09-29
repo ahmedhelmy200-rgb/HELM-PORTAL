@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   FileText, Download, Edit, Trash2, CheckCircle,
-  MessageCircle, Mail, BellRing, Link2, Copy, CheckCircle2,
+  MessageCircle, Mail, BellRing, Link2, Copy, CheckCircle2, ShieldCheck,
 } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { buildPaymentUrl, buildPaymentWhatsAppMessage } from "@/lib/paymentLinks";
@@ -33,6 +33,7 @@ export default function InvoiceCard({
   onSendWhatsApp,
   onSendEmail,
   onSendReminder,
+  onOpenClient,
   officeSettings,
   isClient = false,
   readOnly = false,
@@ -161,6 +162,11 @@ export default function InvoiceCard({
 
       {/* ── أزرار الإجراءات ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-border">
+        {invoice.client_id && onOpenClient && (
+          <Button variant="outline" size="sm" onClick={() => onOpenClient(invoice)} className="gap-1 text-xs h-8">
+            <ShieldCheck className="h-3.5 w-3.5" /> ملف الموكل
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => onPrint(invoice)} className="gap-1 text-xs h-8">
           <Download className="h-3.5 w-3.5" /> طباعة
         </Button>

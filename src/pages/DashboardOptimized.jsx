@@ -33,9 +33,6 @@ import { PageErrorState } from '@/components/app/AppStatusBar'
 import { getInvoiceTotals } from '@/lib/invoiceMath'
 import { checkAndCreateReminders } from '@/components/helm/NotificationBell'
 
-const STAFF_PAGE_SIZE = 40
-const CLIENT_PAGE_SIZE = 25
-
 function safeFmt(value, pattern, fallback = '—') {
   if (!value) return fallback
   try {
@@ -52,13 +49,6 @@ function fmtMoney(value) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}م`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}ك`
   return n.toLocaleString('ar')
-}
-
-function unwrapPage(result) {
-  return {
-    rows: Array.isArray(result) ? result : (result?.data || []),
-    total: Array.isArray(result) ? result.length : (result?.total || 0),
-  }
 }
 
 // مخطط شرارة خفيف (SVG مضمّن) — بديل لمكتبة recharts في الصفحة الرئيسية.

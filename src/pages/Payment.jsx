@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
-import { base44 } from '@/api/base44Client'
 import { getInvoiceTotals } from '@/lib/invoiceMath'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -247,8 +246,8 @@ export default function Payment() {
   }, [invoice, clientSecret, token])
 
   useEffect(() => {
-    if (invoice && tab === 'card' && !clientSecret && stripePromise) createIntent()
-  }, [invoice, tab, stripePromise, clientSecret])
+    if (invoice && tab === 'card' && !clientSecret && stripePromise && !verificationPending && !paid) createIntent()
+  }, [invoice, tab, stripePromise, clientSecret, verificationPending, paid, createIntent])
 
   // ── شاشات الحالة ─────────────────────────────────────────────────────────
   if (loading) return (

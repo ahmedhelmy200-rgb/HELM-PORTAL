@@ -22,10 +22,9 @@ import {
 // ── ألوان حالات القضايا ────────────────────────────────────────────────────
 const CASE_COLORS = {
   "جارية":   "#3b82f6",
-  "مكسوبة":  "#22c55e",
-  "خاسرة":   "#ef4444",
+  "مكتملة":  "#22c55e",
   "مغلقة":   "#94a3b8",
-  "موقوفة":  "#f59e0b",
+  "متوقفة":  "#f59e0b",
   "أخرى":    "#8b5cf6",
 }
 const CHART_PALETTE = ["#3b82f6","#22c55e","#f59e0b","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b"]
@@ -136,14 +135,21 @@ export default function Reports() {
     setLoadError("")
     try {
       const [cases, invoices, clients, sessions, tasks, expenses] = await Promise.all([
-        base44.entities.Case.list("-created_date", 500),
-        base44.entities.Invoice.list("-created_date", 500),
-        base44.entities.Client.list("-created_date", 500),
-        base44.entities.Session.list("-session_date", 500),
-        base44.entities.Task.list("-due_date", 500),
-        base44.entities.Expense.list("-created_date", 500),
+        base44.entities.Case.list("-created_date", 5000),
+        base44.entities.Invoice.list("-created_date", 5000),
+        base44.entities.Client.list("-created_date", 5000),
+        base44.entities.Session.list("-session_date", 5000),
+        base44.entities.Task.list("-due_date", 5000),
+        base44.entities.Expense.list("-expense_date", 5000),
       ])
-      setRaw({ cases, invoices, clients, sessions, tasks, expenses })
+      setRaw({
+        cases: Array.isArray(cases) ? cases : [],
+        invoices: Array.isArray(invoices) ? invoices : [],
+        clients: Array.isArray(clients) ? clients : [],
+        sessions: Array.isArray(sessions) ? sessions : [],
+        tasks: Array.isArray(tasks) ? tasks : [],
+        expenses: Array.isArray(expenses) ? expenses : [],
+      })
     } catch (err) {
       setLoadError(err.message || "تعذر تحميل بيانات التقارير.")
     } finally {
@@ -161,7 +167,7 @@ export default function Reports() {
     const totalExpenses = raw.expenses.reduce((s, e) => s + (e.amount || 0), 0)
     const overdueInvs   = raw.invoices.filter(i => i.status === "متأخرة")
     const overdueAmt    = overdueInvs.reduce((s, i) => s + getInvoiceTotals(i).remaining, 0)
-    const net           = Math.max(0, totalCollected - totalExpenses)
+    const net           = totalCollected - totalExpenses
     const collRate      = pct(totalCollected, totalBilled)
     return { totalBilled, totalCollected, totalExpenses, overdueInvs, overdueAmt, net, collRate,
              outstanding: Math.max(0, totalBilled - totalCollected) }
@@ -183,7 +189,7 @@ export default function Reports() {
       months[idx]["محصّل"] += paid
     })
     raw.expenses.forEach(exp => {
-      const d = exp.created_date ? new Date(exp.created_date) : null
+      const d = (exp.expense_date || exp.created_date) ? new Date(exp.expense_date || exp.created_date) : null
       if (!d) return
       const idx = months.findIndex(m => m.mo === d.getMonth() && m.yr === d.getFullYear())
       if (idx >= 0) months[idx]["مصاريف"] += exp.amount || 0
@@ -210,16 +216,18 @@ export default function Reports() {
     const map = {}
     raw.cases.forEach(c => {
       const n = c.assigned_lawyer || "غير محدد"
-      if (!map[n]) map[n] = { name: n, total: 0, active: 0, won: 0, lost: 0, revenue: 0 }
+      if (!map[n]) map[n] = { name: n, total: 0, active: 0, won: 0, lost: 0, partial: 0, revenue: 0 }
       map[n].total++
-      if (c.status === "جارية")  map[n].active++
-      if (c.status === "مكسوبة") map[n].won++
-      if (c.status === "خاسرة")  map[n].lost++
+      if (c.status === "جارية") map[n].active++
+      if (["حكم لصالح الموكل", "تسوية لصالح الموكل"].includes(c.case_result)) map[n].won++
+      if (c.case_result === "حكم ضد الموكل") map[n].lost++
+      if (c.case_result === "نجاح جزئي") map[n].partial++
     })
     raw.invoices.forEach(inv => {
-      const c = raw.cases.find(c => c.title === inv.case_title || c.id === inv.case_id)
-      const n = c?.assigned_lawyer || "غير محدد"
-      if (map[n]) map[n].revenue += inv.paid_amount || 0
+      const linkedCase = raw.cases.find(c => String(c.id) === String(inv.case_id))
+        || raw.cases.find(c => c.title === inv.case_title)
+      const n = linkedCase?.assigned_lawyer || "غير محدد"
+      if (map[n]) map[n].revenue += getInvoiceTotals(inv).paid
     })
     return Object.values(map).sort((a, b) => b.total - a.total).slice(0, 8)
   }, [raw.cases, raw.invoices])

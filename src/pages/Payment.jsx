@@ -42,7 +42,7 @@ const STRIPE_APPEARANCE_DARK = {
 // ══════════════════════════════════════════════════════════════════════════════
 // نموذج الدفع بالبطاقة
 // ══════════════════════════════════════════════════════════════════════════════
-function CardForm({ clientSecret, invoice, totals, paymentToken, onSuccess }) {
+function CardForm({ clientSecret, invoice, totals, paymentToken, onSubmitted }) {
   const stripe   = useStripe()
   const elements = useElements()
   const [err,  setErr]  = useState('')
@@ -63,7 +63,7 @@ function CardForm({ clientSecret, invoice, totals, paymentToken, onSuccess }) {
         redirect: 'if_required',
       })
       if (ce) setErr(ce.message)
-      else    onSuccess()
+      else    onSubmitted()
     } catch (ex) { setErr(ex.message) }
     finally { setBusy(false) }
   }
@@ -239,7 +239,7 @@ export default function Payment() {
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
         body: { payment_token: token },
       })
-      if (error || data?.error) throw new Error((error||data).message || 'تعذر تجهيز الدفع')
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'تعذر تجهيز الدفع')
       setClientSecret(data.client_secret)
     } catch (e) { setIntentError(e.message) }
     finally { setIntentLoading(false) }
@@ -420,7 +420,16 @@ export default function Payment() {
                 )}
                 {stripePromise && clientSecret && (
                   <Elements stripe={stripePromise} options={{ clientSecret, appearance: STRIPE_APPEARANCE, locale: 'ar' }}>
-                    <CardForm clientSecret={clientSecret} invoice={invoice} totals={totals} paymentToken={token} onSuccess={() => setPaid(true)}/>
+                    <CardForm
+                    clientSecret={clientSecret}
+                    invoice={invoice}
+                    totals={totals}
+                    paymentToken={token}
+                    onSubmitted={() => {
+                      setVerificationPending(true)
+                      window.setTimeout(() => load(), 1200)
+                    }}
+                  />
                   </Elements>
                 )}
               </>

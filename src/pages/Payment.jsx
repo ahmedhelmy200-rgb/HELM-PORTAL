@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/integrations/supabase/client'
-import { base44 } from '@/api/base44Client'
 import { getInvoiceTotals } from '@/lib/invoiceMath'
-import { parsePaymentToken } from '@/lib/paymentLinks'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import {
@@ -44,7 +42,7 @@ const STRIPE_APPEARANCE_DARK = {
 // ══════════════════════════════════════════════════════════════════════════════
 // نموذج الدفع بالبطاقة
 // ══════════════════════════════════════════════════════════════════════════════
-function CardForm({ clientSecret, invoice, totals, onSuccess }) {
+function CardForm({ clientSecret, invoice, totals, paymentToken, onSubmitted }) {
   const stripe   = useStripe()
   const elements = useElements()
   const [err,  setErr]  = useState('')
@@ -60,12 +58,12 @@ function CardForm({ clientSecret, invoice, totals, onSuccess }) {
       const { error: ce } = await stripe.confirmPayment({
         elements, clientSecret,
         confirmParams: {
-          return_url: `${window.location.origin}/Payment?paid=1&inv=${invoice.id}`,
+          return_url: `${window.location.origin}/Payment?token=${encodeURIComponent(paymentToken)}&paid=1`,
         },
         redirect: 'if_required',
       })
       if (ce) setErr(ce.message)
-      else    onSuccess()
+      else    onSubmitted()
     } catch (ex) { setErr(ex.message) }
     finally { setBusy(false) }
   }
@@ -182,7 +180,6 @@ export default function Payment() {
   const params      = new URLSearchParams(window.location.search)
   const token       = params.get('token')
   const paidParam   = params.get('paid')
-  const invParam    = params.get('inv')
 
   const [invoice,       setInvoice]       = useState(null)
   const [office,        setOffice]        = useState(null)
@@ -194,52 +191,63 @@ export default function Payment() {
   const [paid,          setPaid]          = useState(false)
   const [intentLoading, setIntentLoading] = useState(false)
   const [intentError,   setIntentError]   = useState('')
+  const [verificationPending, setVerificationPending] = useState(false)
 
   useEffect(() => {
-    if (paidParam === '1') { setPaid(true); setLoading(false); return }
-    if (!token)            { setError('رابط الدفع غير صالح أو منتهي.'); setLoading(false); return }
+    if (!token) {
+      setError('رابط الدفع غير صالح أو منتهي.')
+      setLoading(false)
+      return
+    }
     load()
   }, [token, paidParam])
 
   const load = useCallback(async () => {
     setLoading(true)
+    setError('')
+    setVerificationPending(false)
     try {
-      const parsed = parsePaymentToken(token)
-      if (!parsed?.id) throw new Error('رابط منتهي الصلاحية.')
-      const [invs, sets] = await Promise.all([
-        base44.entities.Invoice.filter({ id: parsed.id }, null, 1),
-        base44.entities.OfficeSettings.list(),
-      ])
-      if (!invs?.[0]) throw new Error('لم يتم العثور على الفاتورة.')
-      setInvoice(invs[0])
-      setOffice(sets?.[0] || null)
-      const pubKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || sets?.[0]?.stripe_publishable_key
+      const { data, error } = await supabase.functions.invoke('payment-invoice', {
+        body: { token },
+      })
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'تعذر تحميل الفاتورة.')
+      if (!data?.invoice) throw new Error('لم يتم العثور على الفاتورة.')
+
+      setInvoice(data.invoice)
+      setOffice(data.office || null)
+
+      const totals = getInvoiceTotals(data.invoice)
+      if (data.invoice.status === 'مدفوعة' || totals.remaining <= 0) {
+        setPaid(true)
+      } else if (paidParam === '1') {
+        setVerificationPending(true)
+      }
+
+      const pubKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || data.office?.stripe_publishable_key
       if (pubKey && pubKey.startsWith('pk_')) setStripePromise(loadStripe(pubKey))
-    } catch (e) { setError(e.message) }
-    finally { setLoading(false) }
-  }, [token])
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [token, paidParam])
 
   const createIntent = useCallback(async () => {
     if (!invoice || clientSecret) return
     setIntentLoading(true); setIntentError('')
     try {
-      const { remaining } = getInvoiceTotals(invoice)
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
-        body: { amount: remaining, currency: (invoice.currency||'AED').toLowerCase(), invoice_id: invoice.id, client_name: invoice.client_name, description: `فاتورة ${invoice.invoice_number||invoice.id}` },
+        body: { payment_token: token },
       })
-      if (error || data?.error) throw new Error((error||data).message || 'تعذر تجهيز الدفع')
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'تعذر تجهيز الدفع')
       setClientSecret(data.client_secret)
     } catch (e) { setIntentError(e.message) }
     finally { setIntentLoading(false) }
-  }, [invoice, clientSecret])
+  }, [invoice, clientSecret, token])
 
   useEffect(() => {
-    if (invoice && tab === 'card' && !clientSecret && stripePromise) createIntent()
-  }, [invoice, tab, stripePromise, clientSecret])
-
-  useEffect(() => {
-    if (paid && invParam) base44.entities.Invoice.update(invParam, { status: 'مدفوعة', paid_amount: getInvoiceTotals({}).total }).catch(() => {})
-  }, [paid, invParam])
+    if (invoice && tab === 'card' && !clientSecret && stripePromise && !verificationPending && !paid) createIntent()
+  }, [invoice, tab, stripePromise, clientSecret, verificationPending, paid, createIntent])
 
   // ── شاشات الحالة ─────────────────────────────────────────────────────────
   if (loading) return (
@@ -259,7 +267,7 @@ export default function Payment() {
         </div>
         <div>
           <h1 className="text-2xl font-black text-slate-900">تم الدفع بنجاح! 🎉</h1>
-          <p className="text-slate-500 mt-2">شكراً لك. تم استلام دفعتك وسيصلك تأكيد قريباً.</p>
+          <p className="text-slate-500 mt-2">شكراً لك. تم تأكيد الدفع من Stripe ويجري تحديث الفاتورة تلقائياً.</p>
         </div>
         {office?.office_name && <p className="text-sm text-slate-600 font-medium">{office.office_name}</p>}
         {office?.phone && (
@@ -280,6 +288,23 @@ export default function Payment() {
         <AlertCircle className="h-12 w-12 text-red-400 mx-auto"/>
         <h2 className="text-xl font-bold text-slate-900">تعذر فتح رابط الدفع</h2>
         <p className="text-slate-500 text-sm">{error}</p>
+      </div>
+    </div>
+  )
+
+  if (verificationPending) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4" dir="rtl">
+      <div className="w-full max-w-sm text-center space-y-5">
+        <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto">
+          <Loader2 className="h-8 w-8 text-blue-600 animate-spin"/>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">جارٍ تأكيد عملية الدفع</h2>
+          <p className="text-slate-500 text-sm mt-2">وصلت عملية الدفع إلى Stripe، وننتظر تأكيدها الآمن قبل تحديث الفاتورة.</p>
+        </div>
+        <button onClick={load} className="w-full h-11 rounded-xl bg-blue-600 text-white font-bold text-sm">
+          إعادة التحقق
+        </button>
       </div>
     </div>
   )
@@ -395,7 +420,16 @@ export default function Payment() {
                 )}
                 {stripePromise && clientSecret && (
                   <Elements stripe={stripePromise} options={{ clientSecret, appearance: STRIPE_APPEARANCE, locale: 'ar' }}>
-                    <CardForm clientSecret={clientSecret} invoice={invoice} totals={totals} onSuccess={() => setPaid(true)}/>
+                    <CardForm
+                    clientSecret={clientSecret}
+                    invoice={invoice}
+                    totals={totals}
+                    paymentToken={token}
+                    onSubmitted={() => {
+                      setVerificationPending(true)
+                      window.setTimeout(() => load(), 1200)
+                    }}
+                  />
                   </Elements>
                 )}
               </>

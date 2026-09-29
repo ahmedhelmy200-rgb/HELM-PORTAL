@@ -1,36 +1,60 @@
-// supabase/functions/create-payment-intent/index.ts
-// تشغيل في Supabase → Edge Functions
-// متغيرات البيئة المطلوبة: STRIPE_SECRET_KEY
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders })
-  }
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" },
+  })
+}
+
+function serviceClient() {
+  const url = Deno.env.get("SUPABASE_URL")
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+  if (!url || !key) throw new Error("Supabase service credentials are not configured.")
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+function toAmount(value: unknown) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders })
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405)
 
   try {
-    const { amount, currency, invoice_id, client_name, description } = await req.json()
+    const { payment_token } = await req.json()
+    const paymentToken = String(payment_token || "").trim()
+    if (paymentToken.length < 20) return json({ error: "رابط الدفع غير صالح." }, 400)
 
-    if (!amount || amount <= 0) {
-      return new Response(JSON.stringify({ error: "مبلغ غير صالح" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      })
+    const supabase = serviceClient()
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("id,invoice_number,client_name,total_fees,paid_amount,discount,vat_rate,status,payment_token")
+      .eq("payment_token", paymentToken)
+      .maybeSingle()
+
+    if (invoiceError) throw invoiceError
+    if (!invoice) return json({ error: "رابط الدفع غير صالح أو منتهي." }, 404)
+
+    const subtotal = Math.max(0, toAmount(invoice.total_fees) - toAmount(invoice.discount))
+    const total = subtotal * (1 + toAmount(invoice.vat_rate) / 100)
+    const remaining = Math.max(0, total - toAmount(invoice.paid_amount))
+
+    if (invoice.status === "مدفوعة" || remaining <= 0.005) {
+      return json({ error: "هذه الفاتورة مسددة بالفعل." }, 409)
     }
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY")
-    if (!stripeKey) {
-      return new Response(JSON.stringify({ error: "لم يتم تكوين مفتاح Stripe" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      })
-    }
+    if (!stripeKey) return json({ error: "لم يتم تكوين مفتاح Stripe." }, 503)
 
-    // إنشاء PaymentIntent عبر Stripe API
     const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
       method: "POST",
       headers: {
@@ -38,29 +62,27 @@ serve(async (req) => {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        amount: String(Math.round(amount * 100)), // تحويل للسنتات
-        currency: currency || "aed",
-        "payment_method_types[]": "card",
-        description: description || `فاتورة ${invoice_id}`,
-        "metadata[invoice_id]": invoice_id || "",
-        "metadata[client_name]": client_name || "",
+        amount: String(Math.round(remaining * 100)),
+        currency: "aed",
+        "automatic_payment_methods[enabled]": "true",
+        description: `فاتورة ${invoice.invoice_number || invoice.id}`,
+        "metadata[invoice_id]": invoice.id,
+        "metadata[invoice_number]": invoice.invoice_number || "",
       }),
     })
 
     const intent = await stripeRes.json()
-
-    if (intent.error) {
-      return new Response(JSON.stringify({ error: intent.error.message }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      })
+    if (!stripeRes.ok || intent?.error) {
+      return json({ error: intent?.error?.message || "تعذر تجهيز الدفع." }, 400)
     }
 
-    return new Response(JSON.stringify({ client_secret: intent.client_secret, id: intent.id }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return json({
+      client_secret: intent.client_secret,
+      id: intent.id,
+      amount: remaining,
+      currency: "aed",
     })
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    })
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "تعذر تجهيز الدفع." }, 500)
   }
 })

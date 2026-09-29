@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, CalendarDays, MapPin, Clock, ChevronRight, ChevronLeft, Trash2 } from "lucide-react";
+import { Plus, Search, CalendarDays, MapPin, Clock, ChevronRight, ChevronLeft, Trash2, ShieldCheck, AlertTriangle, CheckCircle2 } from "lucide-react";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, addWeeks, subWeeks, isValid,
@@ -23,11 +24,12 @@ import { PageErrorState } from "@/components/app/AppStatusBar";
 import { searchInFields } from "@/lib/search";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
+import { createPageUrl } from "@/utils";
 
 const SESSION_TYPES = ["مرافعة", "إثبات", "حكم", "تأجيل", "صلح", "أخرى"];
 const STATUSES      = ["قادمة", "منعقدة", "مؤجلة", "ملغية"];
 const emptyForm     = {
-  case_id: "", case_title: "", case_number: "", client_name: "",
+  case_id: "", case_title: "", case_number: "", client_id: "", client_name: "",
   session_date: "", court: "", hall: "", session_type: "مرافعة",
   status: "قادمة", result: "", next_session_date: "", notes: "",
 };
@@ -43,9 +45,21 @@ function safeFmt(value, pattern, fallback = "—") {
   try { return d ? format(d, pattern) : fallback; } catch { return fallback; }
 }
 
+function clientDisplayName(client = {}) {
+  return client.name_ar || client.full_name || client.name_en || "";
+}
+
+function caseChoiceLabel(item = {}) {
+  const number = item.case_number ? `#${item.case_number} · ` : "";
+  const client = item.client_name ? ` — ${item.client_name}` : "";
+  return `${number}${item.title || "قضية"}${client}`;
+}
+
 export default function Sessions() {
+  const navigate = useNavigate();
   const [sessions,   setSessions  ] = useState([]);
   const [cases,      setCases     ] = useState([]);
+  const [clients,    setClients   ] = useState([]);
   const [tasks,      setTasks     ] = useState([]);
   const [events,     setEvents    ] = useState([]);
   const [loading,    setLoading   ] = useState(true);
@@ -66,16 +80,18 @@ export default function Sessions() {
     setLoading(true);
     setLoadError("");
     try {
-      const [sessionRows, caseRows, taskRows, eventRows] = await Promise.all([
-        base44.entities.Session.list("-session_date", 500),
-        base44.entities.Case.list("title", 300),
-        base44.entities.Task.list("-due_date", 300),
-        base44.entities.Event.list("-date", 300),
+      const [sessionRows, caseRows, clientRows, taskRows, eventRows] = await Promise.all([
+        base44.entities.Session.list("-session_date", 5000),
+        base44.entities.Case.list("title", 5000),
+        base44.entities.Client.list("full_name", 5000),
+        base44.entities.Task.list("-due_date", 5000),
+        base44.entities.Event.list("-date", 5000),
       ]);
-      setSessions(sessionRows);
-      setCases(caseRows);
-      setTasks(taskRows);
-      setEvents(eventRows);
+      setSessions(Array.isArray(sessionRows) ? sessionRows : []);
+      setCases(Array.isArray(caseRows) ? caseRows : []);
+      setClients(Array.isArray(clientRows) ? clientRows : []);
+      setTasks(Array.isArray(taskRows) ? taskRows : []);
+      setEvents(Array.isArray(eventRows) ? eventRows : []);
     } catch (err) {
       setLoadError(err.message || "تعذر تحميل الجلسات.");
     } finally {
@@ -84,7 +100,7 @@ export default function Sessions() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-  usePageRefresh(loadData, ["sessions", "cases", "tasks", "events"]);
+  usePageRefresh(loadData, ["sessions", "cases", "clients", "tasks", "events"]);
 
   useEffect(() => {
     const offNew    = subscribeAppEvent(APP_SHORTCUT_NEW,    ({ page: p }) => p === "Sessions" && openCreate());
@@ -104,10 +120,26 @@ export default function Sessions() {
     setShowDialog(true);
   };
 
-  const handleCaseSelect = (caseTitle) => {
-    const sel = cases.find(c => c.title === caseTitle);
-    if (sel) setForm(f => ({ ...f, case_id: sel.id, case_title: sel.title, case_number: sel.case_number || "", client_name: sel.client_name, court: sel.court || f.court }));
-    else     setForm(f => ({ ...f, case_title: caseTitle }));
+  const handleCaseSelect = (value) => {
+    const sel = cases.find((item) =>
+      String(item.id) === String(value)
+      || item.title === value
+      || caseChoiceLabel(item) === value
+    );
+    if (!sel) {
+      setForm((current) => ({ ...current, case_title: value, case_id: "", case_number: "", client_id: "" }));
+      return;
+    }
+    const linkedClient = clients.find((client) => String(client.id) === String(sel.client_id));
+    setForm((current) => ({
+      ...current,
+      case_id: sel.id,
+      case_title: sel.title,
+      case_number: sel.case_number || "",
+      client_id: sel.client_id || linkedClient?.id || "",
+      client_name: linkedClient ? clientDisplayName(linkedClient) : (sel.client_name || current.client_name),
+      court: sel.court || current.court,
+    }));
   };
 
   const handleSave = async () => {
@@ -136,11 +168,32 @@ export default function Sessions() {
   };
 
   // ── فلترة ─────────────────────────────────────────────────────────────────
-  const filtered = sessions.filter(s => {
-    const matchSearch = searchInFields(s, ["case_title", "client_name", "court", "hall", "result"], search);
-    const matchStatus = statusFilter === "الكل" || s.status === statusFilter;
+  const filtered = useMemo(() => sessions.filter((session) => {
+    const client = clients.find((item) => String(item.id) === String(session.client_id));
+    const searchable = {
+      ...session,
+      client_name_ar: client?.name_ar || "",
+      client_name_en: client?.name_en || "",
+      client_aliases: client?.name_aliases || [],
+    };
+    const matchSearch = searchInFields(
+      searchable,
+      ["case_title", "case_number", "client_name", "client_name_ar", "client_name_en", "client_aliases", "court", "hall", "result", "notes"],
+      search,
+    );
+    const matchStatus = statusFilter === "الكل" || session.status === statusFilter;
     return matchSearch && matchStatus;
-  });
+  }), [sessions, clients, search, statusFilter]);
+
+  const sessionStats = useMemo(() => {
+    const today = new Date();
+    return {
+      today: sessions.filter((item) => safeDate(item.session_date) && isSameDay(safeDate(item.session_date), today)).length,
+      upcoming: sessions.filter((item) => safeDate(item.session_date) && safeDate(item.session_date) >= today && item.status === "قادمة").length,
+      postponed: sessions.filter((item) => item.status === "مؤجلة").length,
+      held: sessions.filter((item) => item.status === "منعقدة").length,
+    };
+  }, [sessions]);
 
   // ── بيانات التقويم ────────────────────────────────────────────────────────
   const calendarItems = useMemo(() => {
@@ -175,9 +228,25 @@ export default function Sessions() {
     <div className="space-y-5">
       <PageHeader
         title="الجلسات والتقويم"
-        subtitle={`${sessions.length} جلسة · ${tasks.length} مهمة · ${events.length} موعد`}
+        subtitle={`${filtered.length} جلسة ظاهرة من أصل ${sessions.length} · ${tasks.length} مهمة · ${events.length} موعد`}
         action={<Button onClick={openCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4" />إضافة جلسة</Button>}
       />
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {[
+          ["جلسات اليوم", sessionStats.today, CalendarDays, "text-primary"],
+          ["قادمة", sessionStats.upcoming, Clock, "text-cyan-500"],
+          ["مؤجلة", sessionStats.postponed, AlertTriangle, "text-amber-500"],
+          ["منعقدة", sessionStats.held, CheckCircle2, "text-emerald-500"],
+        ].map(([label, value, Icon, tone]) => (
+          <Card key={label} className="p-4 border-primary/10">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-muted/40 flex items-center justify-center"><Icon className={`h-5 w-5 ${tone}`} /></div>
+              <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-xl font-black">{value}</p></div>
+            </div>
+          </Card>
+        ))}
+      </div>
 
       {/* شريط التحكم */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto_auto] gap-3">
@@ -259,6 +328,20 @@ export default function Sessions() {
                     )}
                     <StatusBadge status={session.status} />
                     <span className="text-xs text-muted-foreground">{session.session_type}</span>
+                    {session.client_id && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 text-xs"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(createPageUrl("Client360") + `?id=${session.client_id}`);
+                        }}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> ملف الموكل
+                      </Button>
+                    )}
                     <ActionButtons entityName="Session" record={session} onEdit={openEdit} onDeleted={loadData} size="sm" />
                   </div>
                 </div>
@@ -354,7 +437,7 @@ export default function Sessions() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
             <div className="space-y-1 md:col-span-2">
               <Label>القضية</Label>
-              <ChoiceInput value={form.case_title} onChange={handleCaseSelect} options={cases.map(c => c.title)} listId="cases-list-ses" helper="" />
+              <ChoiceInput value={form.case_title} onChange={handleCaseSelect} options={cases.map(caseChoiceLabel)} listId="cases-list-ses" helper="ابحث برقم القضية أو عنوانها؛ يتم ربط الموكل تلقائيًا بالـID الحقيقي" />
             </div>
             <div className="space-y-1">
               <Label>تاريخ الجلسة *</Label>

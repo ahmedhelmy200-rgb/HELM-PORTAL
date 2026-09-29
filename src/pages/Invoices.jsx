@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { escapeHtml, detachOpener } from "@/lib/htmlEscape";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,11 @@ import PaginationControls from "@/components/shared/PaginationControls";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { PORTAL_SCOPE_HELM, PORTAL_SCOPE_BADAYAT, getInvoicePortalScope } from "@/lib/portalScopes";
+import { createPageUrl } from "@/utils";
 
 export default function Invoices() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isClient = user?.role === "client";
   const [invoices, setInvoices] = useState([]);
   const [allInvoices, setAllInvoices] = useState([]);
@@ -49,23 +52,23 @@ export default function Invoices() {
     setLoading(true);
     setLoadError("");
     try {
-      const [{ data: pageRows, total: totalRows }, allRows, clientRows, officeRows] = await Promise.all([
-        base44.entities.Invoice.listPage("-created_date", { page, pageSize }),
-        base44.entities.Invoice.list("-created_date", 3000),
-        base44.entities.Client.list("full_name", 2000),
+      const [allRows, clientRows, officeRows] = await Promise.all([
+        base44.entities.Invoice.list("-created_date", 5000),
+        base44.entities.Client.list("full_name", 5000),
         base44.entities.OfficeSettings.list(),
       ]);
-      setInvoices(pageRows || []);
-      setAllInvoices(allRows || []);
-      setClients(clientRows || []);
+      const safeInvoices = Array.isArray(allRows) ? allRows : [];
+      setInvoices(safeInvoices);
+      setAllInvoices(safeInvoices);
+      setClients(Array.isArray(clientRows) ? clientRows : []);
       setOfficeSettings(officeRows?.[0] || null);
-      setTotal(totalRows || 0);
+      setTotal(safeInvoices.length);
     } catch (error) {
       setLoadError(error.message || "تعذر تحميل الفواتير.");
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, []);
 
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
   usePageRefresh(loadInvoices, ["invoices", "clients", "office_settings"]);
@@ -76,7 +79,22 @@ export default function Invoices() {
     return () => { offNew(); offSearch(); };
   }, [isClient]);
 
-  const clientLookup = useMemo(() => Object.fromEntries(clients.map((client) => [client.full_name, client])), [clients]);
+  const clientLookup = useMemo(() => {
+    const map = {};
+    clients.forEach((client) => {
+      [
+        client.id,
+        client.full_name,
+        client.name_ar,
+        client.name_en,
+        ...(Array.isArray(client.name_aliases) ? client.name_aliases : []),
+      ].filter(Boolean).forEach((key) => { map[String(key)] = client; });
+    });
+    return map;
+  }, [clients]);
+
+  const resolveInvoiceClient = (invoice) =>
+    clientLookup[String(invoice?.client_id || "")] || clientLookup[invoice?.client_name] || {};
   const duplicateGroups = useMemo(() => buildInvoiceDuplicateGroups(allInvoices, getInvoiceTotals), [allInvoices]);
   const duplicateInvoiceIds = useMemo(() => new Set(duplicateGroups.flatMap((group) => group.records.map((record) => record.id))), [duplicateGroups]);
 
@@ -109,14 +127,14 @@ export default function Invoices() {
   };
 
   const handleSendWhatsApp = (invoice) => {
-    const client = clientLookup[invoice.client_name] || {};
+    const client = resolveInvoiceClient(invoice);
     const phone = String(client.phone || "").replace(/\D+/g, "");
     const text = encodeURIComponent(buildInvoiceMessage(invoice));
     window.open(phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`, "_blank");
   };
 
   const handleSendEmail = (invoice) => {
-    const client = clientLookup[invoice.client_name] || {};
+    const client = resolveInvoiceClient(invoice);
     const subject = encodeURIComponent(`فاتورة ${invoice.invoice_number || ""}`);
     const body = encodeURIComponent(`${buildInvoiceMessage(invoice)}\n\n${officeSettings?.office_name || ""}\n${officeSettings?.phone || ""}`);
     window.location.href = `mailto:${client.email || ""}?subject=${subject}&body=${body}`;
@@ -157,22 +175,53 @@ export default function Invoices() {
     return acc;
   }, { totalFees: 0, totalPaid: 0, totalRemaining: 0, overdueCount: 0 });
 
-  const sourceRows = statusFilter === "مكررة" ? allInvoices.filter((invoice) => duplicateInvoiceIds.has(invoice.id)) : invoices;
-  const scopedInvoices = isClient ? sourceRows : sourceRows.filter((invoice) => getInvoicePortalScope(invoice) === portalFilter);
-  const filtered = scopedInvoices.filter((invoice) => {
-    const matchSearch = searchInFields(invoice, ["client_name", "invoice_number", "case_title", "office_name"], search);
+  const sourceRows = statusFilter === "مكررة"
+    ? allInvoices.filter((invoice) => duplicateInvoiceIds.has(invoice.id))
+    : allInvoices;
+
+  const scopedInvoices = isClient
+    ? sourceRows
+    : sourceRows.filter((invoice) => getInvoicePortalScope(invoice) === portalFilter);
+
+  const filtered = useMemo(() => scopedInvoices.filter((invoice) => {
+    const client = resolveInvoiceClient(invoice);
+    const searchable = {
+      ...invoice,
+      client_name_ar: client.name_ar || "",
+      client_name_en: client.name_en || "",
+      client_aliases: client.name_aliases || [],
+    };
+    const matchSearch = searchInFields(
+      searchable,
+      ["client_name", "client_name_ar", "client_name_en", "client_aliases", "invoice_number", "case_title", "case_number", "office_name"],
+      search,
+    );
     const matchStatus = statusFilter === "الكل" || statusFilter === "مكررة" || invoice.status === statusFilter;
     return matchSearch && matchStatus;
-  });
+  }), [scopedInvoices, search, statusFilter, clientLookup]);
+
+  const pagedInvoices = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, portalFilter]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (page > maxPage) setPage(maxPage);
+  }, [filtered.length, page]);
 
   return (
     <div className="space-y-6">
       <PageHeader title={isClient ? "فواتيري" : "الفواتير"} subtitle={`${filtered.length} فاتورة ظاهرة من أصل ${total}`} action={!isClient ? <Button onClick={handleCreate} className="bg-primary text-white gap-2"><Plus className="h-4 w-4" /> إنشاء فاتورة</Button> : undefined} />
 
       {!isClient && duplicateGroups.length > 0 && (
-        <Card className="border-red-300 bg-red-50 p-4">
+        <Card className="border-red-500/25 bg-red-500/5 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-700" /><div><h3 className="font-black text-red-950">تم اكتشاف {duplicateGroups.length} مجموعة فواتير محتملة التكرار</h3><p className="mt-1 text-sm font-bold leading-7 text-red-800">لا تُحذف تلقائياً حفاظاً على القيود المالية. راجع كل مجموعة، احتفظ بالفاتورة الصحيحة، ثم انقل أو صحح المدفوعات قبل حذف النسخة الزائدة.</p><div className="mt-2 flex flex-wrap gap-2">{duplicateGroups.slice(0,5).map((group) => <Badge key={group.key} className="border border-red-200 bg-white text-red-900"><Copy className="h-3 w-3" /> {group.records.map((record) => record.invoice_number || 'بدون رقم').join(' / ')}</Badge>)}</div></div></div>
+            <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" /><div><h3 className="font-black text-foreground">تم اكتشاف {duplicateGroups.length} مجموعة فواتير محتملة التكرار</h3><p className="mt-1 text-sm leading-7 text-muted-foreground">لا تُحذف تلقائياً حفاظاً على القيود المالية. راجع كل مجموعة، احتفظ بالفاتورة الصحيحة، ثم انقل أو صحح المدفوعات قبل حذف النسخة الزائدة.</p><div className="mt-2 flex flex-wrap gap-2">{duplicateGroups.slice(0,5).map((group) => <Badge key={group.key} className="border border-red-500/20 bg-red-500/10 text-red-500"><Copy className="h-3 w-3" /> {group.records.map((record) => record.invoice_number || 'بدون رقم').join(' / ')}</Badge>)}</div></div></div>
             <Button variant="outline" onClick={() => { setStatusFilter('مكررة'); setPage(1); }}>عرض المكررات</Button>
           </div>
         </Card>
@@ -198,8 +247,20 @@ export default function Invoices() {
       </div>
 
       {loading ? <div className="flex items-center justify-center h-48"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div> : loadError ? <PageErrorState message={loadError} onRetry={loadInvoices} /> : filtered.length === 0 ? <EmptyState icon={FileText} title="لا توجد فواتير" description="لا توجد فواتير مطابقة للقسم أو الفلتر الحالي" action={!isClient ? <Button onClick={handleCreate}>إنشاء فاتورة</Button> : undefined} /> : <>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{filtered.map((invoice) => <div key={invoice.id} className="relative">{duplicateInvoiceIds.has(invoice.id) && !isClient && <Badge className="absolute left-3 top-3 z-10 border-0 bg-red-600 text-white">مكررة محتملة</Badge>}<InvoiceCard invoice={invoice} onEdit={handleEdit} onDelete={handleDelete} onPrint={handlePrint} onMarkPaid={handleMarkPaid} onSendWhatsApp={handleSendWhatsApp} onSendEmail={handleSendEmail} onSendReminder={handleSendReminder} officeSettings={officeSettings} isClient={isClient} /></div>)}</div>
-        {statusFilter !== 'مكررة' && <PaginationControls page={page} pageSize={pageSize} total={total} onPageChange={setPage} />}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{pagedInvoices.map((invoice) => <div key={invoice.id} className="relative">{duplicateInvoiceIds.has(invoice.id) && !isClient && <Badge className="absolute left-3 top-3 z-10 border-0 bg-red-600 text-white">مكررة محتملة</Badge>}<InvoiceCard
+          invoice={invoice}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onPrint={handlePrint}
+          onMarkPaid={handleMarkPaid}
+          onSendWhatsApp={handleSendWhatsApp}
+          onSendEmail={handleSendEmail}
+          onSendReminder={handleSendReminder}
+          onOpenClient={(row) => row.client_id && navigate(createPageUrl("Client360") + `?id=${row.client_id}`)}
+          officeSettings={officeSettings}
+          isClient={isClient}
+        /></div>)}</div>
+        <PaginationControls page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
       </>}
 
       <InvoiceFormDialog open={showForm} onOpenChange={setShowForm} invoice={editing} onSaved={() => { setShowForm(false); loadInvoices(); }} />

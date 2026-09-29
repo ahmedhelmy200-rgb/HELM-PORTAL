@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Upload,
   Users,
+  Wallet,
 } from 'lucide-react'
 
 import { base44 } from '@/api/base44Client'
@@ -433,11 +434,13 @@ export default function DashboardOptimized() {
         </div>
       </section>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatCard title="القضايا" value={data.totals.cases} icon={Briefcase} color="primary" to="Cases" subtitle={`${activeCases} نشطة`} />
         <StatCard title="الموكلون" value={data.totals.clients} icon={Users} color="accent" to="Clients" />
         <StatCard title="الفواتير" value={data.totals.invoices} icon={Receipt} color="success" to="Invoices" subtitle={`${fmtMoney(invoiceStats.remaining)} د.إ متبقي`} />
         <StatCard title="المهام" value={data.totals.tasks} icon={CheckSquare} color="warning" to="Tasks" subtitle={`${pendingTasks} مفتوحة`} />
+        <StatCard title="المصاريف" value={`${fmtMoney(invoiceStats.expenses)} د.إ`} icon={Wallet} color="warning" to="Expenses" subtitle={`${data.totals.expenses} قيد`} />
+        <StatCard title="صافي المحصل" value={`${fmtMoney(invoiceStats.netCollected)} د.إ`} icon={TrendingUp} color={invoiceStats.netCollected >= 0 ? "success" : "warning"} to="Reports" subtitle="المحصّل ناقص المصاريف" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -455,7 +458,7 @@ export default function DashboardOptimized() {
                 </div>
               )
             })}
-            {upcomingSessions.length === 0 && <p className="text-white/35 text-sm text-center py-6">لا توجد جلسات قادمة ضمن العينة الحالية</p>}
+            {upcomingSessions.length === 0 && <p className="text-white/35 text-sm text-center py-6">لا توجد جلسات قادمة</p>}
           </div>
         </Card>
 

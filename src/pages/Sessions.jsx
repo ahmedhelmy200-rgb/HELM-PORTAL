@@ -436,7 +436,7 @@ export default function Sessions() {
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
             <div className="space-y-1 md:col-span-2">
-              <Label>القضية</Label>
+              <Label>القضية *</Label>
               <ChoiceInput value={form.case_title} onChange={handleCaseSelect} options={cases.map(caseChoiceLabel)} listId="cases-list-ses" helper="ابحث برقم القضية أو عنوانها؛ يتم ربط الموكل تلقائيًا بالـID الحقيقي" />
             </div>
             <div className="space-y-1">
@@ -482,7 +482,7 @@ export default function Sessions() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowDialog(false)}>إلغاء</Button>
-              <Button onClick={handleSave} disabled={saving || !form.session_date || !form.court} className="bg-primary text-white">
+              <Button onClick={handleSave} disabled={saving || !form.case_id || !form.session_date || !form.court} className="bg-primary text-white">
                 {saving ? "جارٍ الحفظ..." : editing ? "حفظ التعديلات" : "إضافة"}
               </Button>
             </div>

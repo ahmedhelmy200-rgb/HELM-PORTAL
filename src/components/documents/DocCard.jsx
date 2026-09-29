@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, ExternalLink, AlertTriangle, ScanText,
-  CheckCircle2, Loader2, Pencil, FileX,
+  CheckCircle2, Loader2, Pencil, FileX, ShieldCheck,
 } from "lucide-react";
 import { format, isPast, differenceInDays, isValid } from "date-fns";
 import StatusBadge from "../helm/StatusBadge";
@@ -38,7 +38,7 @@ function FileTypeIcon({ fileName }) {
   );
 }
 
-export default function DocCard({ doc, onEdit, searchQuery }) {
+export default function DocCard({ doc, onEdit, searchQuery, onOpenClient }) {
   const [opening, setOpening] = React.useState(false);
   const hasFile = !!(doc?.file_url || doc?.file_url_ref);
 
@@ -160,6 +160,18 @@ export default function DocCard({ doc, onEdit, searchQuery }) {
           )}
 
           {/* زر تعديل البيانات — منفصل عن فتح الملف */}
+          {doc.client_id && onOpenClient && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-primary"
+              onClick={(e) => { e.stopPropagation(); onOpenClient?.(doc); }}
+              title="فتح ملف الموكل"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
           <Button
             variant="ghost"
             size="icon"

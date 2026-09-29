@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,11 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Wallet, TrendingDown, Calendar, Edit, Trash2, Receipt, Filter, Tag, Database } from "lucide-react";
+import { Plus, Search, Wallet, TrendingDown, Calendar, Edit, Trash2, Receipt, Filter, Tag, Database, ShieldCheck, Scale } from "lucide-react";
 import { format, startOfMonth, endOfMonth, isWithinInterval, isValid } from "date-fns";
 import PageHeader from "../components/helm/PageHeader";
 import EmptyState from "../components/helm/EmptyState";
 import { PageErrorState } from "@/components/app/AppStatusBar";
+import { createPageUrl } from "@/utils";
 
 const EXPENSES_LOCAL_KEY = "helm_expenses_local_fallback_v2";
 const CATEGORIES = ["رسوم قضائية", "مواصلات", "طباعة ومستلزمات", "رسوم تسجيل", "أتعاب خبراء", "إيجار", "رواتب", "اتصالات", "أخرى"];
@@ -48,6 +50,7 @@ const emptyForm = {
   amount: "",
   category: "أخرى",
   expense_date: format(new Date(), "yyyy-MM-dd"),
+  case_id: "",
   case_title: "",
   client_id: "",
   client_name: "",
@@ -77,6 +80,7 @@ function normalizeExpense(row = {}) {
     amount: Number(row.amount || 0),
     category: CATEGORIES.includes(row.category) ? row.category : "أخرى",
     expense_date: row.expense_date || row.date || format(new Date(), "yyyy-MM-dd"),
+    case_id: row.case_id || "",
     case_title: row.case_title || "",
     client_id: row.client_id || "",
     client_name: row.client_name || "",
@@ -100,8 +104,10 @@ function money(value) {
 }
 
 export default function Expenses() {
+  const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
   const [clients, setClients] = useState([]);
+  const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [source, setSource] = useState("loading");
@@ -118,13 +124,15 @@ export default function Expenses() {
     setLoading(true);
     setLoadError("");
     try {
-      const [rows, clientRows] = await Promise.all([
-        base44.entities.Expense.list("-expense_date"),
-        base44.entities.Client.list("full_name", 2500),
+      const [rows, clientRows, caseRows] = await Promise.all([
+        base44.entities.Expense.list("-expense_date", 5000),
+        base44.entities.Client.list("full_name", 5000),
+        base44.entities.Case.list("-created_date", 5000),
       ]);
       const normalized = (Array.isArray(rows) ? rows : []).map(normalizeExpense);
       setExpenses(normalized);
       setClients(Array.isArray(clientRows) ? clientRows : []);
+      setCases(Array.isArray(caseRows) ? caseRows : []);
       setSource("supabase");
       if (normalized.length) writeLocalExpenses(normalized);
     } catch (error) {
@@ -210,27 +218,74 @@ export default function Expenses() {
     }
   };
 
+  const clientDisplayName = (client = {}) => client.name_ar || client.full_name || client.name_en || "";
+
   const selectClient = (value) => {
     if (value === "__none__") {
-      setForm((current) => ({ ...current, client_id: "", client_name: "" }));
+      setForm((current) => ({ ...current, client_id: "", client_name: "", case_id: "", case_title: "" }));
       return;
     }
     const selected = clients.find((client) => String(client.id) === String(value));
+    setForm((current) => {
+      const currentCase = cases.find((item) => String(item.id) === String(current.case_id));
+      const keepCase = currentCase && String(currentCase.client_id || "") === String(selected?.id || "");
+      return {
+        ...current,
+        client_id: selected?.id || "",
+        client_name: selected ? clientDisplayName(selected) : "",
+        case_id: keepCase ? current.case_id : "",
+        case_title: keepCase ? current.case_title : "",
+      };
+    });
+  };
+
+  const selectCase = (value) => {
+    if (value === "__none__") {
+      setForm((current) => ({ ...current, case_id: "", case_title: "" }));
+      return;
+    }
+    const selected = cases.find((item) => String(item.id) === String(value));
+    if (!selected) return;
+    const selectedClient = clients.find((client) => String(client.id) === String(selected.client_id));
     setForm((current) => ({
       ...current,
-      client_id: selected?.id || "",
-      client_name: selected?.full_name || "",
+      case_id: selected.id,
+      case_title: selected.title || "",
+      client_id: selected.client_id || selectedClient?.id || current.client_id || "",
+      client_name: selectedClient ? clientDisplayName(selectedClient) : (selected.client_name || current.client_name || ""),
     }));
   };
+
+  const availableCases = useMemo(
+    () => form.client_id
+      ? cases.filter((item) => String(item.client_id || "") === String(form.client_id))
+      : cases,
+    [cases, form.client_id],
+  );
+
+  const clientLookup = useMemo(
+    () => Object.fromEntries(clients.map((client) => [String(client.id), client])),
+    [clients],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return expenses.filter((expense) => {
-      const matchSearch = !q || `${expense.title} ${expense.client_name} ${expense.case_title} ${expense.notes}`.toLowerCase().includes(q);
+      const client = clientLookup[String(expense.client_id || "")] || {};
+      const searchable = [
+        expense.title,
+        expense.client_name,
+        client.name_ar,
+        client.name_en,
+        ...(Array.isArray(client.name_aliases) ? client.name_aliases : []),
+        expense.case_title,
+        expense.notes,
+      ].filter(Boolean).join(" ").toLowerCase();
+      const matchSearch = !q || searchable.includes(q);
       const matchCategory = categoryFilter === "الكل" || expense.category === categoryFilter;
       return matchSearch && matchCategory;
     });
-  }, [expenses, search, categoryFilter]);
+  }, [expenses, search, categoryFilter, clientLookup]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -301,7 +356,7 @@ export default function Expenses() {
         <EmptyState icon={Wallet} title="لا توجد مصاريف" description="ابدأ بتسجيل مصاريف المكتب والقضايا" action={<Button onClick={handleCreate}>إضافة مصروف</Button>} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((expense) => <ExpenseCard key={expense.id} expense={expense} onEdit={handleEdit} onDelete={handleDelete} />)}
+          {filtered.map((expense) => <ExpenseCard key={expense.id} expense={expense} onEdit={handleEdit} onDelete={handleDelete} onOpenClient={(row) => row.client_id && navigate(createPageUrl("Client360") + `?id=${row.client_id}`)} />)}
         </div>
       )}
 
@@ -318,8 +373,7 @@ export default function Expenses() {
               <div className="space-y-1.5"><Label>التصنيف</Label><Select value={form.category} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{CATEGORY_ICONS[c]} {c}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-1.5"><Label>طريقة الدفع</Label><Select value={form.payment_method} onValueChange={(v) => setForm((f) => ({ ...f, payment_method: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>القضية</Label><Input value={form.case_title} onChange={(e) => setForm((f) => ({ ...f, case_title: e.target.value }))} placeholder="اختياري" /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>الموكل</Label>
                 <Select value={form.client_id || "__none__"} onValueChange={selectClient}>
@@ -328,12 +382,27 @@ export default function Expenses() {
                     <SelectItem value="__none__">بدون موكل</SelectItem>
                     {clients.map((client) => (
                       <SelectItem key={client.id} value={String(client.id)}>
-                        {client.full_name}{client.client_role ? ` · ${client.client_role}` : ""}
+                        {clientDisplayName(client)}{client.name_en && client.name_en !== clientDisplayName(client) ? ` · ${client.name_en}` : ""}{client.client_role ? ` · ${client.client_role}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {!form.client_id && form.client_name && <p className="text-[11px] text-amber-500">ارتباط قديم بالاسم: {form.client_name}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label>القضية</Label>
+                <Select value={form.case_id || "__none__"} onValueChange={selectCase}>
+                  <SelectTrigger><SelectValue placeholder="اختر القضية المرتبطة" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">بدون قضية</SelectItem>
+                    {availableCases.map((item) => (
+                      <SelectItem key={item.id} value={String(item.id)}>
+                        {item.case_number ? `#${item.case_number} · ` : ""}{item.title}{!form.client_id && item.client_name ? ` · ${item.client_name}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">اختيار القضية يربط المصروف بالموكل تلقائيًا.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -363,7 +432,7 @@ function StatCard({ icon: Icon, title, value, color }) {
   return <Card className={`p-4 border-l-4 ${border}`}><div className="flex items-center gap-3"><div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}><Icon className={`h-5 w-5 ${text}`} /></div><div><p className="text-xs text-muted-foreground">{title}</p><p className={`text-lg font-bold ${text}`}>{money(value)} <span className="text-xs font-normal text-muted-foreground">د.إ</span></p></div></div></Card>;
 }
 
-function ExpenseCard({ expense, onEdit, onDelete }) {
+function ExpenseCard({ expense, onEdit, onDelete, onOpenClient }) {
   const d = safeDate(expense.expense_date);
   return (
     <Card className="p-4 hover:shadow-md transition-all hover:-translate-y-0.5">
@@ -381,7 +450,12 @@ function ExpenseCard({ expense, onEdit, onDelete }) {
       </div>
       <div className="flex items-center gap-2 mb-3"><Badge className={`text-xs border ${CATEGORY_COLORS[expense.category] || CATEGORY_COLORS["أخرى"]}`}>{expense.category}</Badge>{expense.is_billable && <Badge className="text-xs bg-primary/10 text-primary border border-primary/20">💰 قابل للفوترة</Badge>}</div>
       {expense.notes && <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 mb-3 leading-relaxed">{expense.notes}</p>}
-      <div className="flex items-center gap-2 pt-3 border-t border-border"><Button variant="outline" size="sm" onClick={() => onEdit(expense)} className="gap-1 text-xs flex-1"><Edit className="h-3 w-3" /> تعديل</Button><Button variant="outline" size="sm" onClick={() => onDelete(expense)} className="gap-1 text-xs text-red-600 hover:text-red-700"><Trash2 className="h-3 w-3" /> حذف</Button></div>
+      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
+        {expense.client_id && onOpenClient && <Button variant="outline" size="sm" onClick={() => onOpenClient(expense)} className="gap-1 text-xs"><ShieldCheck className="h-3 w-3" /> ملف الموكل</Button>}
+        {expense.case_id && <Badge variant="outline" className="h-8 gap-1"><Scale className="h-3 w-3" /> مرتبط بقضية</Badge>}
+        <Button variant="outline" size="sm" onClick={() => onEdit(expense)} className="gap-1 text-xs flex-1"><Edit className="h-3 w-3" /> تعديل</Button>
+        <Button variant="outline" size="sm" onClick={() => onDelete(expense)} className="gap-1 text-xs text-red-600 hover:text-red-700"><Trash2 className="h-3 w-3" /> حذف</Button>
+      </div>
     </Card>
   );
 }

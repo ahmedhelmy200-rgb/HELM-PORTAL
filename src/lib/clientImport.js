@@ -36,12 +36,29 @@ function uniqueValues(values = []) {
   return [...new Set(values.map(cleanText).filter(Boolean))];
 }
 
+function detectNameFields(name = '') {
+  const value = cleanText(name)
+  const hasArabic = /[ء-ي]/.test(value)
+  const hasLatin = /[A-Za-z]/.test(value)
+  return {
+    name_ar: hasArabic && !hasLatin ? value : '',
+    name_en: hasLatin && !hasArabic ? value : '',
+    name_aliases: value ? [value] : [],
+  }
+}
+
 function keyOfClient(client = {}) {
   const phones = [client.phone, client.mobile, client.phone_number].map(normalizePhone).filter(Boolean);
   const emails = [client.email].map(normalizeEmail).filter(Boolean);
   const idNumber = cleanText(client.id_number || client.emiratesId || client.emirates_id);
-  const name = cleanText(client.full_name || client.name).toLowerCase();
-  return { phones, emails, idNumber, name };
+  const names = uniqueValues([
+    client.full_name,
+    client.name,
+    client.name_ar,
+    client.name_en,
+    ...(Array.isArray(client.name_aliases) ? client.name_aliases : []),
+  ]).map((value) => value.toLowerCase());
+  return { phones, emails, idNumber, names };
 }
 
 function buildExistingIndex(existingClients = []) {
@@ -51,7 +68,7 @@ function buildExistingIndex(existingClients = []) {
     key.phones.forEach((phone) => index.add(`p:${phone}`));
     key.emails.forEach((email) => index.add(`e:${email}`));
     if (key.idNumber) index.add(`id:${key.idNumber}`);
-    if (key.name) index.add(`n:${key.name}`);
+    key.names.forEach((name) => index.add(`n:${name}`));
   });
   return index;
 }
@@ -62,7 +79,7 @@ function hasDuplicate(index, client = {}) {
     key.phones.some((phone) => index.has(`p:${phone}`)) ||
     key.emails.some((email) => index.has(`e:${email}`)) ||
     (key.idNumber && index.has(`id:${key.idNumber}`)) ||
-    (key.name && index.has(`n:${key.name}`))
+    key.names.some((name) => index.has(`n:${name}`))
   );
 }
 
@@ -71,7 +88,7 @@ function addToIndex(index, client = {}) {
   key.phones.forEach((phone) => index.add(`p:${phone}`));
   key.emails.forEach((email) => index.add(`e:${email}`));
   if (key.idNumber) index.add(`id:${key.idNumber}`);
-  if (key.name) index.add(`n:${key.name}`);
+  key.names.forEach((name) => index.add(`n:${name}`));
 }
 
 function parseCsv(text = '') {
@@ -155,8 +172,11 @@ function googleContactToClient(row = {}) {
     row['Notes'] && `ملاحظات أصلية: ${row['Notes']}`,
   ]).join('\n');
 
+  const nameFields = detectNameFields(name);
+
   return {
     full_name: name,
+    ...nameFields,
     client_type: organization ? 'مؤسسة' : 'فرد',
     id_number: '',
     phone: phones[0] || '',
@@ -180,8 +200,12 @@ function employeeToClient(emp = {}) {
     emp.notes && `ملاحظات ملف الموظف السابق: ${stripRemovedBusinessTerms(emp.notes)}`,
   ]).join('\n');
 
+  const fullName = stripRemovedBusinessTerms(emp.fullName || emp.name || 'موظف سابق');
+  const nameFields = detectNameFields(fullName);
+
   return {
-    full_name: stripRemovedBusinessTerms(emp.fullName || emp.name || 'موظف سابق'),
+    full_name: fullName,
+    ...nameFields,
     client_type: 'فرد',
     id_number: cleanText(emp.emiratesId || emp.passportNo || ''),
     phone: cleanText(emp.phone || ''),

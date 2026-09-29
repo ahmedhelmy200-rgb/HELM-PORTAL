@@ -175,12 +175,17 @@ export default function Client360() {
             <div className="flex items-start gap-4 min-w-0">
               <div className="h-20 w-20 rounded-3xl bg-gradient-to-br from-primary/25 to-cyan-500/15 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden">
                 {client.avatar_url
-                  ? <img src={client.avatar_url} alt={client.full_name} className="h-full w-full object-cover" />
-                  : <span className="text-3xl font-black text-primary">{(client.full_name || "?")[0]}</span>}
+                  ? <img src={client.avatar_url} alt={client.name_ar || client.full_name} className="h-full w-full object-cover" />
+                  : <span className="text-3xl font-black text-primary">{(client.name_ar || client.full_name || "?")[0]}</span>}
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-2xl font-black text-foreground">{client.full_name}</h2>
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-black text-foreground">{client.name_ar || client.full_name}</h2>
+                    {client.name_en && (
+                      <p className="text-sm text-muted-foreground mt-1" dir="ltr">{client.name_en}</p>
+                    )}
+                  </div>
                   <StatusBadge status={client.status} />
                   <Badge className="bg-primary/12 text-primary border border-primary/20">{client.client_role || "موكل"}</Badge>
                   <Badge variant="outline">{client.client_type || "فرد"}</Badge>
@@ -231,6 +236,8 @@ export default function Client360() {
               <h3 className="font-black flex items-center gap-2 mb-4"><UserRound className="h-4 w-4 text-primary" />بيانات الموكل</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 {[
+                  ["الاسم بالعربية", client.name_ar || "—"],
+                  ["الاسم بالإنجليزية", client.name_en || "—"],
                   ["الصفة القانونية", client.client_role || "موكل"],
                   ["النوع", client.client_type || "—"],
                   ["الهاتف", client.phone || "—"],
@@ -240,6 +247,14 @@ export default function Client360() {
                 ].map(([label, value]) => <div key={label} className="rounded-xl bg-muted/30 p-3"><p className="text-[11px] text-muted-foreground">{label}</p><p className="font-bold mt-1 break-words">{value}</p></div>)}
               </div>
               {client.address && <div className="mt-3 rounded-xl bg-muted/30 p-3"><p className="text-[11px] text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />العنوان</p><p className="font-bold mt-1">{client.address}</p></div>}
+              {Array.isArray(client.name_aliases) && client.name_aliases.length > 0 && (
+                <div className="mt-3 rounded-xl bg-muted/30 p-3">
+                  <p className="text-[11px] text-muted-foreground">أسماء بديلة وتهجئات أخرى</p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {client.name_aliases.map((alias) => <Badge key={alias} variant="outline">{alias}</Badge>)}
+                  </div>
+                </div>
+              )}
               {client.notes && <div className="mt-3 rounded-xl border border-border p-3"><p className="text-[11px] text-muted-foreground">ملاحظات الملف</p><p className="text-sm leading-7 mt-1 whitespace-pre-wrap">{client.notes}</p></div>}
             </Card>
 

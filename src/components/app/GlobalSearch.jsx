@@ -12,7 +12,7 @@ import {
 
 const ENTITY_CONFIG = [
   { key: 'cases',     label: 'القضايا',    icon: Briefcase,   page: 'Cases',    fields: ['title','client_name','case_number','court'] },
-  { key: 'clients',   label: 'الموكلون',   icon: Users,       page: 'Clients',  fields: ['full_name','client_role','phone','email','id_number'] },
+  { key: 'clients',   label: 'الموكلون',   icon: Users,       page: 'Clients',  fields: ['name_ar','name_en','full_name','name_aliases','client_role','phone','email','id_number'] },
   { key: 'sessions',  label: 'الجلسات',    icon: CalendarDays,page: 'Sessions', fields: ['case_title','client_name','court'] },
   { key: 'documents', label: 'المستندات',  icon: FileText,    page: 'Documents',fields: ['title','file_name','client_name','case_title'] },
   { key: 'invoices',  label: 'الفواتير',   icon: Receipt,     page: 'Invoices', fields: ['invoice_number','client_name','case_title'] },
@@ -32,8 +32,12 @@ function highlight(text, query) {
 
 function ResultItem({ item, config, query, onClick }) {
   const Icon = config.icon
-  const primary   = item[config.fields[0]] || '—'
-  const secondary = config.fields.slice(1).map(f => item[f]).filter(Boolean).join(' · ')
+  const primary = config.key === 'clients'
+    ? (item.name_ar || item.full_name || item.name_en || '—')
+    : (item[config.fields[0]] || '—')
+  const secondary = config.key === 'clients'
+    ? [item.name_en && item.name_en !== primary ? item.name_en : null, item.phone, item.id_number].filter(Boolean).join(' · ')
+    : config.fields.slice(1).map(f => item[f]).filter(Boolean).join(' · ')
 
   return (
     <button
@@ -105,7 +109,7 @@ export default function GlobalSearch() {
       const all = await Promise.all(
         ENTITY_CONFIG.map(cfg =>
           (base44.entities[ENTITY_MAP[cfg.key]]
-            ? base44.entities[ENTITY_MAP[cfg.key]].list('-created_date', 200)
+            ? base44.entities[ENTITY_MAP[cfg.key]].list('-created_date', cfg.key === 'clients' ? 5000 : 200)
             : Promise.resolve([]))
             .then(rows => ({ cfg, rows: Array.isArray(rows) ? rows : [] }))
             .catch(() => ({ cfg, rows: [] }))
@@ -176,7 +180,7 @@ export default function GlobalSearch() {
             <div className="py-10 text-center space-y-2">
               <Search className="h-8 w-8 text-muted-foreground mx-auto opacity-40" />
               <p className="text-sm text-muted-foreground">ابدأ الكتابة للبحث في القضايا، الموكلين، الجلسات والمستندات</p>
-              <p className="text-xs text-muted-foreground opacity-60">يدعم البحث العربي بدون تشكيل</p>
+              <p className="text-xs text-muted-foreground opacity-60">يدعم الاسم العربي والإنجليزي والأسماء البديلة بدون تشكيل</p>
             </div>
           )}
 

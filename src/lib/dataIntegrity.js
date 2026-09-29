@@ -37,13 +37,25 @@ function asMoney(value) {
 
 export function clientIdentity(record = {}) {
   const row = record || {}
+  const names = [
+    row.full_name,
+    row.name_ar,
+    row.name_en,
+    ...(Array.isArray(row.name_aliases) ? row.name_aliases : []),
+  ].map(normalizeText).filter(Boolean)
   return {
     id: row.id || null,
     name: normalizeText(row.full_name),
+    names: [...new Set(names)],
     phone: normalizePhone(row.phone),
     email: normalizeEmail(row.email),
     idNumber: normalizeIdNumber(row.id_number),
   }
+}
+
+function isStrongLegalName(value = '') {
+  const normalized = normalizeText(value)
+  return normalized.length >= 12 && normalized.split(' ').filter(Boolean).length >= 3
 }
 
 export function findClientDuplicates(candidate, records = [], ignoreId = null) {
@@ -58,8 +70,10 @@ export function findClientDuplicates(candidate, records = [], ignoreId = null) {
       if (current.idNumber && current.idNumber === other.idNumber) matchedFields.push('رقم الهوية')
       if (current.email && current.email === other.email) matchedFields.push('البريد الإلكتروني')
       if (current.phone && current.phone === other.phone) matchedFields.push('رقم الهاتف')
-      if (current.name && current.name === other.name) matchedFields.push('الاسم')
-      const strongMatch = matchedFields.some((field) => field !== 'الاسم') || matchedFields.length >= 2
+      const sharedName = current.names.find((name) => other.names.includes(name))
+      if (sharedName) matchedFields.push('الاسم / اسم بديل')
+      const strongNameMatch = Boolean(sharedName && isStrongLegalName(sharedName))
+      const strongMatch = matchedFields.some((field) => field !== 'الاسم / اسم بديل') || strongNameMatch || matchedFields.length >= 2
       return strongMatch ? { record, matchedFields } : null
     })
     .filter(Boolean)
@@ -73,6 +87,7 @@ export function buildClientDuplicateGroups(records = []) {
     if (identity.idNumber) keys.push(`id:${identity.idNumber}`)
     if (identity.email) keys.push(`email:${identity.email}`)
     if (identity.phone) keys.push(`phone:${identity.phone}`)
+    identity.names.filter(isStrongLegalName).forEach((name) => keys.push(`name:${name}`))
     keys.forEach((key) => {
       if (!links.has(key)) links.set(key, [])
       links.get(key).push(record)

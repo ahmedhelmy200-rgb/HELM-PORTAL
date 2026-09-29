@@ -27,6 +27,9 @@ import { createPageUrl } from "@/utils";
 
 const emptyForm = {
   full_name: "",
+  name_ar: "",
+  name_en: "",
+  name_aliases: [],
   client_type: "فرد",
   client_role: "موكل",
   id_number: "",
@@ -59,6 +62,11 @@ function cleanClientPayload(value = {}) {
   const source = { ...emptyForm, ...(value || {}) };
   return {
     full_name: String(source.full_name || "").trim(),
+    name_ar: String(source.name_ar || "").trim(),
+    name_en: String(source.name_en || "").trim(),
+    name_aliases: Array.isArray(source.name_aliases)
+      ? source.name_aliases.map((item) => String(item || "").trim()).filter(Boolean)
+      : String(source.name_aliases || "").split(/[،,\n]/).map((item) => item.trim()).filter(Boolean),
     client_type: source.client_type || "فرد",
     client_role: source.client_role || "موكل",
     id_number: String(source.id_number || "").trim(),
@@ -91,6 +99,7 @@ export default function Clients() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [activeTab, setTab] = useState("all");
+  const [nameMode, setNameMode] = useState("all");
   const [page, setPage] = useState(1);
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState("");
@@ -250,6 +259,10 @@ export default function Clients() {
       successRate: success.rate,
       decidedCases: success.decided,
       isDuplicate: duplicateClientIds.has(client.id),
+      hasArabicName: Boolean(String(client.name_ar || "").trim()),
+      hasEnglishName: Boolean(String(client.name_en || "").trim()),
+      needsNameReview: !String(client.name_ar || "").trim()
+        && /[A-Za-z0-9]/.test(String(client.full_name || "")),
     };
   }), [allClients, cases, sessions, documents, invoices, duplicateClientIds]);
 
@@ -266,12 +279,18 @@ export default function Clients() {
   }), [metrics, duplicateClientIds, ratedMetrics]);
 
   const filtered = useMemo(() => metrics.filter((client) => {
-    if (!searchInFields(client, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search)) return false;
+    if (!searchInFields(client, ["full_name", "name_ar", "name_en", "name_aliases", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search)) return false;
+
+    if (nameMode === "bilingual" && !(client.hasArabicName && client.hasEnglishName)) return false;
+    if (nameMode === "arabic" && !(client.hasArabicName && !client.hasEnglishName)) return false;
+    if (nameMode === "english" && !(client.hasEnglishName && !client.hasArabicName)) return false;
+    if (nameMode === "review" && !client.needsNameReview) return false;
+
     if (activeTab === "active") return client.status === "نشط";
     if (activeTab === "neglected") return client.isNeglected;
     if (activeTab === "duplicates") return client.isDuplicate;
     return true;
-  }), [metrics, search, activeTab]);
+  }), [metrics, search, activeTab, nameMode]);
 
   const pagedClients = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -284,7 +303,7 @@ export default function Clients() {
       .map((group) => ({
         ...group,
         records: group.records.filter((record) =>
-          searchInFields(record, ["full_name", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search),
+          searchInFields(record, ["full_name", "name_ar", "name_en", "name_aliases", "phone", "email", "id_number", "address", "nationality", "client_role", "client_type"], search),
         ),
       }))
       .filter((group) => group.records.length > 0);
@@ -297,7 +316,7 @@ export default function Clients() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, activeTab]);
+  }, [search, activeTab, nameMode]);
 
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -308,11 +327,12 @@ export default function Clients() {
     if (key.startsWith("id:")) return "تطابق رقم الهوية / السجل";
     if (key.startsWith("email:")) return "تطابق البريد الإلكتروني";
     if (key.startsWith("phone:")) return "تطابق رقم الهاتف";
+    if (key.startsWith("name:")) return "تطابق الاسم / اسم بديل";
     return "تطابق بيانات";
   };
 
   const sendWhatsApp = (client) => {
-    const message = encodeURIComponent(`مرحباً ${client.full_name}، نود متابعة ملفكم القانوني.`);
+    const message = encodeURIComponent(`مرحباً ${client.name_ar || client.full_name}، نود متابعة ملفكم القانوني.`);
     if (client.phone) window.open(`https://wa.me/${client.phone.replace(/\D+/g, "")}?text=${message}`, "_blank");
   };
 
@@ -375,15 +395,37 @@ export default function Clients() {
         <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input ref={searchRef} placeholder="بحث بالاسم أو الهاتف أو الهوية أو البريد..." value={search} onChange={(event) => setSearch(event.target.value)} className="pr-10 h-11" />
+            <Input ref={searchRef} placeholder="بحث بالاسم العربي أو الإنجليزي أو الهاتف أو الهوية أو البريد..." value={search} onChange={(event) => setSearch(event.target.value)} className="pr-10 h-11" />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {tabs.map((tab) => (
-              <Button key={tab.key} variant={activeTab === tab.key ? "default" : "outline"} className="rounded-full h-9 gap-1.5" onClick={() => { setTab(tab.key); setPage(1); }}>
-                {tab.label}<span className="opacity-70 text-xs">{tab.count}</span>
-              </Button>
-            ))}
-            <span className="px-2 text-xs font-bold text-muted-foreground">المعروض {filtered.length}</span>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {tabs.map((tab) => (
+                <Button key={tab.key} variant={activeTab === tab.key ? "default" : "outline"} className="rounded-full h-9 gap-1.5" onClick={() => { setTab(tab.key); setPage(1); }}>
+                  {tab.label}<span className="opacity-70 text-xs">{tab.count}</span>
+                </Button>
+              ))}
+              <span className="px-2 text-xs font-bold text-muted-foreground">المعروض {filtered.length}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                ["all", "كل الأسماء"],
+                ["bilingual", "عربي + إنجليزي"],
+                ["arabic", "عربي فقط"],
+                ["english", "إنجليزي فقط"],
+                ["review", "يحتاج مراجعة"],
+              ].map(([key, label]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  size="sm"
+                  variant={nameMode === key ? "secondary" : "ghost"}
+                  className="rounded-full h-8 text-xs"
+                  onClick={() => { setNameMode(key); setPage(1); }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </Card>
@@ -468,10 +510,15 @@ export default function Clients() {
                 <div className="p-5">
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-primary font-black text-lg">{(client.full_name || "?")[0]}</div>
+                    <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 text-primary font-black text-lg">{(client.name_ar || client.full_name || "?")[0]}</div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-foreground">{client.full_name}</h3>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-foreground truncate">{client.name_ar || client.full_name}</h3>
+                          {client.name_en && client.name_en !== client.name_ar && (
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5" dir="ltr">{client.name_en}</p>
+                          )}
+                        </div>
                         <StatusBadge status={client.status} />
                         {client.isNeglected && <Badge className="bg-warning/15 text-warning border-warning/20 text-[10px]">مهمل</Badge>}
                         {client.isDuplicate && <Badge className="bg-amber-200 text-amber-900 border-0 text-[10px]">محتمل التكرار</Badge>}
@@ -529,7 +576,10 @@ export default function Clients() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader><DialogTitle>{editing ? "تعديل بيانات الموكل" : "إضافة موكل جديد"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-            <div className="space-y-1 md:col-span-2"><Label>الاسم الكامل *</Label><Input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} className="h-11" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>الاسم الكامل الأساسي *</Label><Input value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} className="h-11" /></div>
+            <div className="space-y-1"><Label>الاسم بالعربية</Label><Input value={form.name_ar || ""} onChange={(event) => setForm({ ...form, name_ar: event.target.value })} className="h-11" placeholder="مثال: أحمد محمد علي" /></div>
+            <div className="space-y-1"><Label>الاسم بالإنجليزية</Label><Input value={form.name_en || ""} onChange={(event) => setForm({ ...form, name_en: event.target.value })} className="h-11" dir="ltr" placeholder="Ahmed Mohamed Ali" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>أسماء بديلة / تهجئات أخرى</Label><Input value={Array.isArray(form.name_aliases) ? form.name_aliases.join("، ") : (form.name_aliases || "")} onChange={(event) => setForm({ ...form, name_aliases: event.target.value })} className="h-11" placeholder="افصل بين الأسماء بفاصلة" /></div>
             <div className="space-y-1"><Label>نوع الموكل</Label><ChoiceInput value={form.client_type} onChange={(value) => setForm({ ...form, client_type: value })} options={CLIENT_TYPES} listId="cl-types" /></div>
             <div className="space-y-1"><Label>الصفة القانونية الشاملة</Label><ChoiceInput value={form.client_role} onChange={(value) => setForm({ ...form, client_role: value })} options={CLIENT_ROLES} listId="cl-roles" /></div>
             <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={CLIENT_STATUSES} listId="cl-status" /></div>

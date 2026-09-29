@@ -28,7 +28,7 @@ const ENTITY_ICONS = {
 }
 
 const ENTITY_RESTORE_FIELDS = {
-  Client  : ['full_name','phone','email','client_type','client_role','nationality','address','notes','status','id_number'],
+  Client  : ['full_name','name_ar','name_en','name_aliases','phone','email','client_type','client_role','nationality','address','notes','status','id_number'],
   Case    : ['title','client_id','client_name','case_number','case_type','status','court','judge','assigned_lawyer','priority','description','fees','paid_amount','opponent_name','opponent_lawyer','filing_date'],
   Session : ['case_title','case_id','case_number','client_id','client_name','session_date','court','hall','session_type','status','result','notes','next_session_date'],
   Document: ['title','client_id','client_name','case_id','case_title','doc_type','folder','status','notes','file_url','file_name'],
@@ -57,7 +57,7 @@ function getEntityLabel(entry) {
 
 function getDisplayName(entry) {
   const r = getRecord(entry)
-  return r.full_name || r.title || r.invoice_number || r.case_title || '—'
+  return r.name_ar || r.full_name || r.name_en || r.title || r.invoice_number || r.case_title || '—'
 }
 
 function getSub(entry) {

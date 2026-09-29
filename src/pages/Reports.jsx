@@ -164,7 +164,7 @@ export default function Reports() {
   const revenue = useMemo(() => {
     const totalBilled   = raw.invoices.reduce((s, i) => s + getInvoiceTotals(i).total, 0)
     const totalCollected= raw.invoices.reduce((s, i) => s + getInvoiceTotals(i).paid,  0)
-    const totalExpenses = raw.expenses.reduce((s, e) => s + (e.amount || 0), 0)
+    const totalExpenses = raw.expenses.reduce((s, e) => s + Number(e.amount || 0), 0)
     const overdueInvs   = raw.invoices.filter(i => i.status === "متأخرة")
     const overdueAmt    = overdueInvs.reduce((s, i) => s + getInvoiceTotals(i).remaining, 0)
     const net           = totalCollected - totalExpenses
@@ -192,7 +192,7 @@ export default function Reports() {
       const d = (exp.expense_date || exp.created_date) ? new Date(exp.expense_date || exp.created_date) : null
       if (!d) return
       const idx = months.findIndex(m => m.mo === d.getMonth() && m.yr === d.getFullYear())
-      if (idx >= 0) months[idx]["مصاريف"] += exp.amount || 0
+      if (idx >= 0) months[idx]["مصاريف"] += Number(exp.amount || 0)
     })
     return months.map(m => ({ ...m, بلغ: Math.round(m["بلغ"]), محصّل: Math.round(m["محصّل"]), مصاريف: Math.round(m["مصاريف"]) }))
   }, [raw.invoices, raw.expenses, period])

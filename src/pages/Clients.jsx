@@ -327,6 +327,7 @@ export default function Clients() {
     if (key.startsWith("id:")) return "تطابق رقم الهوية / السجل";
     if (key.startsWith("email:")) return "تطابق البريد الإلكتروني";
     if (key.startsWith("phone:")) return "تطابق رقم الهاتف";
+    if (key.startsWith("name:")) return "تطابق الاسم / اسم بديل";
     return "تطابق بيانات";
   };
 

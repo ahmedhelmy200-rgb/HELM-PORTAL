@@ -38,6 +38,15 @@ export function buildPaymentUrl(invoiceId, baseUrl) {
   return `${base}/Payment?token=${token}`
 }
 
+// الرابط الآمن الجديد: token عشوائي مخزّن مع الفاتورة في قاعدة البيانات.
+// لا يحتوي الرابط على invoice_id ولا يمكن اشتقاق المعرّف منه.
+export function buildSecurePaymentUrl(paymentToken, baseUrl) {
+  const token = String(paymentToken || '').trim()
+  if (!token) return ''
+  const base = baseUrl || (typeof window !== 'undefined' ? window.location.origin : '')
+  return `${base}/Payment?token=${encodeURIComponent(token)}`
+}
+
 // رسالة واتساب مع رابط الدفع
 export function buildPaymentWhatsAppMessage(invoice, paymentUrl, officeSettings = {}) {
   const { remaining } = getInvoiceTotals(invoice)

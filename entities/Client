@@ -54,6 +54,21 @@
       "type": "string",
       "default": "موكل",
       "description": "الصفة القانونية الشاملة للموكل أو الشخص المرتبط بالملف"
+    },
+    "name_ar": {
+      "type": "string",
+      "description": "الاسم العربي المعتمد للعرض والبحث"
+    },
+    "name_en": {
+      "type": "string",
+      "description": "الاسم الإنجليزي / اللاتيني للبحث والمطابقة"
+    },
+    "name_aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "أسماء بديلة وتهجئات أخرى للموكل"
     }
   },
   "required": [

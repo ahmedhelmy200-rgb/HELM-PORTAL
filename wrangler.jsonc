@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "helm-portal",
+  "name": "helm-protal",
   "compatibility_date": "2026-07-26",
   "assets": {
     "directory": "./dist",

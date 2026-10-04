@@ -97,7 +97,9 @@ export default function ArchivePage() {
       try {
         const result = await migrateLocalStorageToSupabase()
         if (mounted && result?.migrated > 0) setMigrated(true)
-      } catch {}
+      } catch {
+        // فشل الترحيل لا يمنع فتح الأرشيف المخزّن في المصدر الحالي.
+      }
       if (mounted) await reload()
     })()
     return () => { mounted = false }

@@ -53,7 +53,9 @@ function ThemesPanel({ settings, setSettings }) {
 
     try {
       window.dispatchEvent(new CustomEvent('helm:appearance-change', { detail: nextAppearance }))
-    } catch {}
+    } catch {
+      // دعم المتصفحات القديمة التي لا توفّر CustomEvent كاملًا.
+    }
   }
 
   const handleSelect = (themeId) => {
@@ -69,7 +71,9 @@ function ThemesPanel({ settings, setSettings }) {
           theme_mode: applied.resolvedTheme,
         },
       }))
-    } catch {}
+    } catch {
+      // تم تطبيق الثيم محليًا بالفعل؛ تعذّر بث الحدث لا يوقف الحفظ.
+    }
     playUiTone('save', true)
   }
 
@@ -207,7 +211,9 @@ function SoundsPanel({ settings, setSettings }) {
     }))
     try {
       window.dispatchEvent(new CustomEvent('helm:appearance-change', { detail: patch }))
-    } catch {}
+    } catch {
+      // التفضيلات محفوظة محليًا حتى إذا تعذّر بث الحدث.
+    }
   }
 
   const handleTheme = (id) => {
@@ -322,7 +328,7 @@ function SoundsPanel({ settings, setSettings }) {
 }
 
 
-import { applyVisualIdentity } from "@/lib/theme";
+import { applyVisualIdentity, AVAILABLE_APP_FONTS } from "@/lib/theme";
 import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
 import { useAuth } from "@/lib/AuthContext";
 import { appParams } from "@/lib/app-params";
@@ -342,7 +348,7 @@ const Field = ({ label, icon, children }) => {
 };
 
 // Upload button component
-const UploadArea = ({ label, value, onUpload, uploading, accept = "image/*" }) => (
+const UploadArea = ({ label, value, onUpload, uploading }) => (
   <div className="border-2 border-dashed border-border rounded-xl p-5 text-center hover:border-primary/50 transition-colors bg-muted/30">
     {value ? (
       <div className="flex flex-col items-center gap-3">
@@ -834,7 +840,7 @@ const exportAllData = async () => {
                 </Field>
                 <Field label="خط التطبيق" icon={Type}>
                   <div className="flex gap-2 flex-wrap">
-                    {["Cairo","Tajawal","Amiri","IBM Plex Sans Arabic","Noto Sans Arabic","Readex Pro","El Messiri","Changa","Almarai"].map(font => (
+                    {AVAILABLE_APP_FONTS.map(font => (
                       <button key={font} onClick={() => set("app_font", font)}
                         className={`px-3 py-2 rounded-lg text-sm border transition-all ${settings.app_font === font ? "bg-primary text-white border-primary" : "bg-background border-border hover:border-primary/50"}`}
                         style={{ fontFamily: font }}
@@ -1261,7 +1267,7 @@ const exportAllData = async () => {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    للتفعيل الكامل: سجّل الدخول من زر "مزامنة مع Google" في صفحة الجلسات
+                    للتفعيل الكامل: سجّل الدخول من زر «مزامنة مع Google» في صفحة الجلسات
                   </p>
                   <Button variant="outline" size="sm" className="w-full text-xs gap-1.5"
                     onClick={async () => {

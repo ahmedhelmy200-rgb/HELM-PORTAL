@@ -185,7 +185,7 @@ export default function Documents() {
       {ocrSearch && search && ocrMatchCount > 0 && (
         <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm text-primary flex items-center gap-2">
           <ScanText className="h-4 w-4" />
-          تم العثور على <strong>{ocrMatchCount}</strong> مستند يحتوي على "<strong>{search}</strong>" في نص المستند
+          تم العثور على <strong>{ocrMatchCount}</strong> مستند يحتوي على «<strong>{search}</strong>» في نص المستند
         </div>
       )}
 

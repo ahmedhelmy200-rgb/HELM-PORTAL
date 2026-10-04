@@ -122,7 +122,7 @@ export default function SupabaseSetup() {
     // 3. فحص وجود bucket
     setCheck('bucket', STATUS.LOADING)
     try {
-      const { data: bucketData, error: bucketErr } = await supabase.storage.getBucket(bucketName)
+      const { data: bucketData } = await supabase.storage.getBucket(bucketName)
       if (bucketData) {
         const sizeMB = bucketData.file_size_limit ? `${Math.round(bucketData.file_size_limit / 1024 / 1024)} MB` : 'غير محدد'
         setCheck(

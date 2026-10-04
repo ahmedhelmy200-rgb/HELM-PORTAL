@@ -29,7 +29,6 @@ export default function Invoices() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isClient = user?.role === "client";
-  const [invoices, setInvoices] = useState([]);
   const [allInvoices, setAllInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [officeSettings, setOfficeSettings] = useState(null);
@@ -58,7 +57,6 @@ export default function Invoices() {
         base44.entities.OfficeSettings.list(),
       ]);
       const safeInvoices = Array.isArray(allRows) ? allRows : [];
-      setInvoices(safeInvoices);
       setAllInvoices(safeInvoices);
       setClients(Array.isArray(clientRows) ? clientRows : []);
       setOfficeSettings(officeRows?.[0] || null);
@@ -258,6 +256,7 @@ export default function Invoices() {
           onSendReminder={handleSendReminder}
           onOpenClient={(row) => row.client_id && navigate(createPageUrl("Client360") + `?id=${row.client_id}`)}
           officeSettings={officeSettings}
+          clientPhone={resolveInvoiceClient(invoice).phone || ''}
           isClient={isClient}
         /></div>)}</div>
         <PaginationControls page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />

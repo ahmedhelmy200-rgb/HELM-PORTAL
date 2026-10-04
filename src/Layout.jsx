@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Briefcase, Users, CalendarDays, FileText, CheckSquare,
   Bell, Menu, X, LogOut, Receipt, BookOpen, Settings, Wallet, BarChart2, MessageCircle,
   Archive, Search as SearchIcon, MoonStar, SunMedium, Volume2, VolumeX, Zap,
-  Landmark, ArrowRight, MonitorCog, BrainCircuit, Megaphone, Globe2
+  Landmark, ArrowRight, MonitorCog, BrainCircuit, Megaphone, Globe2, HandCoins
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,7 @@ const staffNavItems = [
   { label: "المستندات", page: "Documents", icon: FileText, fx: "nav-fx-spark" },
   { label: "المهام", page: "Tasks", icon: CheckSquare, fx: "nav-fx-tilt" },
   { label: "الفواتير", page: "Invoices", icon: Receipt, fx: "nav-fx-breathe" },
+  { label: "مركز التحصيل", page: "Collections", icon: HandCoins, fx: "nav-fx-shift" },
   { label: "المصاريف", page: "Expenses", icon: Wallet, fx: "nav-fx-shift" },
   { label: "النماذج القانونية", page: "LegalTemplates", icon: BookOpen, fx: "nav-fx-float" },
   { label: "مركز التواصل", page: "Communications", icon: MessageCircle, fx: "nav-fx-breathe" },
@@ -112,7 +113,9 @@ export default function Layout({ children, currentPageName }) {
   const resolvedTheme = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference
   const isPrimaryMobilePage = mobileTabs.some((item) => item.page === currentPageName)
   const shouldShowBack = !isPrimaryMobilePage
-  const currentPageLabel = currentPageName === "Client360" ? "الملف الشامل للموكل" : currentPageName
+  const currentPageLabel = currentPageName === "Client360"
+    ? "الملف الشامل للموكل"
+    : navItems.find((item) => item.page === currentPageName)?.label || currentPageName
   const officeName = officeSettings?.office_name || appPublicSettings?.office_name || "مكتب المستشار أحمد حلمي"
   const logoUrl = officeSettings?.logo_url || appPublicSettings?.logo_url || null
   const themeMeta = themePreference === "system"
@@ -304,7 +307,7 @@ export default function Layout({ children, currentPageName }) {
 
   const LogoMark = ({ compact = false }) => (
     <div className={cn(compact ? "h-9 w-9 rounded-xl" : "h-11 w-11 rounded-2xl", "bg-white/10 flex items-center justify-center shrink-0 ring-1 ring-white/10 overflow-hidden")}>
-      {logoUrl ? <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1.5" /> : <img src="/icon-192.png" alt="HELM Portal" className={compact ? "h-6 w-6 object-contain" : "h-8 w-8 object-contain"} onError={(e) => { e.currentTarget.style.display = 'none' }} />}
+      {logoUrl ? <img src={logoUrl} alt="HELM Portal" className="h-full w-full object-contain p-1.5" /> : <img src="/icon-192.webp" alt="HELM Portal" className={compact ? "h-6 w-6 object-contain" : "h-8 w-8 object-contain"} onError={(e) => { e.currentTarget.style.display = 'none' }} />}
     </div>
   )
 
@@ -339,6 +342,7 @@ export default function Layout({ children, currentPageName }) {
       <div className="hidden md:flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-2xl border border-white/10 bg-slate-950/45 backdrop-blur-xl shadow-[0_12px_34px_rgba(2,8,23,.22)]">
         <div className="flex items-center gap-3 min-w-0"><LogoMark /><div className="min-w-0 text-right"><p className="text-[11px] text-sky-200/70 leading-tight">HELM Portal</p><h2 className="text-white font-extrabold text-base leading-tight truncate">{officeName}</h2></div></div>
         <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => window.dispatchEvent(new Event(GLOBAL_SEARCH_EVENT))} className="control-chip min-w-[108px] justify-center" title="بحث شامل (Ctrl+K)"><SearchIcon className="h-4 w-4" /><span>بحث شامل</span><kbd className="rounded border border-white/10 bg-white/5 px-1 text-[9px] text-white/45">Ctrl K</kbd></button>
           <NotificationTopButton />
           <button onClick={handleThemeToggle} className="control-chip min-w-[92px]" title="تبديل الثيم"><ThemeIcon className="h-4 w-4" /><span>{themeMeta.label}</span></button>
           <button onClick={handleSoundToggle} className="control-chip min-w-[84px]">{soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}<span>{soundEnabled ? "الصوت" : "صامت"}</span></button>

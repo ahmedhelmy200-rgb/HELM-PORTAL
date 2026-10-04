@@ -17,6 +17,7 @@ import {
   Upload,
   Users,
   Wallet,
+  HandCoins,
 } from 'lucide-react'
 
 import { base44 } from '@/api/base44Client'
@@ -31,6 +32,7 @@ import StatusBadge from '@/components/helm/StatusBadge'
 import ClientContactCard from '@/components/helm/ClientContactCard'
 import { PageErrorState } from '@/components/app/AppStatusBar'
 import { getInvoiceTotals } from '@/lib/invoiceMath'
+import { buildCollectionsSummary } from '@/lib/collections'
 import { checkAndCreateReminders } from '@/components/helm/NotificationBell'
 
 function safeFmt(value, pattern, fallback = '—') {
@@ -303,6 +305,8 @@ export default function DashboardOptimized() {
     return { total, paid, remaining, overdueCount: overdue.length, expenses, netCollected }
   }, [data.invoices, data.expenses])
 
+  const collectionsSummary = useMemo(() => buildCollectionsSummary(data.invoices), [data.invoices])
+
   const revenueChart = useMemo(() => {
     const months = Array.from({ length: 6 }, (_, index) => {
       const d = subMonths(now, 5 - index)
@@ -432,6 +436,17 @@ export default function DashboardOptimized() {
         <StatCard title="المصاريف" value={`${fmtMoney(invoiceStats.expenses)} د.إ`} icon={Wallet} color="warning" to="Expenses" subtitle={`${data.totals.expenses} قيد`} />
         <StatCard title="صافي المحصل" value={`${fmtMoney(invoiceStats.netCollected)} د.إ`} icon={TrendingUp} color={invoiceStats.netCollected >= 0 ? "success" : "warning"} to="Reports" subtitle="المحصّل ناقص المصاريف" />
       </div>
+
+      <Link
+        to={createPageUrl('Collections')}
+        className={`group flex flex-col gap-4 rounded-3xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-xl sm:flex-row sm:items-center sm:justify-between ${collectionsSummary.overdueCount > 0 ? 'border-red-400/20 bg-red-500/8' : 'border-emerald-400/20 bg-emerald-500/8'}`}
+      >
+        <span className="flex items-start gap-3">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${collectionsSummary.overdueCount > 0 ? 'bg-red-500/15 text-red-300' : 'bg-emerald-500/15 text-emerald-300'}`}><HandCoins className="h-5 w-5" /></span>
+          <span><b className="block text-white">نبض التحصيل</b><span className="mt-1 block text-sm text-white/50">{collectionsSummary.overdueCount > 0 ? `${collectionsSummary.overdueCount} فاتورة متأخرة بقيمة ${fmtMoney(collectionsSummary.overdueAmount)} د.إ` : 'لا توجد فواتير متأخرة حاليًا'}</span></span>
+        </span>
+        <span className="inline-flex items-center gap-2 text-sm font-bold text-sky-300">فتح مركز التحصيل <span className="transition-transform group-hover:-translate-x-1">←</span></span>
+      </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="dashboard-card-elevated rounded-3xl p-5 text-white">

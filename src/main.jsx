@@ -6,7 +6,9 @@ import '@/readability.css'
 import '@/polish.css'
 import { installGlobalImageRecovery } from '@/lib/imageRecovery'
 import { installCaseResultSchemaFallback } from '@/lib/installCaseResultFallback'
+import { ensureAppFont } from '@/lib/theme'
 
+ensureAppFont('Cairo')
 installGlobalImageRecovery()
 installCaseResultSchemaFallback()
 

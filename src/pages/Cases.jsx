@@ -61,10 +61,10 @@ const emptyForm = {
 
 function stripLegacyBrokerFields(value = {}) {
   const {
-    broker_id,
-    broker_name,
-    broker_commission_percent,
-    broker_commission_amount,
+    broker_id: _brokerId,
+    broker_name: _brokerName,
+    broker_commission_percent: _brokerCommissionPercent,
+    broker_commission_amount: _brokerCommissionAmount,
     ...rest
   } = value || {};
   return rest;

@@ -82,7 +82,7 @@ describe('findClientDuplicates (منع تكرار الموكلين)', () => {
       { full_name: 'أحمد حلمي', phone: '0501234567' },
       existing
     )
-    expect(result[0].matchedFields).toEqual(expect.arrayContaining(['الاسم', 'رقم الهاتف']))
+    expect(result[0].matchedFields).toEqual(expect.arrayContaining(['الاسم / اسم بديل', 'رقم الهاتف']))
   })
 
   it('يستثني السجل الحالي عند التعديل (ignoreId)', () => {

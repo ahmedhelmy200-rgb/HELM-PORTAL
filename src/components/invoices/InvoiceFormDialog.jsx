@@ -44,7 +44,7 @@ const PORTAL_SCOPE_OPTIONS = [
 ];
 
 function stripScopeFields(payload) {
-  const { portal_scope, business_unit, ...rest } = payload;
+  const { portal_scope: _portalScope, business_unit: _businessUnit, ...rest } = payload;
   return rest;
 }
 

@@ -28,7 +28,7 @@ img[src*="logo"] {
 .helm-logo-box {
   background-color: #f8fafc !important;
   background-image:
-    url('/icon-192.png'),
+    url('/icon-192.webp'),
     linear-gradient(135deg, rgba(255,255,255,.96), rgba(226,232,240,.92)) !important;
   background-position: center, center !important;
   background-repeat: no-repeat, no-repeat !important;

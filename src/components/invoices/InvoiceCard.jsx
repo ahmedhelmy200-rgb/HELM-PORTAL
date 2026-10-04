@@ -35,6 +35,7 @@ export default function InvoiceCard({
   onSendReminder,
   onOpenClient,
   officeSettings,
+  clientPhone = '',
   isClient = false,
   readOnly = false,
 }) {
@@ -61,14 +62,7 @@ export default function InvoiceCard({
   const handleSendPaymentWhatsApp = () => {
     if (!paymentUrl) return;
     const msg = buildPaymentWhatsAppMessage(invoice, paymentUrl, officeSettings);
-    const phone = String(
-      (officeSettings
-        ? (() => {
-            // نحاول إيجاد رقم الموكل من clientLookup إذا متاح
-            return "";
-          })()
-        : "") || ""
-    ).replace(/\D+/g, "");
+    const phone = String(clientPhone || '').replace(/\D+/g, '');
     const encoded = encodeURIComponent(msg);
     window.open(phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`, "_blank");
   };

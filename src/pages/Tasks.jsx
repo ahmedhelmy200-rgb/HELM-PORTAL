@@ -136,7 +136,6 @@ export default function Tasks() {
   }), [tasks, clientLookup, search, statusFilter]);
 
   const taskStats = useMemo(() => {
-    const now = new Date();
     return {
       open: tasks.filter((task) => task.status !== "مكتملة").length,
       today: tasks.filter((task) => task.status !== "مكتملة" && task.due_date && isToday(new Date(task.due_date))).length,

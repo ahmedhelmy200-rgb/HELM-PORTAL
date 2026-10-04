@@ -16,6 +16,7 @@ import {
 import PageHeader from "../components/helm/PageHeader";
 import EmptyState from "../components/helm/EmptyState";
 import GenerateDocumentDialog from "../components/helm/GenerateDocumentDialog";
+import { PageErrorState } from "@/components/app/AppStatusBar";
 
 const CATEGORIES = ["عقود", "صحائف دعوى", "مذكرات", "توكيلات", "مراسلات", "إشعارات", "اتفاقيات", "أخرى"];
 const CASE_TYPES = ["عام", "مدني", "جزائي", "تجاري", "عمالي", "أسري", "إداري", "عقاري"];
@@ -337,9 +338,15 @@ export default function LegalTemplates() {
 
   const loadTemplates = async () => {
     setLoading(true);
-    const data = await base44.entities.LegalTemplate.list("-created_date");
-    setTemplates(data);
-    setLoading(false);
+    setLoadError("");
+    try {
+      const data = await base44.entities.LegalTemplate.list("-created_date");
+      setTemplates(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setLoadError(error?.message || "تعذّر تحميل النماذج القانونية.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -457,6 +464,8 @@ export default function LegalTemplates() {
         <div className="flex items-center justify-center h-48">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
         </div>
+      ) : loadError ? (
+        <PageErrorState title="تعذّر تحميل النماذج القانونية" message={loadError} onRetry={loadTemplates} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={BookOpen}

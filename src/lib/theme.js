@@ -1,4 +1,73 @@
 const THEME_PREF_KEY = 'helm_theme_preference';
+const FONT_STYLESHEET_ID = 'helm-app-font';
+
+// قائمة مغلقة تمنع حقن عناوين خارجية من قيمة app_font المخزّنة في القاعدة.
+// لا نحمّل العائلات التسع معًا: يتم تنزيل الخط المختار فقط عند الحاجة.
+export const AVAILABLE_APP_FONTS = Object.freeze([
+  'Cairo',
+  'Tajawal',
+  'Amiri',
+  'IBM Plex Sans Arabic',
+  'Noto Sans Arabic',
+  'Readex Pro',
+  'El Messiri',
+  'Changa',
+  'Almarai',
+]);
+
+const FONT_QUERIES = Object.freeze({
+  Cairo: 'Cairo:wght@300;400;500;600;700;800',
+  Tajawal: 'Tajawal:wght@300;400;500;700;800',
+  Amiri: 'Amiri:wght@400;700',
+  'IBM Plex Sans Arabic': 'IBM+Plex+Sans+Arabic:wght@300;400;500;600;700',
+  'Noto Sans Arabic': 'Noto+Sans+Arabic:wght@300;400;500;600;700',
+  'Readex Pro': 'Readex+Pro:wght@300;400;500;600;700',
+  'El Messiri': 'El+Messiri:wght@400;500;600;700',
+  Changa: 'Changa:wght@300;400;500;600;700',
+  Almarai: 'Almarai:wght@300;400;700;800',
+});
+
+export function normalizeAppFont(value) {
+  const font = String(value || '').trim();
+  return AVAILABLE_APP_FONTS.includes(font) ? font : 'Cairo';
+}
+
+export function getGoogleFontStylesheetUrl(value) {
+  const font = normalizeAppFont(value);
+  return `https://fonts.googleapis.com/css2?family=${FONT_QUERIES[font]}&display=swap`;
+}
+
+export function ensureAppFont(value) {
+  const font = normalizeAppFont(value);
+  if (typeof document === 'undefined') return font;
+
+  if (!document.querySelector('link[data-helm-font-preconnect="google"]')) {
+    const google = document.createElement('link');
+    google.rel = 'preconnect';
+    google.href = 'https://fonts.googleapis.com';
+    google.dataset.helmFontPreconnect = 'google';
+    document.head.appendChild(google);
+  }
+  if (!document.querySelector('link[data-helm-font-preconnect="gstatic"]')) {
+    const gstatic = document.createElement('link');
+    gstatic.rel = 'preconnect';
+    gstatic.href = 'https://fonts.gstatic.com';
+    gstatic.crossOrigin = 'anonymous';
+    gstatic.dataset.helmFontPreconnect = 'gstatic';
+    document.head.appendChild(gstatic);
+  }
+
+  let stylesheet = document.getElementById(FONT_STYLESHEET_ID);
+  if (!stylesheet) {
+    stylesheet = document.createElement('link');
+    stylesheet.id = FONT_STYLESHEET_ID;
+    stylesheet.rel = 'stylesheet';
+    document.head.appendChild(stylesheet);
+  }
+  const href = getGoogleFontStylesheetUrl(font);
+  if (stylesheet.href !== href) stylesheet.href = href;
+  return font;
+}
 
 export function getStoredThemePreference() {
   if (typeof window === 'undefined') return 'system';
@@ -86,7 +155,7 @@ export function applyVisualIdentity(settings = {}, resolvedTheme = 'dark') {
   const primary = normalizeHex(settings.primary_color, primaryDefault);
   const accent = normalizeHex(settings.secondary_color, accentDefault);
   const sidebar = normalizeHex(settings.sidebar_color, sidebarDefault);
-  const font = settings.app_font || 'Cairo';
+  const font = ensureAppFont(settings.app_font);
   const signature = JSON.stringify({ theme: isLight ? 'light' : 'dark', primary, accent, sidebar, font });
 
   if (root.dataset.helmVisualIdentity === signature) return;

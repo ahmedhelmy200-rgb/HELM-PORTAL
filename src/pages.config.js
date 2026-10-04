@@ -10,6 +10,7 @@ const Documents = lazy(() => import('./pages/Documents'));
 const Events = lazy(() => import('./pages/Events'));
 const FounderDetail = lazy(() => import('./pages/FounderDetail'));
 const Invoices = lazy(() => import('./pages/Invoices'));
+const Collections = lazy(() => import('./pages/Collections'));
 const LegalTemplates = lazy(() => import('./pages/LegalTemplates'));
 const LegalWebsites = lazy(() => import('./pages/LegalWebsites'));
 const Messages = lazy(() => import('./pages/Messages'));
@@ -25,7 +26,6 @@ const BankImport = lazy(() => import('./pages/BankImport'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Communications = lazy(() => import('./pages/Communications'));
 const Archive = lazy(() => import('./pages/Archive'));
-const Payment = lazy(() => import('./pages/Payment'));
 const HelmSmart = lazy(() => import('./pages/HelmSmartEnhanced'));
 const UserActivity = lazy(() => import('./pages/UserActivity'));
 const SocialPublisher = lazy(() => import('./pages/SocialPublisher'));
@@ -42,6 +42,7 @@ export const PAGES = {
   Events,
   FounderDetail,
   Invoices,
+  Collections,
   LegalTemplates,
   LegalWebsites,
   Messages,
@@ -57,7 +58,6 @@ export const PAGES = {
   Reports,
   Communications,
   Archive,
-  Payment,
   HelmSmart,
   UserActivity,
   SocialPublisher,

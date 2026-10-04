@@ -27,18 +27,6 @@ const STRIPE_APPEARANCE = {
     spacingUnit:     '5px',
   },
 }
-const STRIPE_APPEARANCE_DARK = {
-  theme: 'night',
-  variables: {
-    colorPrimary:    '#3b82f6',
-    colorBackground: '#060e2a',
-    colorText:       '#e2e8f0',
-    colorDanger:     '#ef4444',
-    fontFamily:      'Cairo, system-ui, sans-serif',
-    borderRadius:    '10px',
-  },
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
 // نموذج الدفع بالبطاقة
 // ══════════════════════════════════════════════════════════════════════════════

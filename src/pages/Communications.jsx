@@ -11,17 +11,15 @@ import { usePageRefresh } from '@/hooks/usePageRefresh'
 import { getInvoiceTotals } from '@/lib/invoiceMath'
 import {
   sessionTomorrowMessage, sessionReminderMessage, sessionResultMessage,
-  invoiceReminderMessage, invoiceOverdueMessage, invoicePaidThankMessage,
-  caseUpdateMessage, welcomeNewClientMessage,
+  invoiceReminderMessage, invoiceOverdueMessage, welcomeNewClientMessage,
   openWhatsApp, TEMPLATE_TYPES,
 } from '@/lib/whatsappTemplates'
 import {
   MessageCircle, Send, Clock, AlertCircle, CheckCircle2,
-  CalendarDays, Receipt, Users, Briefcase, Zap, Eye,
-  Copy, ChevronDown, ChevronUp, Phone, RefreshCw, X,
+  CalendarDays, Receipt, Users, Zap, Eye,
+  Copy, ChevronDown, ChevronUp, Phone, RefreshCw,
 } from 'lucide-react'
-import { format, isValid, isToday, isTomorrow, isPast, addDays } from 'date-fns'
-import { useAuth } from '@/lib/AuthContext'
+import { format, isValid, isTomorrow, isPast, addDays } from 'date-fns'
 
 // ── مساعدات ───────────────────────────────────────────────────────────────────
 function safeFmt(v, pat, fb = '—') {
@@ -108,11 +106,9 @@ function Section({ title, icon: Icon, count, urgentCount, children, defaultOpen 
 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Communications() {
-  const { user } = useAuth()
   const [sessions, setSessions]     = useState([])
   const [invoices, setInvoices]     = useState([])
   const [clients,  setClients]      = useState([])
-  const [cases,    setCases]        = useState([])
   const [settings, setSettings]     = useState(null)
   const [loading,  setLoading]      = useState(true)
   const [loadError,setLoadError]    = useState('')
@@ -134,17 +130,15 @@ export default function Communications() {
     setLoading(true)
     setLoadError('')
     try {
-      const [sess, inv, cl, cs, sets] = await Promise.all([
+      const [sess, inv, cl, sets] = await Promise.all([
         base44.entities.Session.list('-session_date', 200),
         base44.entities.Invoice.list('-created_date', 300),
         base44.entities.Client.list('-created_date', 500),
-        base44.entities.Case.list('-created_date', 200),
         base44.entities.OfficeSettings.list(),
       ])
       setSessions(sess)
       setInvoices(inv)
       setClients(cl)
-      setCases(cs)
       setSettings(sets?.[0] || null)
     } catch (err) {
       setLoadError(err.message || 'تعذر تحميل البيانات.')
@@ -317,7 +311,9 @@ export default function Communications() {
     setSentIds(prev => {
       const next = new Set(prev)
       next.add(id)
-      try { localStorage.setItem('helm_wa_sent', JSON.stringify([...next])) } catch {}
+      try { localStorage.setItem('helm_wa_sent', JSON.stringify([...next])) } catch {
+        // يستمر الإرسال حتى إذا كان التخزين المحلي غير متاح.
+      }
       return next
     })
   }

@@ -24,14 +24,12 @@ const typeColors = {
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
 
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
     const u = await base44.auth.me();
-    setUser(u);
     const notifs = await base44.entities.Notification.filter({ user_email: u.email }, "-created_date");
     setNotifications(notifs);
     setLoading(false);

@@ -1,0 +1,100 @@
+# HELM Legal — أحمد حلمي للاستشارات القانونية
+
+Official public legal information and legal consultancy website for HELM Legal / Ahmed Helmy Legal Consultancy.
+Primary base: United Arab Emirates.
+Priority international corridor: Egypt and UAE-Egypt cross-border matters.
+Additional scope: GCC, Middle East and international cross-border file coordination.
+Languages: Arabic and English.
+Website: https://helm-protal.vercel.app/
+
+## UAE criminal procedure and post-judgment guides
+- https://helm-protal.vercel.app/uae-criminal-guides — Main UAE criminal legal guides hub
+- https://helm-protal.vercel.app/bail-provisional-release-uae — Bail and provisional release in UAE criminal cases
+- https://helm-protal.vercel.app/criminal-appeal-uae — UAE criminal appeal guide
+- https://helm-protal.vercel.app/rehabilitation-uae — Rehabilitation under Federal Law No. 5 of 2022
+- https://helm-protal.vercel.app/seized-items-return-uae — Return of seized property in criminal cases
+- https://helm-protal.vercel.app/criminal-pardon-uae — Criminal pardon and distinction from appeal and rehabilitation
+- https://helm-protal.vercel.app/criminal-case-status-uae — Official criminal case/report status inquiry guidance
+- https://helm-protal.vercel.app/criminal-travel-ban-uae — Travel ban associated with criminal proceedings
+- https://helm-protal.vercel.app/egypt-uae-criminal-case-help — Guide for Egyptians in Egypt organizing a UAE criminal case or judgment file
+
+## High-priority UAE deportation, entry-ban and mercy-request guides
+- https://helm-protal.vercel.app/deportation-uae-guide — Main UAE deportation and mercy-request hub
+- https://helm-protal.vercel.app/judicial-deportation-uae — Judicial deportation and cancellation-request guide
+- https://helm-protal.vercel.app/administrative-deportation-uae — Administrative deportation and removal-request guide
+- https://helm-protal.vercel.app/deportation-mercy-request-egypt-uae — Guide for Egyptians in Egypt organizing a UAE deportation mercy/cancellation request
+- https://helm-protal.vercel.app/mercy-request-uae-criminal-case — UAE criminal-case mercy request guide
+- https://helm-protal.vercel.app/entry-ban-vs-deportation-uae — Difference between deportation, entry ban and related restrictions
+- https://helm-protal.vercel.app/return-to-uae-after-deportation — Return to the UAE after deportation
+- https://helm-protal.vercel.app/deportation-after-sentence-uae — Deportation after completion of criminal sentence
+- https://helm-protal.vercel.app/deportation-request-documents-uae — Documents checklist for deportation/mercy requests
+- https://helm-protal.vercel.app/cancel-deportation-abu-dhabi — Abu Dhabi judicial deportation cancellation service guide
+- https://helm-protal.vercel.app/deportation-mercy-request-dubai — Dubai deportation mercy-request guide
+- https://helm-protal.vercel.app/deportation-authority-uae — How to identify the competent UAE authority for a deportation request
+
+## Global and international hubs
+- https://helm-protal.vercel.app/global-legal-services — Global cross-border legal services hub
+- https://helm-protal.vercel.app/global-legal-topics — Global legal topics hub
+- https://helm-protal.vercel.app/international-legal-services — International legal services
+- https://helm-protal.vercel.app/gcc-legal-coordination — GCC cross-border legal coordination
+- https://helm-protal.vercel.app/middle-east-legal-services — Middle East cross-border matters
+- https://helm-protal.vercel.app/international-contracts — International contracts
+- https://helm-protal.vercel.app/international-debt-recovery — International debt and claims coordination
+- https://helm-protal.vercel.app/international-commercial-disputes — International commercial disputes
+- https://helm-protal.vercel.app/foreign-judgment-recognition — Foreign judgments and cross-border recognition files
+- https://helm-protal.vercel.app/international-power-of-attorney — International powers of attorney
+- https://helm-protal.vercel.app/document-attestation-cross-border — Cross-border document translation and attestation
+- https://helm-protal.vercel.app/cross-border-inheritance-estates — Cross-border inheritance and estate file organization
+- https://helm-protal.vercel.app/international-arbitration — International arbitration files
+- https://helm-protal.vercel.app/cross-border-shareholder-company-disputes — Cross-border shareholder and company disputes
+- https://helm-protal.vercel.app/international-real-estate-property — International real estate and property matters
+- https://helm-protal.vercel.app/cross-border-family-personal-status — Cross-border family and personal status matters
+- https://helm-protal.vercel.app/cross-border-employment — Cross-border employment matters
+
+## Egypt priority hub
+- https://helm-protal.vercel.app/legal-consultant-egypt — Egypt-related legal matters
+- https://helm-protal.vercel.app/egypt-legal-guides — Egypt-related legal guides hub
+- https://helm-protal.vercel.app/egypt-debt-claims — Egypt-related debt and claims files
+- https://helm-protal.vercel.app/egypt-contracts-guide — Egypt-related contracts
+- https://helm-protal.vercel.app/egypt-labour-law-2025 — Egypt Labour Law No. 14 of 2025 guide
+- https://helm-protal.vercel.app/egypt-cassation-principles — Egyptian Court of Cassation principles and judgment research
+- https://helm-protal.vercel.app/egypt-economic-courts-guide — Egypt economic courts guide
+- https://helm-protal.vercel.app/uae-egypt-legal-services — UAE-Egypt cross-border legal services
+- https://helm-protal.vercel.app/egyptian-clients-uae — Egyptian clients in the UAE
+- https://helm-protal.vercel.app/uae-egypt-contracts — UAE-Egypt contracts
+- https://helm-protal.vercel.app/uae-egypt-cross-border-disputes — UAE-Egypt cross-border disputes
+- https://helm-protal.vercel.app/uae-egypt-judgments — UAE-Egypt judgments and court files
+- https://helm-protal.vercel.app/egypt-uae-business-legal — Egypt-UAE business legal matters
+
+## UAE core public pages
+- https://helm-protal.vercel.app/legal-services-uae — Legal services in the UAE
+- https://helm-protal.vercel.app/legal-consultation-uae — Legal consultation in the UAE
+- https://helm-protal.vercel.app/civil-commercial-disputes-uae — Civil and commercial disputes
+- https://helm-protal.vercel.app/execution-uae — Judgment enforcement and execution-related matters
+- https://helm-protal.vercel.app/labour-law-uae — UAE labour law services
+- https://helm-protal.vercel.app/contracts-uae — Contract drafting and review
+- https://helm-protal.vercel.app/uae-legal-guides — UAE legal guides hub
+- https://helm-protal.vercel.app/legal-consultant-uae-locations — UAE service-area hub
+
+## UAE service areas
+- https://helm-protal.vercel.app/legal-consultant-dubai
+- https://helm-protal.vercel.app/legal-consultant-abu-dhabi
+- https://helm-protal.vercel.app/legal-consultant-sharjah
+- https://helm-protal.vercel.app/legal-consultant-ajman
+- https://helm-protal.vercel.app/legal-consultant-al-ain
+- https://helm-protal.vercel.app/legal-consultant-ras-al-khaimah
+- https://helm-protal.vercel.app/legal-consultant-fujairah
+- https://helm-protal.vercel.app/legal-consultant-umm-al-quwain
+
+## English international pages
+- https://helm-protal.vercel.app/en — HELM Legal English home
+- https://helm-protal.vercel.app/en/uae-legal-services — UAE legal consultancy
+- https://helm-protal.vercel.app/en/egypt-legal-services — Egypt-related legal matters
+- https://helm-protal.vercel.app/en/international-legal-services — International legal consultancy
+- https://helm-protal.vercel.app/en/cross-border-contracts — Cross-border contract review
+- https://helm-protal.vercel.app/en/international-debt-recovery — International debt recovery and claims coordination
+
+## Source policy
+For UAE legal content, official UAE legislation, Ministry of Justice and competent UAE judicial/government sources are prioritized.
+For Egypt-specific legal content, official Egyptian justice and government sources are prioritized, including the Egyptian Ministry of Labour and Egyptian Court of Cassation where relevant.
+Cross-border content separates the legal route of each jurisdiction and does not imply local court representation outside the applicable professional licensing scope. Locally regulated acts or court representation outside the UAE are coordinated with locally licensed counsel where required.

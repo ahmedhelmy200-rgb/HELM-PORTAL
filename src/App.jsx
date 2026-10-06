@@ -3,8 +3,8 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'
-import PageNotFound from './lib/PageNotFound'
+import { BrowserRouter as Router, Route, Routes, Navigate, Link } from 'react-router-dom'
+import PageNotFound from './PageNotFound'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
 import ClientOnboarding from './pages/ClientOnboarding'
 import ClientDashboard from './pages/ClientDashboard'
@@ -18,43 +18,86 @@ import AppStatusBar from '@/components/app/AppStatusBar'
 import KeyboardShortcutsModal from '@/components/app/KeyboardShortcutsModal'
 import MobilePriorityDock from '@/components/app/MobilePriorityDock'
 import SupabaseConfigGate from '@/components/app/SupabaseConfigGate'
+import AdibStatementSeedBridge from '@/components/app/AdibStatementSeedBridge'
+import GlobalSearch from '@/components/app/GlobalSearch'
 import { base44 } from '@/api/base44Client'
 
 const { Pages, Layout, mainPage } = pagesConfig
 const mainPageKey = mainPage ?? Object.keys(Pages)[0]
 const MainPage = mainPageKey ? Pages[mainPageKey] : () => null
 const CLIENT_ALLOWED_PAGES = new Set(['Dashboard', 'Cases', 'Invoices', 'Documents', 'Notifications', 'Profile'])
-const BROKER_ALLOWED_PAGES = new Set(['Brokers', 'Clients', 'Cases', 'Notifications', 'Profile'])
 const PENDING_CLIENT_ALLOWED_PAGES = new Set(['ClientOnboarding'])
 const STAFF_ROLES = new Set(['admin', 'staff', 'lawyer', 'assistant', 'secretary'])
 
+// صفة «مدير التشغيل» مصدرها قاعدة البيانات (user_profiles.is_operations_manager)
+// وتصل مع الملف الشخصي في base44.auth.me(). لا تُستنتج من البريد داخل الواجهة.
+// الحماية الفعلية للحذف وإدارة المستخدمين مفروضة في قاعدة البيانات — راجع
+// supabase/migrations/020 و supabase/migrations/023.
+function isOperationsManager(user) {
+  return user?.is_operations_manager === true
+}
+
 const PageFallback = () => (
-  <div className="fixed inset-0 flex items-center justify-center" style={{background:'radial-gradient(circle at 50% 35%, #101d3d 0%, #050913 42%, #02040a 100%)'}}>
-    <div className="text-center space-y-5 select-none">
-      <div className="relative mx-auto h-20 w-20">
-        <div className="absolute inset-0 rounded-3xl bg-white/5 border border-blue-400/25 shadow-2xl shadow-blue-500/20"/>
-        <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-blue-600/90 to-slate-950 flex items-center justify-center overflow-hidden">
-          <img src="/icon-192.png" alt="HELM Portal" className="h-12 w-12 rounded-xl object-contain drop-shadow-lg" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-        </div>
-        <div className="absolute inset-0 rounded-3xl border border-blue-400/30 animate-ping"/>
+  <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
+    <div className="select-none space-y-4 text-center">
+      <div className="relative mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+        <img src="/icon-192.webp" alt="HELM Portal" className="h-14 w-14 rounded-2xl object-contain" onError={(event) => { event.currentTarget.style.display = 'none' }} />
       </div>
       <div className="space-y-2">
-        <div className="h-1.5 w-32 mx-auto rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-blue-500 rounded-full animate-[loading_1.5s_ease-in-out_infinite]"/></div>
-        <p className="text-xs text-white/40">جارٍ تحميل HELM Portal…</p>
+        <div className="mx-auto h-1.5 w-32 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-1/2 animate-[loading_1.2s_ease-in-out_infinite] rounded-full bg-primary" />
+        </div>
+        <p className="text-xs font-bold text-muted-foreground">جارٍ تحميل HELM Portal…</p>
       </div>
     </div>
   </div>
+)
+
+const ContentFallback = () => (
+  <div className="flex min-h-[320px] items-center justify-center" role="status" aria-live="polite">
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card/90 px-5 py-4 text-sm font-bold text-muted-foreground shadow-sm">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+      جارٍ فتح القسم…
+    </div>
+  </div>
+)
+
+const RetiredAccountAccess = () => (
+  <main dir="rtl" className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-5">
+    <section className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/[.06] p-7 text-center shadow-2xl">
+      <img src="/icon-192.webp" alt="HELM Portal" className="mx-auto h-20 w-20 rounded-3xl object-contain" />
+      <h1 className="mt-5 text-2xl font-black">هذا النوع من الحسابات لم يعد مفعّلًا</h1>
+      <p className="mt-3 leading-8 text-slate-300">تواصل مع إدارة المكتب لتحويل الحساب إلى موظف أو موكّل بحسب الصلاحية المطلوبة.</p>
+      <button type="button" onClick={() => base44.auth.logout()} className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-slate-950">تسجيل الخروج</button>
+    </section>
+  </main>
 )
 
 const LayoutWrapper = ({ children, currentPageName }) => Layout ? <Suspense fallback={<PageFallback />}><Layout currentPageName={currentPageName}>{children}</Layout></Suspense> : <>{children}</>
 
 function RealtimeBridge() { useEffect(() => { const stop = base44.realtime.subscribe(); return stop }, []); return null }
 
+function OperationsQuickAccess({ user }) {
+  const operationsManager = isOperationsManager(user)
+  if (!operationsManager && user?.role !== 'admin') return null
+  return (
+    <Link
+      to={createPageUrl('UserActivity')}
+      className="fixed bottom-24 left-4 z-[90] flex items-center gap-2 rounded-2xl border border-amber-300/30 bg-slate-950/95 px-4 py-3 text-sm font-black text-white shadow-2xl backdrop-blur hover:bg-slate-900 md:bottom-6"
+      title="سجل أعمال المستخدمين"
+    >
+      {operationsManager && <span className="rounded-lg bg-amber-400 px-2 py-1 text-[11px] font-black text-slate-950">مدير عام</span>}
+      <span>سجل أعمال المستخدمين</span>
+    </Link>
+  )
+}
+
 function OnboardingRoute() {
   const { user, isAuthenticated } = useAuth()
   if (!isAuthenticated) return <Navigate to="/" replace />
-  if (STAFF_ROLES.has(user?.role) || user?.role === 'broker') return <Navigate to={createPageUrl(user?.role === 'broker' ? 'Brokers' : 'Dashboard')} replace />
+  if (STAFF_ROLES.has(user?.role)) return <Navigate to={createPageUrl('Dashboard')} replace />
   if (user?.role === 'client') return <Navigate to={createPageUrl('Dashboard')} replace />
+  if (user?.role === 'broker') return <RetiredAccountAccess />
   return <ClientOnboarding />
 }
 
@@ -75,20 +118,24 @@ const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, user, isAuthenticated } = useAuth()
   if (isLoadingPublicSettings || isLoadingAuth) return <PageFallback />
   if (!isAuthenticated || !user) return <PublicRoutes />
+  if (user.role === 'broker') return <RetiredAccountAccess />
 
-  const fallbackPage = user?.role === 'broker' ? 'Brokers' : 'Dashboard'
+  const fallbackPage = 'Dashboard'
+  const operationsManager = isOperationsManager(user)
   const resolvePage = (path, Page) => user?.role === 'client' && path === 'Dashboard' ? ClientDashboard : Page
   const renderPage = (path, Page) => {
     if (user?.role === 'pending_client' && !PENDING_CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('ClientOnboarding')} replace />
     if (user?.role === 'client' && !CLIENT_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Dashboard')} replace />
-    if (user?.role === 'broker' && !BROKER_ALLOWED_PAGES.has(path)) return <Navigate to={createPageUrl('Brokers')} replace />
+    if (operationsManager && path === 'Settings') return <Navigate to={createPageUrl('Dashboard')} replace />
     const ResolvedPage = resolvePage(path, Page)
-    return <LayoutWrapper currentPageName={path}><Suspense fallback={<PageFallback />}><ResolvedPage /></Suspense></LayoutWrapper>
+    return <LayoutWrapper currentPageName={path}><Suspense fallback={<ContentFallback />}><ResolvedPage /></Suspense></LayoutWrapper>
   }
 
   return (
     <>
       <RealtimeBridge />
+      <AdibStatementSeedBridge user={user} />
+      <GlobalSearch />
       <Routes>
         <Route path="/" element={user?.role === 'pending_client' ? <Navigate to={createPageUrl('ClientOnboarding')} replace /> : renderPage(fallbackPage, Pages[fallbackPage] || MainPage)} />
         <Route path={createPageUrl('ClientOnboarding')} element={<OnboardingRoute />} />
@@ -99,6 +146,7 @@ const AuthenticatedApp = () => {
         <Route path="*" element={<PageNotFound />} />
       </Routes>
       <MobilePriorityDock />
+      <OperationsQuickAccess user={user} />
     </>
   )
 }

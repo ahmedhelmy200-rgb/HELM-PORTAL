@@ -1,0 +1,64 @@
+name: Build HELM Windows Desktop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  windows-desktop:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Build Vite application
+        run: npm run build
+
+      - name: Install Electron packaging tools
+        run: npm install --no-save --package-lock=false electron@39.2.7 electron-builder@26.0.12
+
+      - name: Build Installer and Portable EXE
+        run: npx electron-builder --config electron-builder.yml --win nsis portable
+
+      - name: Upload Windows EXE files
+        uses: actions/upload-artifact@v4
+        with:
+          name: HELM-Portal-Windows
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish latest Windows release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-${{ github.run_number }}
+          name: HELM Portal Windows ${{ github.run_number }}
+          body: |
+            أحدث نسخة Windows من HELM Portal.
+
+            الملفات:
+            - HELM Portal Setup x64
+            - HELM Portal Portable x64
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            release/HELM-Portal-Setup-1.0.0-x64.exe
+            release/HELM-Portal-Portable-1.0.0-x64.exe

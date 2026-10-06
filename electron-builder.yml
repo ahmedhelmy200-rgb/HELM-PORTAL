@@ -1,0 +1,37 @@
+appId: com.helm.portal
+productName: HELM Portal
+asar: true
+compression: normal
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+extraMetadata:
+  main: electron/main.cjs
+  version: 1.0.0
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: public/favicon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: HELM Portal
+  artifactName: HELM-Portal-Setup-${version}-${arch}.${ext}
+
+portable:
+  artifactName: HELM-Portal-Portable-${version}-${arch}.${ext}

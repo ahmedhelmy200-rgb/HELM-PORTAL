@@ -1,0 +1,39 @@
+name: Validate HELM auth and desktop repair
+
+on:
+  push:
+    branches:
+      - fix/web-google-desktop-20260822
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_ANON_KEY: validation-only-key
+      VITE_SUPABASE_STORAGE_BUCKET: uploads
+      VITE_PUBLIC_SITE_URL: https://example.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Parse Electron main process
+        run: node --check electron/main.cjs
+
+      - name: Parse Electron preload
+        run: node --check electron/preload.cjs

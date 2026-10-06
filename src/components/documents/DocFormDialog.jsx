@@ -14,13 +14,23 @@ const DOC_TYPES = ["صحيفة دعوى", "مذكرة", "حكم", "عقد", "ت�
 const DOC_STATUSES = ["مسودة", "جاهز", "مقدم", "مرفوض"];
 const FOLDERS = ["صحيفة دعوى", "مذكرات", "أحكام", "عقود وتوكيلات", "شهادات", "مستندات رسمية", "أخرى"];
 
+function clientDisplayName(client = {}) {
+  return client.name_ar || client.full_name || client.name_en || "";
+}
+
+function caseChoiceLabel(item = {}) {
+  const number = item.case_number ? `#${item.case_number} · ` : "";
+  const client = item.client_name ? ` — ${item.client_name}` : "";
+  return `${number}${item.title || "قضية"}${client}`;
+}
+
 const emptyForm = {
-  title: "", case_id: "", case_title: "", case_number: "", client_name: "",
+  title: "", case_id: "", case_title: "", case_number: "", client_id: "", client_name: "",
   doc_type: "أخرى", file_url: "", file_url_ref: "", file_name: "", file_type: "", folder: "",
   submission_deadline: "", status: "مسودة", ocr_text: "", ocr_status: "لم يُعالج", notes: ""
 };
 
-export default function DocFormDialog({ open, onOpenChange, editing, cases, onSaved }) {
+export default function DocFormDialog({ open, onOpenChange, editing, cases, clients = [], onSaved }) {
   const [form, setForm] = React.useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -96,10 +106,25 @@ export default function DocFormDialog({ open, onOpenChange, editing, cases, onSa
     }
   };
 
-  const handleCaseSelect = (val) => {
-    const c = cases.find(c => c.title === val);
-    if (c) setForm(f => ({ ...f, case_id: c.id, case_title: c.title, case_number: c.case_number || "", client_name: c.client_name }));
-    else setForm(f => ({ ...f, case_title: val, case_id: "" }));
+  const handleCaseSelect = (value) => {
+    const selected = cases.find((item) =>
+      String(item.id) === String(value)
+      || item.title === value
+      || caseChoiceLabel(item) === value
+    );
+    if (!selected) {
+      setForm((current) => ({ ...current, case_title: value, case_id: "", case_number: "", client_id: "" }));
+      return;
+    }
+    const client = clients.find((item) => String(item.id) === String(selected.client_id));
+    setForm((current) => ({
+      ...current,
+      case_id: selected.id,
+      case_title: selected.title,
+      case_number: selected.case_number || "",
+      client_id: selected.client_id || client?.id || "",
+      client_name: client ? clientDisplayName(client) : (selected.client_name || current.client_name),
+    }));
   };
 
   const handleSave = async () => {
@@ -140,8 +165,9 @@ export default function DocFormDialog({ open, onOpenChange, editing, cases, onSa
           </div>
 
           <div className="space-y-1 col-span-2"><Label>القضية المرتبطة</Label>
-            <Input list="cases-docs-form" value={form.case_title} onChange={e => handleCaseSelect(e.target.value)} placeholder="اختياري - ابحث أو اختر" />
-            <datalist id="cases-docs-form">{cases.map(c => <option key={c.id} value={c.title} />)}</datalist>
+            <Input list="cases-docs-form" value={form.case_title} onChange={e => handleCaseSelect(e.target.value)} placeholder="اختياري - ابحث برقم القضية أو عنوانها" />
+            <datalist id="cases-docs-form">{cases.map((item) => <option key={item.id} value={caseChoiceLabel(item)} />)}</datalist>
+            {form.client_name && <p className="text-[11px] text-muted-foreground">الموكل المرتبط: {form.client_name}</p>}
           </div>
 
           <div className="space-y-1 col-span-2"><Label>المجلد الافتراضي</Label>

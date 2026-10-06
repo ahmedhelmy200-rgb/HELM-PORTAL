@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, isToday, isTomorrow, differenceInHours, isValid, subMonths } from 'date-fns'
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts'
 import {
   Activity,
   AlertTriangle,
@@ -17,6 +16,8 @@ import {
   TrendingUp,
   Upload,
   Users,
+  Wallet,
+  HandCoins,
 } from 'lucide-react'
 
 import { base44 } from '@/api/base44Client'
@@ -31,10 +32,8 @@ import StatusBadge from '@/components/helm/StatusBadge'
 import ClientContactCard from '@/components/helm/ClientContactCard'
 import { PageErrorState } from '@/components/app/AppStatusBar'
 import { getInvoiceTotals } from '@/lib/invoiceMath'
+import { buildCollectionsSummary } from '@/lib/collections'
 import { checkAndCreateReminders } from '@/components/helm/NotificationBell'
-
-const STAFF_PAGE_SIZE = 40
-const CLIENT_PAGE_SIZE = 25
 
 function safeFmt(value, pattern, fallback = '—') {
   if (!value) return fallback
@@ -54,24 +53,106 @@ function fmtMoney(value) {
   return n.toLocaleString('ar')
 }
 
-function unwrapPage(result) {
-  return {
-    rows: Array.isArray(result) ? result : (result?.data || []),
-    total: Array.isArray(result) ? result.length : (result?.total || 0),
+// مخطط شرارة خفيف (SVG مضمّن) — بديل لمكتبة recharts في الصفحة الرئيسية.
+// كان استيراد recharts هنا يجلب ~431KB (114KB مضغوط) في أول تحميل لرسم 6 نقاط فقط.
+const SPARK_W = 300
+const SPARK_H = 46
+const SPARK_PAD = 5
+
+function buildSparkPath(points) {
+  if (!points.length) return ''
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`
+
+  // منحنى تمريري (Catmull-Rom) مع تقييد نقاط التحكم داخل ارتفاع المخطط
+  // لمنع أي تجاوز أعلى أو أسفل الإطار.
+  const clampY = (value) => Math.min(SPARK_H, Math.max(0, value))
+  let path = `M ${points[0].x} ${points[0].y}`
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] || points[index]
+    const current = points[index]
+    const next = points[index + 1]
+    const after = points[index + 2] || next
+
+    const c1x = current.x + (next.x - previous.x) / 6
+    const c1y = clampY(current.y + (next.y - previous.y) / 6)
+    const c2x = next.x - (after.x - current.x) / 6
+    const c2y = clampY(next.y - (after.y - current.y) / 6)
+
+    path += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`
   }
+
+  return path
 }
 
-function MiniChart({ data }) {
+function MiniChart({ data = [] }) {
+  const [hovered, setHovered] = useState(null)
+
+  const values = (Array.isArray(data) ? data : []).map((item) => {
+    const value = Number(item?.v)
+    return Number.isFinite(value) ? value : 0
+  })
+
+  if (!values.length) return <div className="h-[46px]" aria-hidden="true" />
+
+  const max = Math.max(...values, 1)
+  const lastIndex = Math.max(1, values.length - 1)
+  const points = values.map((value, index) => ({
+    x: (index / lastIndex) * SPARK_W,
+    y: SPARK_H - SPARK_PAD - (value / max) * (SPARK_H - SPARK_PAD * 2),
+  }))
+
+  const linePath = buildSparkPath(points)
+  const areaPath = `${linePath} L ${SPARK_W} ${SPARK_H} L 0 ${SPARK_H} Z`
+  const active = hovered === null ? null : values[hovered]
+
   return (
-    <ResponsiveContainer width="100%" height={46}>
-      <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-        <Tooltip content={({ active, payload }) => active && payload?.[0]
-          ? <div className="text-[10px] bg-black/80 text-white px-2 py-1 rounded-lg">{payload[0].value.toLocaleString('ar')}</div>
-          : null}
+    <div className="relative" dir="ltr">
+      <svg
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        preserveAspectRatio="none"
+        className="h-[46px] w-full overflow-visible"
+        role="img"
+        aria-label="مخطط الإيراد المحصّل خلال الأشهر الستة الأخيرة"
+      >
+        <path d={areaPath} fill="rgba(56,189,248,.18)" stroke="none" />
+        <path
+          d={linePath}
+          fill="none"
+          stroke="#38bdf8"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
         />
-        <Area type="monotone" dataKey="v" stroke="#38bdf8" strokeWidth={1.8} fill="rgba(56,189,248,.18)" dot={false} />
-      </AreaChart>
-    </ResponsiveContainer>
+        {hovered !== null && (
+          <circle cx={points[hovered].x} cy={points[hovered].y} r={2.6} fill="#38bdf8" vectorEffect="non-scaling-stroke" />
+        )}
+      </svg>
+
+      {/* مناطق التقاط المؤشر لكل نقطة (بديل Tooltip في recharts) */}
+      <div className="absolute inset-0 flex">
+        {values.map((value, index) => (
+          <button
+            key={`${index}-${value}`}
+            type="button"
+            tabIndex={-1}
+            aria-label={`${data[index]?.name || ''}: ${value.toLocaleString('ar')}`}
+            className="h-full flex-1 cursor-default bg-transparent"
+            onMouseEnter={() => setHovered(index)}
+            onMouseLeave={() => setHovered(null)}
+            onFocus={() => setHovered(index)}
+            onBlur={() => setHovered(null)}
+          />
+        ))}
+      </div>
+
+      {active !== null && (
+        <div className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-black/80 px-2 py-1 text-[10px] text-white">
+          {data[hovered]?.name ? `${data[hovered].name} — ` : ''}{active.toLocaleString('ar')}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -103,8 +184,9 @@ export default function DashboardOptimized() {
     notifications: [],
     invoices: [],
     documents: [],
+    expenses: [],
     officeSettings: null,
-    totals: { cases: 0, clients: 0, sessions: 0, tasks: 0, invoices: 0, documents: 0 },
+    totals: { cases: 0, clients: 0, sessions: 0, tasks: 0, invoices: 0, documents: 0, expenses: 0 },
   })
 
   const loadAll = useCallback(async () => {
@@ -114,62 +196,74 @@ export default function DashboardOptimized() {
 
     try {
       if (isClient) {
-        const [casesPage, invoicesPage, documentsPage, sessionsPage, notifications, settings] = await Promise.all([
-          base44.entities.Case.listPage('-created_date', { page: 1, pageSize: CLIENT_PAGE_SIZE }),
-          base44.entities.Invoice.listPage('-created_date', { page: 1, pageSize: CLIENT_PAGE_SIZE }),
-          base44.entities.Document.listPage('-created_date', { page: 1, pageSize: CLIENT_PAGE_SIZE }),
-          base44.entities.Session.listPage('-session_date', { page: 1, pageSize: CLIENT_PAGE_SIZE }),
-          base44.entities.Notification.filter({ user_email: user.email, is_read: false }, '-created_date', 20),
+        const [cases, invoices, documents, sessions, notifications, settings] = await Promise.all([
+          base44.entities.Case.list('-created_date', 5000),
+          base44.entities.Invoice.list('-created_date', 5000),
+          base44.entities.Document.list('-created_date', 5000),
+          base44.entities.Session.list('-session_date', 5000),
+          base44.entities.Notification.filter({ user_email: user.email, is_read: false }, '-created_date', 200),
           base44.entities.OfficeSettings.list('-created_date', 1),
         ])
 
-        const cases = unwrapPage(casesPage)
-        const invoices = unwrapPage(invoicesPage)
-        const documents = unwrapPage(documentsPage)
-        const sessions = unwrapPage(sessionsPage)
+        const safeCases = Array.isArray(cases) ? cases : []
+        const safeInvoices = Array.isArray(invoices) ? invoices : []
+        const safeDocuments = Array.isArray(documents) ? documents : []
+        const safeSessions = Array.isArray(sessions) ? sessions : []
 
         setData({
-          cases: cases.rows,
-          invoices: invoices.rows,
-          documents: documents.rows,
-          sessions: sessions.rows,
+          cases: safeCases,
+          invoices: safeInvoices,
+          documents: safeDocuments,
+          sessions: safeSessions,
           notifications,
           clients: [],
           tasks: [],
+          expenses: [],
           officeSettings: settings?.[0] || null,
-          totals: { cases: cases.total, clients: 0, sessions: sessions.total, tasks: 0, invoices: invoices.total, documents: documents.total },
+          totals: { cases: safeCases.length, clients: 0, sessions: safeSessions.length, tasks: 0, invoices: safeInvoices.length, documents: safeDocuments.length, expenses: 0 },
         })
         return
       }
 
-      const [casesPage, clientsPage, sessionsPage, tasksPage, invoicesPage, documentsPage, notifications, settings] = await Promise.all([
-        base44.entities.Case.listPage('-created_date', { page: 1, pageSize: STAFF_PAGE_SIZE }),
-        base44.entities.Client.listPage('-created_date', { page: 1, pageSize: STAFF_PAGE_SIZE }),
-        base44.entities.Session.listPage('-session_date', { page: 1, pageSize: STAFF_PAGE_SIZE }),
-        base44.entities.Task.listPage('-due_date', { page: 1, pageSize: STAFF_PAGE_SIZE }),
-        base44.entities.Invoice.listPage('-created_date', { page: 1, pageSize: STAFF_PAGE_SIZE }),
-        base44.entities.Document.listPage('-created_date', { page: 1, pageSize: 20 }),
-        base44.entities.Notification.filter({ user_email: user.email, is_read: false }, '-created_date', 20),
+      const [cases, clients, sessions, tasks, invoices, documents, expenses, notifications, settings] = await Promise.all([
+        base44.entities.Case.list('-created_date', 5000),
+        base44.entities.Client.list('-created_date', 5000),
+        base44.entities.Session.list('-session_date', 5000),
+        base44.entities.Task.list('-due_date', 5000),
+        base44.entities.Invoice.list('-created_date', 5000),
+        base44.entities.Document.list('-created_date', 5000),
+        base44.entities.Expense.list('-expense_date', 5000),
+        base44.entities.Notification.filter({ user_email: user.email, is_read: false }, '-created_date', 200),
         base44.entities.OfficeSettings.list('-created_date', 1),
       ])
 
-      const cases = unwrapPage(casesPage)
-      const clients = unwrapPage(clientsPage)
-      const sessions = unwrapPage(sessionsPage)
-      const tasks = unwrapPage(tasksPage)
-      const invoices = unwrapPage(invoicesPage)
-      const documents = unwrapPage(documentsPage)
+      const safeCases = Array.isArray(cases) ? cases : []
+      const safeClients = Array.isArray(clients) ? clients : []
+      const safeSessions = Array.isArray(sessions) ? sessions : []
+      const safeTasks = Array.isArray(tasks) ? tasks : []
+      const safeInvoices = Array.isArray(invoices) ? invoices : []
+      const safeDocuments = Array.isArray(documents) ? documents : []
+      const safeExpenses = Array.isArray(expenses) ? expenses : []
 
       setData({
-        cases: cases.rows,
-        clients: clients.rows,
-        sessions: sessions.rows,
-        tasks: tasks.rows,
-        invoices: invoices.rows,
-        documents: documents.rows,
+        cases: safeCases,
+        clients: safeClients,
+        sessions: safeSessions,
+        tasks: safeTasks,
+        invoices: safeInvoices,
+        documents: safeDocuments,
+        expenses: safeExpenses,
         notifications,
         officeSettings: settings?.[0] || null,
-        totals: { cases: cases.total, clients: clients.total, sessions: sessions.total, tasks: tasks.total, invoices: invoices.total, documents: documents.total },
+        totals: {
+          cases: safeCases.length,
+          clients: safeClients.length,
+          sessions: safeSessions.length,
+          tasks: safeTasks.length,
+          invoices: safeInvoices.length,
+          documents: safeDocuments.length,
+          expenses: safeExpenses.length,
+        },
       })
       await checkAndCreateReminders(user.email)
     } catch (error) {
@@ -180,7 +274,7 @@ export default function DashboardOptimized() {
   }, [user?.email, isClient])
 
   useEffect(() => { loadAll() }, [loadAll])
-  usePageRefresh(loadAll, ['cases', 'clients', 'sessions', 'tasks', 'notifications', 'invoices', 'documents'])
+  usePageRefresh(loadAll, ['cases', 'clients', 'sessions', 'tasks', 'notifications', 'invoices', 'documents', 'expenses'])
 
   const now = new Date()
   const greeting = useMemo(() => {
@@ -206,8 +300,12 @@ export default function DashboardOptimized() {
     const paid = data.invoices.reduce((sum, invoice) => sum + getInvoiceTotals(invoice).paid, 0)
     const remaining = Math.max(0, total - paid)
     const overdue = data.invoices.filter(invoice => invoice.status === 'متأخرة')
-    return { total, paid, remaining, overdueCount: overdue.length }
-  }, [data.invoices])
+    const expenses = data.expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    const netCollected = paid - expenses
+    return { total, paid, remaining, overdueCount: overdue.length, expenses, netCollected }
+  }, [data.invoices, data.expenses])
+
+  const collectionsSummary = useMemo(() => buildCollectionsSummary(data.invoices), [data.invoices])
 
   const revenueChart = useMemo(() => {
     const months = Array.from({ length: 6 }, (_, index) => {
@@ -314,7 +412,7 @@ export default function DashboardOptimized() {
               {urgentTasks.length > 0 && <Badge className="bg-red-400/20 text-red-200 border-red-300/15 text-xs"><AlertTriangle className="h-3 w-3" /> {urgentTasks.length} عاجل</Badge>}
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold">{greeting}، {user?.full_name?.split(' ')?.[0] || 'المستشار'}</h1>
-            <p className="text-white/50 text-sm">لوحة محسّنة تسحب آخر {STAFF_PAGE_SIZE} سجلًا فقط من كل قسم، مع استخدام الإجمالي من Supabase للعدادات.</p>
+            <p className="text-white/50 text-sm">لوحة موحّدة تعتمد على كامل بيانات القضايا والموكلين والجلسات والمهام والفواتير والمصاريف.</p>
             <div className="flex flex-wrap gap-2">
               <Link to={createPageUrl('Cases')}><div className="hero-side-stat min-w-[105px] text-center"><p className="hero-side-label">القضايا</p><p className="hero-side-value">{data.totals.cases}</p></div></Link>
               <Link to={createPageUrl('Sessions')}><div className="hero-side-stat min-w-[105px] text-center"><p className="hero-side-label">الجلسات</p><p className="hero-side-value">{data.totals.sessions}</p></div></Link>
@@ -323,19 +421,32 @@ export default function DashboardOptimized() {
             </div>
           </div>
           <div className="xl:w-80 shrink-0 hero-side-stat">
-            <p className="hero-side-label flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> الإيراد المحصّل — عينة آخر الفواتير</p>
+            <p className="hero-side-label flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> الإيراد المحصّل — كامل الفواتير</p>
             <p className="hero-side-value">{fmtMoney(invoiceStats.paid)} <span className="text-sm font-normal text-white/55">د.إ</span></p>
             <MiniChart data={revenueChart} />
           </div>
         </div>
       </section>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard title="القضايا" value={data.totals.cases} icon={Briefcase} color="primary" to="Cases" subtitle={`${activeCases} نشطة ضمن العينة`} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <StatCard title="القضايا" value={data.totals.cases} icon={Briefcase} color="primary" to="Cases" subtitle={`${activeCases} نشطة`} />
         <StatCard title="الموكلون" value={data.totals.clients} icon={Users} color="accent" to="Clients" />
-        <StatCard title="الفواتير" value={data.totals.invoices} icon={Receipt} color="success" to="Invoices" subtitle={`${fmtMoney(invoiceStats.remaining)} د.إ متبقي بالعينة`} />
-        <StatCard title="المهام" value={data.totals.tasks} icon={CheckSquare} color="warning" to="Tasks" subtitle={`${pendingTasks} معلّقة ضمن العينة`} />
+        <StatCard title="الفواتير" value={data.totals.invoices} icon={Receipt} color="success" to="Invoices" subtitle={`${fmtMoney(invoiceStats.remaining)} د.إ متبقي`} />
+        <StatCard title="المهام" value={data.totals.tasks} icon={CheckSquare} color="warning" to="Tasks" subtitle={`${pendingTasks} مفتوحة`} />
+        <StatCard title="المصاريف" value={`${fmtMoney(invoiceStats.expenses)} د.إ`} icon={Wallet} color="warning" to="Expenses" subtitle={`${data.totals.expenses} قيد`} />
+        <StatCard title="صافي المحصل" value={`${fmtMoney(invoiceStats.netCollected)} د.إ`} icon={TrendingUp} color={invoiceStats.netCollected >= 0 ? "success" : "warning"} to="Reports" subtitle="المحصّل ناقص المصاريف" />
       </div>
+
+      <Link
+        to={createPageUrl('Collections')}
+        className={`group flex flex-col gap-4 rounded-3xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-xl sm:flex-row sm:items-center sm:justify-between ${collectionsSummary.overdueCount > 0 ? 'border-red-400/20 bg-red-500/8' : 'border-emerald-400/20 bg-emerald-500/8'}`}
+      >
+        <span className="flex items-start gap-3">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${collectionsSummary.overdueCount > 0 ? 'bg-red-500/15 text-red-300' : 'bg-emerald-500/15 text-emerald-300'}`}><HandCoins className="h-5 w-5" /></span>
+          <span><b className="block text-white">نبض التحصيل</b><span className="mt-1 block text-sm text-white/50">{collectionsSummary.overdueCount > 0 ? `${collectionsSummary.overdueCount} فاتورة متأخرة بقيمة ${fmtMoney(collectionsSummary.overdueAmount)} د.إ` : 'لا توجد فواتير متأخرة حاليًا'}</span></span>
+        </span>
+        <span className="inline-flex items-center gap-2 text-sm font-bold text-sky-300">فتح مركز التحصيل <span className="transition-transform group-hover:-translate-x-1">←</span></span>
+      </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="dashboard-card-elevated rounded-3xl p-5 text-white">
@@ -352,7 +463,7 @@ export default function DashboardOptimized() {
                 </div>
               )
             })}
-            {upcomingSessions.length === 0 && <p className="text-white/35 text-sm text-center py-6">لا توجد جلسات قادمة ضمن العينة الحالية</p>}
+            {upcomingSessions.length === 0 && <p className="text-white/35 text-sm text-center py-6">لا توجد جلسات قادمة</p>}
           </div>
         </Card>
 

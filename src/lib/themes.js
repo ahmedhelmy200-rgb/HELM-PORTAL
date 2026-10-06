@@ -1,3 +1,5 @@
+import { applyVisualIdentity, setStoredThemePreference } from './theme'
+
 // ── نظام الثيمات — HELM v10 ────────────────────────────────────────────────
 
 export const THEMES = [
@@ -59,39 +61,67 @@ export const THEMES = [
   },
 ]
 
+export const THEME_CHANGE_EVENT = 'helm:theme-change'
+
 const THEME_KEY = 'helm_active_theme'
+
+export function getThemeById(themeId) {
+  return THEMES.find((theme) => theme.id === themeId) || THEMES[0]
+}
 
 export function getActiveThemeId() {
   try { return localStorage.getItem(THEME_KEY) || 'midnight' } catch { return 'midnight' }
 }
 
-export function applyTheme(themeId) {
-  const theme = THEMES.find(t => t.id === themeId) || THEMES[0]
-  const root  = document.documentElement
+export function getThemeVisualSettings(themeId, baseSettings = {}) {
+  const theme = getThemeById(themeId)
+  const currentFeatures = baseSettings?.features && typeof baseSettings.features === 'object'
+    ? baseSettings.features
+    : {}
+  const currentAppearance = currentFeatures?.appearance && typeof currentFeatures.appearance === 'object'
+    ? currentFeatures.appearance
+    : {}
 
-  // Apply only primary/accent color overrides — don't touch background/card vars
-  // This prevents conflicts with the base dark/light theme system
-  Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v))
-
-  // Set theme mode
-  if (theme.dark) {
-    root.classList.add('theme-dark')
-    root.classList.remove('theme-light')
-    root.setAttribute('data-theme', 'dark')
-  } else {
-    root.classList.add('theme-light')
-    root.classList.remove('theme-dark')
-    root.setAttribute('data-theme', 'light')
+  return {
+    ...baseSettings,
+    primary_color: theme.preview.primary,
+    secondary_color: theme.preview.accent,
+    sidebar_color: theme.preview.sidebar,
+    theme_mode: theme.dark ? 'dark' : 'light',
+    features: {
+      ...currentFeatures,
+      appearance: {
+        ...currentAppearance,
+        theme_id: theme.id,
+      },
+    },
   }
-
-  // Apply body background
-  document.body.style.background = theme.body || ''
-
-  try { localStorage.setItem(THEME_KEY, themeId) } catch {}
-  return theme
 }
 
-export function initTheme() {
-  const id = getActiveThemeId()
-  applyTheme(id)
+export function applyTheme(themeId, baseSettings = {}) {
+  const theme = getThemeById(themeId)
+  const resolvedTheme = theme.dark ? 'dark' : 'light'
+  const settings = getThemeVisualSettings(theme.id, baseSettings)
+
+  try { localStorage.setItem(THEME_KEY, theme.id) } catch {}
+  setStoredThemePreference(resolvedTheme)
+  applyVisualIdentity(settings, resolvedTheme)
+
+  if (typeof document !== 'undefined') {
+    document.body.style.background = theme.body || ''
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, {
+        detail: { themeId: theme.id, resolvedTheme, settings },
+      }))
+    } catch {}
+  }
+
+  return { theme, settings, resolvedTheme }
+}
+
+export function initTheme(baseSettings = {}) {
+  return applyTheme(getActiveThemeId(), baseSettings)
 }

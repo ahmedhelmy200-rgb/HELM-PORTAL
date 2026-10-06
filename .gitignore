@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 .vite/
 .env
@@ -10,3 +10,10 @@ dist/
 Thumbs.db
 .vercel
 .env*.local
+
+# مخرجات بناء سطح المكتب (electron-builder)
+release/
+
+# حزم الترقيات/الباتشات المرفوعة يدويًا — لا تُخزَّن في Git
+HELM_SMART_NEW_PATCH_FOR_PORTAL.zip
+*.patch.zip

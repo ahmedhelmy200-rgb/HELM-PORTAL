@@ -1,0 +1,56 @@
+name: IndexNow SEO Notify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'public/sitemap.xml'
+      - 'public/robots.txt'
+      - 'public/llms.txt'
+      - 'public/seo/**'
+      - 'public/82e9397d6d87bd44eea9b52b1b65e445.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for hosting deployment
+        run: sleep 90
+      - name: Build IndexNow payload from live sitemap
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          sitemap_url = 'https://helm-protal.vercel.app/sitemap.xml'
+          with urllib.request.urlopen(sitemap_url, timeout=30) as response:
+              xml_data = response.read()
+
+          root = ET.fromstring(xml_data)
+          ns = {'s': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+          urls = [node.text.strip() for node in root.findall('s:url/s:loc', ns) if node.text]
+
+          payload = {
+              'host': 'helm-protal.vercel.app',
+              'key': '82e9397d6d87bd44eea9b52b1b65e445',
+              'keyLocation': 'https://helm-protal.vercel.app/82e9397d6d87bd44eea9b52b1b65e445.txt',
+              'urlList': urls,
+          }
+          with open('payload.json', 'w', encoding='utf-8') as f:
+              json.dump(payload, f, ensure_ascii=False)
+          print(f'Prepared {len(urls)} URLs for IndexNow')
+          PY
+      - name: Submit all public URLs to IndexNow
+        shell: bash
+        run: |
+          curl --fail-with-body --retry 3 --retry-delay 10 \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            -X POST 'https://api.indexnow.org/indexnow' \
+            --data-binary @payload.json

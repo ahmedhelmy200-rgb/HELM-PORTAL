@@ -26,7 +26,7 @@
 
 4. **RLS**
    - تمت إضافة ملف موحد:
-     - `supabase/migrations/009_unified_smart_portal_auth_rls_storage.sql`
+     - `supabase/migrations/008_unified_smart_portal_auth_rls_storage.sql`
    - وتم نسخه أيضًا في جذر المشروع باسم:
      - `UNIFIED_SUPABASE_SETUP.sql`
 

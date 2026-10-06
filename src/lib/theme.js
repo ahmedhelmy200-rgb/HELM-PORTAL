@@ -1,4 +1,73 @@
 const THEME_PREF_KEY = 'helm_theme_preference';
+const FONT_STYLESHEET_ID = 'helm-app-font';
+
+// قائمة مغلقة تمنع حقن عناوين خارجية من قيمة app_font المخزّنة في القاعدة.
+// لا نحمّل العائلات التسع معًا: يتم تنزيل الخط المختار فقط عند الحاجة.
+export const AVAILABLE_APP_FONTS = Object.freeze([
+  'Cairo',
+  'Tajawal',
+  'Amiri',
+  'IBM Plex Sans Arabic',
+  'Noto Sans Arabic',
+  'Readex Pro',
+  'El Messiri',
+  'Changa',
+  'Almarai',
+]);
+
+const FONT_QUERIES = Object.freeze({
+  Cairo: 'Cairo:wght@300;400;500;600;700;800',
+  Tajawal: 'Tajawal:wght@300;400;500;700;800',
+  Amiri: 'Amiri:wght@400;700',
+  'IBM Plex Sans Arabic': 'IBM+Plex+Sans+Arabic:wght@300;400;500;600;700',
+  'Noto Sans Arabic': 'Noto+Sans+Arabic:wght@300;400;500;600;700',
+  'Readex Pro': 'Readex+Pro:wght@300;400;500;600;700',
+  'El Messiri': 'El+Messiri:wght@400;500;600;700',
+  Changa: 'Changa:wght@300;400;500;600;700',
+  Almarai: 'Almarai:wght@300;400;700;800',
+});
+
+export function normalizeAppFont(value) {
+  const font = String(value || '').trim();
+  return AVAILABLE_APP_FONTS.includes(font) ? font : 'Cairo';
+}
+
+export function getGoogleFontStylesheetUrl(value) {
+  const font = normalizeAppFont(value);
+  return `https://fonts.googleapis.com/css2?family=${FONT_QUERIES[font]}&display=swap`;
+}
+
+export function ensureAppFont(value) {
+  const font = normalizeAppFont(value);
+  if (typeof document === 'undefined') return font;
+
+  if (!document.querySelector('link[data-helm-font-preconnect="google"]')) {
+    const google = document.createElement('link');
+    google.rel = 'preconnect';
+    google.href = 'https://fonts.googleapis.com';
+    google.dataset.helmFontPreconnect = 'google';
+    document.head.appendChild(google);
+  }
+  if (!document.querySelector('link[data-helm-font-preconnect="gstatic"]')) {
+    const gstatic = document.createElement('link');
+    gstatic.rel = 'preconnect';
+    gstatic.href = 'https://fonts.gstatic.com';
+    gstatic.crossOrigin = 'anonymous';
+    gstatic.dataset.helmFontPreconnect = 'gstatic';
+    document.head.appendChild(gstatic);
+  }
+
+  let stylesheet = document.getElementById(FONT_STYLESHEET_ID);
+  if (!stylesheet) {
+    stylesheet = document.createElement('link');
+    stylesheet.id = FONT_STYLESHEET_ID;
+    stylesheet.rel = 'stylesheet';
+    document.head.appendChild(stylesheet);
+  }
+  const href = getGoogleFontStylesheetUrl(font);
+  if (stylesheet.href !== href) stylesheet.href = href;
+  return font;
+}
 
 export function getStoredThemePreference() {
   if (typeof window === 'undefined') return 'system';
@@ -73,31 +142,38 @@ export function applyVisualIdentity(settings = {}, resolvedTheme = 'dark') {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
   const body = document.body;
+  const isLight = resolvedTheme === 'light';
 
-  root.classList.remove('theme-dark', 'theme-light');
-  root.classList.add(resolvedTheme === 'light' ? 'theme-light' : 'theme-dark');
+  root.classList.toggle('theme-light', isLight);
+  root.classList.toggle('theme-dark', !isLight);
+  root.style.colorScheme = isLight ? 'light' : 'dark';
 
-  const primaryDefault = resolvedTheme === 'light' ? '#1d4ed8' : '#3b82f6';
-  const accentDefault = resolvedTheme === 'light' ? '#0f766e' : '#14b8a6';
-  const sidebarDefault = resolvedTheme === 'light' ? '#102a5f' : '#06142c';
+  const primaryDefault = isLight ? '#1d4ed8' : '#3b82f6';
+  const accentDefault = isLight ? '#0f766e' : '#14b8a6';
+  const sidebarDefault = isLight ? '#102a5f' : '#06142c';
 
   const primary = normalizeHex(settings.primary_color, primaryDefault);
   const accent = normalizeHex(settings.secondary_color, accentDefault);
   const sidebar = normalizeHex(settings.sidebar_color, sidebarDefault);
+  const font = ensureAppFont(settings.app_font);
+  const signature = JSON.stringify({ theme: isLight ? 'light' : 'dark', primary, accent, sidebar, font });
 
-  const background = resolvedTheme === 'light'
+  if (root.dataset.helmVisualIdentity === signature) return;
+  root.dataset.helmVisualIdentity = signature;
+
+  const background = isLight
     ? mixHex(primary, '#ffffff', 0.92)
     : mixHex(sidebar, '#020617', 0.55);
-  const card = resolvedTheme === 'light'
+  const card = isLight
     ? mixHex(primary, '#ffffff', 0.97)
     : mixHex(sidebar, '#0b1220', 0.45);
-  const muted = resolvedTheme === 'light'
+  const muted = isLight
     ? mixHex(primary, '#f1f5f9', 0.9)
     : mixHex(sidebar, '#111827', 0.35);
-  const secondary = resolvedTheme === 'light'
+  const secondary = isLight
     ? mixHex(accent, '#eff6ff', 0.88)
     : mixHex(sidebar, accent, 0.12);
-  const border = resolvedTheme === 'light'
+  const border = isLight
     ? mixHex(primary, '#cbd5e1', 0.82)
     : mixHex(sidebar, '#64748b', 0.18);
   const chart3 = mixHex(primary, '#a855f7', 0.45);
@@ -112,19 +188,27 @@ export function applyVisualIdentity(settings = {}, resolvedTheme = 'dark') {
   root.style.setProperty('--chart-3', hexToHsl(chart3, '#a855f7'));
   root.style.setProperty('--chart-4', hexToHsl(chart4, '#22c55e'));
   root.style.setProperty('--chart-5', hexToHsl(chart5, '#f59e0b'));
+  const primaryRgb = hexToRgb(primary);
+  const accentRgb = hexToRgb(accent);
+  const sidebarRgb = hexToRgb(sidebar);
+  root.style.setProperty('--helm-primary-rgb', `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`);
+  root.style.setProperty('--helm-accent-rgb', `${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}`);
+  root.style.setProperty('--helm-sidebar-rgb', `${sidebarRgb.r}, ${sidebarRgb.g}, ${sidebarRgb.b}`);
   root.style.setProperty('--sidebar-background', hexToHsl(sidebar, sidebarDefault));
-  root.style.setProperty('--sidebar-foreground', resolvedTheme === 'light' ? '0 0% 100%' : '213 31% 92%');
-  root.style.setProperty('--sidebar-border', hexToHsl(mixHex(sidebar, '#94a3b8', resolvedTheme === 'light' ? 0.24 : 0.09), '#1f2d48'));
+  root.style.setProperty('--sidebar-foreground', isLight ? '0 0% 100%' : '213 31% 92%');
+  root.style.setProperty('--sidebar-border', hexToHsl(mixHex(sidebar, '#94a3b8', isLight ? 0.24 : 0.09), '#1f2d48'));
   root.style.setProperty('--sidebar-accent', hexToHsl(primary, primaryDefault));
   root.style.setProperty('--sidebar-accent-foreground', '0 0% 100%');
-  root.style.setProperty('--background', hexToHsl(background, resolvedTheme === 'light' ? '#f8fbff' : '#09101c'));
-  root.style.setProperty('--card', hexToHsl(card, resolvedTheme === 'light' ? '#ffffff' : '#0d1525'));
-  root.style.setProperty('--popover', hexToHsl(card, resolvedTheme === 'light' ? '#ffffff' : '#0d1525'));
-  root.style.setProperty('--muted', hexToHsl(muted, resolvedTheme === 'light' ? '#eef4fb' : '#121b2d'));
-  root.style.setProperty('--secondary', hexToHsl(secondary, resolvedTheme === 'light' ? '#eff6ff' : '#122033'));
-  root.style.setProperty('--border', hexToHsl(border, resolvedTheme === 'light' ? '#cbd5e1' : '#243247'));
-  root.style.setProperty('--input', hexToHsl(border, resolvedTheme === 'light' ? '#cbd5e1' : '#243247'));
+  root.style.setProperty('--background', hexToHsl(background, isLight ? '#f8fbff' : '#09101c'));
+  root.style.setProperty('--card', hexToHsl(card, isLight ? '#ffffff' : '#0d1525'));
+  root.style.setProperty('--popover', hexToHsl(card, isLight ? '#ffffff' : '#0d1525'));
+  root.style.setProperty('--muted', hexToHsl(muted, isLight ? '#eef4fb' : '#121b2d'));
+  root.style.setProperty('--secondary', hexToHsl(secondary, isLight ? '#eff6ff' : '#122033'));
+  root.style.setProperty('--border', hexToHsl(border, isLight ? '#cbd5e1' : '#243247'));
+  root.style.setProperty('--input', hexToHsl(border, isLight ? '#cbd5e1' : '#243247'));
 
-  const font = settings.app_font || 'Cairo';
   body.style.fontFamily = `'${font}', 'Segoe UI', sans-serif`;
+
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.setAttribute('content', isLight ? background : sidebar);
 }

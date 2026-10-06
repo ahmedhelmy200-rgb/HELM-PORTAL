@@ -1,0 +1,14 @@
+[functions.meta-oauth-callback]
+verify_jwt = false
+
+[functions.meta-process-queue]
+verify_jwt = false
+
+[functions.payment-invoice]
+verify_jwt = false
+
+[functions.create-payment-intent]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

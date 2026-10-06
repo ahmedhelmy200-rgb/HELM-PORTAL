@@ -1,13 +1,15 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react'
 import { base44 } from '@/api/base44Client'
-import { loginWithCalendarScope } from '@/lib/googleCalendar'
 import { supabase } from '@/integrations/supabase/client'
+import { beginGoogleOAuth, getPublicAppOrigin, isHelmDesktop } from '@/lib/authRedirect'
 
 const AuthContext = createContext()
 
 const AUTH_TIMEOUT_MS = 12000
 const PROFILE_TIMEOUT_MS = 12000
 const SETTINGS_TIMEOUT_MS = 8000
+const OAUTH_SESSION_WAIT_MS = 10000
+const GOOGLE_CALENDAR_SCOPE = 'openid email profile https://www.googleapis.com/auth/calendar.events'
 
 function isAbortLike(error) {
   const message = String(error?.message || error || '').toLowerCase()
@@ -22,6 +24,23 @@ function withTimeout(promise, ms, label) {
       timer = window.setTimeout(() => reject(new Error(`${label} timeout`)), ms)
     }),
   ]).finally(() => window.clearTimeout(timer))
+}
+
+async function waitForOAuthSession(timeoutMs = OAUTH_SESSION_WAIT_MS) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const { data, error } = await supabase.auth.getSession()
+    if (error) throw error
+    if (data?.session) return data.session
+    await new Promise((resolve) => window.setTimeout(resolve, 200))
+  }
+  return null
+}
+
+function cleanOAuthUrl() {
+  if (typeof window === 'undefined') return
+  const cleanPath = window.location.pathname || '/'
+  window.history.replaceState({}, document.title, cleanPath)
 }
 
 export const AuthProvider = ({ children }) => {
@@ -83,8 +102,6 @@ export const AuthProvider = ({ children }) => {
         return { ok: true, authenticated: false }
       }
 
-      // عند الرجوع من تبويب آخر أو token refresh: لا تعمل reload كامل ولا تحميل بيانات من جديد.
-      // فقط تأكدنا أن session موجودة، ونحتفظ بنفس الصفحة ونفس state.
       if (silent && authenticatedRef.current && userRef.current && !refreshProfile) {
         return { ok: true, authenticated: true, kept: true }
       }
@@ -122,7 +139,6 @@ export const AuthProvider = ({ children }) => {
 
       if (checkId !== checkIdRef.current) return { ok: false, stale: true }
 
-      // أي خطأ أثناء فحص صامت لا يمس الصفحة ولا يرجعك للوجين.
       if (silent && authenticatedRef.current && userRef.current) {
         setAuthError(null)
         return { ok: false, silentError: true, kept: true }
@@ -145,7 +161,6 @@ export const AuthProvider = ({ children }) => {
     } finally {
       if (checkId === checkIdRef.current) {
         checkingRef.current = false
-        // لا نظهر Loader في الفحص الصامت، لكن لو كان ظاهرًا من فحص سابق ننهيه.
         setIsLoadingAuth(false)
         setIsLoadingPublicSettings(false)
       }
@@ -156,19 +171,45 @@ export const AuthProvider = ({ children }) => {
     let cancelled = false
 
     const handleOAuthCallback = async () => {
-      const hash   = window.location.hash
-      const search = window.location.search
-      const hasToken = hash.includes('access_token') || hash.includes('refresh_token')
-      const hasCode  = search.includes('code=')
+      try {
+        const currentUrl = new URL(window.location.href)
+        const hash = window.location.hash
+        const hasToken = hash.includes('access_token') || hash.includes('refresh_token')
+        const hasCode = currentUrl.searchParams.has('code')
+        const oauthError = currentUrl.searchParams.get('error_description') || currentUrl.searchParams.get('error')
 
-      if (hasToken || hasCode) {
-        await new Promise(r => window.setTimeout(r, 600))
-        window.history.replaceState({}, document.title, window.location.pathname)
-      }
+        if (oauthError) {
+          cleanOAuthUrl()
+          if (!cancelled) {
+            setAuthError({ type: 'oauth_error', message: oauthError })
+            finishAsGuest(null)
+            setIsLoadingAuth(false)
+            setIsLoadingPublicSettings(false)
+          }
+          return
+        }
 
-      if (!cancelled) {
-        await checkAppState({ force: true, silent: false, refreshProfile: true })
-        bootstrappedRef.current = true
+        if (hasToken || hasCode) {
+          const session = await waitForOAuthSession()
+          if (!session) throw new Error('لم تكتمل جلسة Google خلال المهلة المحددة. تحقق من Redirect URLs في Supabase ثم أعد المحاولة.')
+          cleanOAuthUrl()
+        }
+
+        if (!cancelled) {
+          await checkAppState({ force: true, silent: false, refreshProfile: true })
+          bootstrappedRef.current = true
+        }
+      } catch (error) {
+        console.error('[Auth] OAuth callback failed:', error)
+        if (!cancelled) {
+          cleanOAuthUrl()
+          finishAsGuest({
+            type: 'oauth_error',
+            message: error?.message || 'تعذر إكمال تسجيل الدخول عبر Google.',
+          })
+          setIsLoadingAuth(false)
+          setIsLoadingPublicSettings(false)
+        }
       }
     }
 
@@ -188,8 +229,6 @@ export const AuthProvider = ({ children }) => {
         return
       }
 
-      // Supabase قد يرسل SIGNED_IN / TOKEN_REFRESHED عند الرجوع للتاب.
-      // بعد أول تحميل ناجح نعالجها كفحص صامت حتى لا تظهر شاشة التحميل ولا تتفرمت الصفحة.
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
         window.setTimeout(() => {
           const shouldBeSilent = bootstrappedRef.current && authenticatedRef.current && Boolean(userRef.current)
@@ -206,36 +245,63 @@ export const AuthProvider = ({ children }) => {
       cancelled = true
       sub?.subscription?.unsubscribe()
     }
-  }, [checkAppState, clearBase44Cache])
+  }, [checkAppState, clearBase44Cache, finishAsGuest])
+
+  useEffect(() => {
+    if (!isHelmDesktop() || typeof window.helmDesktop?.onOAuthCallback !== 'function') return undefined
+
+    return window.helmDesktop.onOAuthCallback(async ({ code, error, errorDescription }) => {
+      if (error || !code) {
+        setAuthError({
+          type: 'oauth_error',
+          message: errorDescription || error || 'لم يصل رمز تسجيل الدخول من Google إلى البرنامج.',
+        })
+        setIsLoadingAuth(false)
+        return
+      }
+
+      try {
+        setAuthError(null)
+        setIsLoadingAuth(true)
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (exchangeError) throw exchangeError
+        clearBase44Cache()
+        await checkAppState({ force: true, silent: false, refreshProfile: true })
+        bootstrappedRef.current = true
+      } catch (exchangeError) {
+        console.error('[Auth] desktop OAuth exchange failed:', exchangeError)
+        finishAsGuest({
+          type: 'oauth_error',
+          message: exchangeError?.message || 'تعذر إكمال جلسة Google داخل البرنامج.',
+        })
+      } finally {
+        setIsLoadingAuth(false)
+      }
+    })
+  }, [checkAppState, clearBase44Cache, finishAsGuest])
 
   const logout = async (shouldRedirect = true) => {
     clearBase44Cache()
-    return base44.auth.logout(shouldRedirect ? window.location.origin : null)
+    const redirectBase = getPublicAppOrigin()
+    return base44.auth.logout(shouldRedirect && redirectBase ? redirectBase : null)
   }
 
   const navigateToLoginWithCalendar = async () => {
-    try { await loginWithCalendarScope(import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL || window.location.origin) }
-    catch (err) { setAuthError({ type: 'oauth_error', message: err.message }) }
+    try {
+      setAuthError(null)
+      await beginGoogleOAuth(supabase, {
+        scopes: GOOGLE_CALENDAR_SCOPE,
+        prompt: 'consent select_account',
+      })
+    } catch (err) {
+      setAuthError({ type: 'oauth_error', message: err.message || 'تعذر طلب صلاحية Google Calendar.' })
+    }
   }
 
   const navigateToLogin = async () => {
     try {
       setAuthError(null)
-      const redirectTo = (
-        import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL ||
-        window.location.origin
-      ).replace(/\/$/, '')
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          queryParams: { access_type: 'offline', prompt: 'select_account' },
-        },
-      })
-      if (error) {
-        setAuthError({ type: 'oauth_error', message: error.message || 'فشل الاتصال بـ Google.' })
-      }
+      await beginGoogleOAuth(supabase)
     } catch (err) {
       setAuthError({ type: 'oauth_error', message: err.message || 'تعذر الاتصال بـ Google OAuth.' })
     }
@@ -273,12 +339,13 @@ export const AuthProvider = ({ children }) => {
       if (!cleanEmail || !password) throw new Error('أدخل البريد الإلكتروني وكلمة المرور.')
       if (password.length < 6) throw new Error('كلمة المرور يجب ألا تقل عن 6 أحرف.')
 
+      const emailRedirectTo = getPublicAppOrigin()
       const { error } = await supabase.auth.signUp({
         email: cleanEmail,
         password,
         options: {
           data: { full_name: cleanName || cleanEmail },
-          emailRedirectTo: import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin,
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
         },
       })
 
@@ -298,8 +365,10 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null)
       const cleanEmail = String(email || '').trim().toLowerCase()
       if (!cleanEmail) throw new Error('أدخل البريد الإلكتروني أولاً.')
+      const publicOrigin = getPublicAppOrigin()
+      if (!publicOrigin) throw new Error('تعذر تحديد رابط إعادة تعيين كلمة المرور.')
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: `${(import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, '')}/PasswordReset`,
+        redirectTo: `${publicOrigin.replace(/\/$/, '')}/PasswordReset`,
       })
       if (error) throw error
       return { ok: true }

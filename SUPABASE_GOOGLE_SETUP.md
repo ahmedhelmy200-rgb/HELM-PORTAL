@@ -1,73 +1,109 @@
-# إعداد Google OAuth في Supabase — دليل خطوة بخطوة
+# إعداد Google OAuth في Supabase — HELM Portal
 
-## المشكلة الشائعة
-إذا ضغطت على زر تسجيل الدخول وتحدّث الصفحة بدون دخول، السبب في الغالب واحد من ثلاثة:
+## ما تم إصلاحه في الكود
 
----
+- تسجيل الدخول على الويب يستخدم عنوان الصفحة المفتوحة فعلياً بدل الاعتماد على قيمة قديمة مثل `http://localhost:5173`.
+- OAuth يستخدم PKCE.
+- نسخة Windows تفتح Google في المتصفح الافتراضي وتستقبل رمز الرجوع عبر خادم محلي آمن على `127.0.0.1`، بدل فتح Google داخل نافذة Electron.
 
-## ١. إعداد Google Cloud Console
+## 1. إعداد Google Cloud Console
 
-1. اذهب إلى [console.cloud.google.com](https://console.cloud.google.com)
-2. أنشئ مشروعاً جديداً أو اختر مشروعاً موجوداً
-3. من القائمة: **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
-4. اختر **Web application**
-5. في **Authorized redirect URIs** أضف هذه الروابط:
-   ```
-   https://YOUR_PROJECT.supabase.co/auth/v1/callback
-   http://localhost:5173
-   ```
-   > استبدل `YOUR_PROJECT` بـ ID مشروعك في Supabase
-6. احفظ وانسخ **Client ID** و **Client Secret**
+1. افتح Google Cloud Console.
+2. اختر المشروع المستخدم مع Supabase.
+3. اذهب إلى **APIs & Services → Credentials**.
+4. افتح **OAuth 2.0 Client ID** من نوع **Web application**.
+5. تحت **Authorized redirect URIs** أضف رابط Supabase فقط بالشكل التالي:
 
----
-
-## ٢. إعداد Supabase
-
-1. اذهب إلى [supabase.com/dashboard](https://supabase.com/dashboard)
-2. اختر مشروعك → **Authentication** → **Providers**
-3. فعّل **Google** وأدخل:
-   - Client ID (من Google Console)
-   - Client Secret (من Google Console)
-4. اذهب إلى **Authentication** → **URL Configuration**
-5. في **Site URL** أدخل: `http://localhost:5173`
-6. في **Redirect URLs** أضف:
-   ```
-   http://localhost:5173
-   http://localhost:5173/**
-   ```
-
----
-
-## ٣. ملف .env
-
-تأكد أن ملف `.env` يحتوي على:
-```env
-VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGc...  (anon/public key)
-VITE_SUPABASE_GOOGLE_REDIRECT_URL=http://localhost:5173
+```text
+https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback
 ```
 
-**ملاحظة:** استخدم **Anon Key** وليس **Service Role Key**
+استبدل `YOUR_PROJECT_REF` بمعرّف مشروع Supabase الحقيقي.
 
----
+> لا تضع رابط Vercel أو `localhost:5173` هنا كبديل عن رابط Supabase callback. Google يعيد المستخدم أولاً إلى Supabase، ثم Supabase يعيده إلى HELM Portal.
 
-## ٤. جدول user_profiles
+## 2. إعداد Google Provider في Supabase
 
-إذا دخل المستخدم لأول مرة ولا يوجد سجل له في `user_profiles`، سيُعامَل كـ `pending_client`.
+من **Authentication → Providers → Google**:
 
-لإضافة حسابك كـ admin، شغّل في Supabase → SQL Editor:
+- فعّل Google.
+- ضع Client ID الصحيح.
+- ضع Client Secret الصحيح.
+- احفظ.
+
+## 3. إعداد URL Configuration في Supabase
+
+من **Authentication → URL Configuration**:
+
+### Site URL
+ضع رابط النسخة المنشورة الفعلي، مثال:
+
+```text
+https://YOUR-HELM-DOMAIN.example
+```
+
+### Redirect URLs
+أضف النسخة المنشورة، التطوير المحلي، ونسخة Windows:
+
+```text
+https://YOUR-HELM-DOMAIN.example
+https://YOUR-HELM-DOMAIN.example/**
+http://localhost:5173
+http://localhost:5173/**
+http://127.0.0.1:41735
+http://127.0.0.1:41735/**
+```
+
+إذا كان للمشروع نطاق Vercel ثابت ونطاق مخصص، أضف الاثنين.
+
+## 4. متغيرات Vercel / .env.local
+
+القيم الأساسية:
+
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+VITE_SUPABASE_STORAGE_BUCKET=uploads
+VITE_PUBLIC_SITE_URL=https://YOUR-HELM-DOMAIN.example
+```
+
+`VITE_SUPABASE_GOOGLE_REDIRECT_URL` لم يعد مطلوباً على الويب؛ يفضل تركه فارغاً حتى لا تعيد قيمة localhost قديمة كسر تسجيل الدخول.
+
+## 5. حسابات المكتب
+
+بعد نجاح Google OAuth، HELM Portal يطابق البريد مع `user_profiles` وبيانات الموكلين. إذا لم يكن البريد معروفاً للنظام، قد يظهر الحساب كـ `pending_client` بدلاً من موظف.
+
+مثال لإضافة موظف إداري يدوياً من SQL Editor:
+
 ```sql
 INSERT INTO public.user_profiles (email, role, full_name)
-VALUES ('your-email@gmail.com', 'admin', 'اسمك')
-ON CONFLICT (email) DO UPDATE SET role = 'admin';
+VALUES ('your-email@gmail.com', 'admin', 'اسم المستخدم')
+ON CONFLICT (email) DO UPDATE
+SET role = EXCLUDED.role,
+    full_name = EXCLUDED.full_name;
 ```
 
----
+## 6. تشخيص سريع
 
-## تشخيص المشكلة
+- `redirect_uri_mismatch` من Google: راجع أن Google Cloud يحتوي على رابط Supabase `/auth/v1/callback` الصحيح.
+- `Redirect URL not allowed`: أضف رابط HELM Portal أو `127.0.0.1:41735` إلى Redirect URLs في Supabase.
+- الرجوع إلى localhost بعد تسجيل الدخول على الموقع المنشور: احذف/اترك فارغاً متغير `VITE_SUPABASE_GOOGLE_REDIRECT_URL` القديم في Vercel ثم أعد النشر.
+- ظهور `user_profiles` أو حساب غير مفعل: OAuth نجح لكن صلاحية البريد داخل قاعدة البيانات تحتاج مراجعة.
 
-بعد تشغيل البرنامج، افتح **Developer Tools** (F12) → **Console**.
-إذا ظهرت أخطاء مثل:
-- `invalid redirect_uri` → المشكلة في Google Console
-- `Redirect URL not allowed` → المشكلة في Supabase URL Configuration  
-- `user_profiles` → المستخدم غير موجود في قاعدة البيانات
+## 7. نسخة Windows
+
+نسخة Windows الجديدة لا تستخدم `file://`. البرنامج يشغّل build المحلي على:
+
+```text
+http://127.0.0.1:41735
+```
+
+وهذا يمنع مشاكل BrowserRouter والمسارات والشاشة السوداء المرتبطة ببناء Electron القديم.
+
+لبناء النسخة على Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\BUILD_DESKTOP_WINDOWS.ps1
+```
+
+الناتج يكون داخل مجلد `release` بنسختين: Installer وPortable.

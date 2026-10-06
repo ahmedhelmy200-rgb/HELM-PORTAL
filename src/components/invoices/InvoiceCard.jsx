@@ -1,14 +1,13 @@
-import ActionButtons from "@/components/shared/ActionButtons";
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   FileText, Download, Edit, Trash2, CheckCircle,
-  MessageCircle, Mail, BellRing, Link2, Copy, CheckCircle2,
+  MessageCircle, Mail, BellRing, Link2, Copy, CheckCircle2, ShieldCheck,
 } from "lucide-react";
 import { format, isValid } from "date-fns";
-import { buildPaymentUrl, buildPaymentWhatsAppMessage } from "@/lib/paymentLinks";
+import { buildSecurePaymentUrl, buildPaymentWhatsAppMessage } from "@/lib/paymentLinks";
 import { getInvoiceBrand } from "@/lib/portalScopes";
 
 const STATUS_STYLES = {
@@ -34,7 +33,9 @@ export default function InvoiceCard({
   onSendWhatsApp,
   onSendEmail,
   onSendReminder,
+  onOpenClient,
   officeSettings,
+  clientPhone = '',
   isClient = false,
   readOnly = false,
 }) {
@@ -49,24 +50,19 @@ export default function InvoiceCard({
   const isPaid      = invoice.status === "مدفوعة" || remaining <= 0;
 
   // ── رابط الدفع ──────────────────────────────────────────────────────────
-  const paymentUrl = buildPaymentUrl(invoice.id);
+  const paymentUrl = buildSecurePaymentUrl(invoice.payment_token);
 
   const handleCopyLink = () => {
+    if (!paymentUrl) return;
     navigator.clipboard?.writeText(paymentUrl).catch(() => {});
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2500);
   };
 
   const handleSendPaymentWhatsApp = () => {
+    if (!paymentUrl) return;
     const msg = buildPaymentWhatsAppMessage(invoice, paymentUrl, officeSettings);
-    const phone = String(
-      (officeSettings
-        ? (() => {
-            // نحاول إيجاد رقم الموكل من clientLookup إذا متاح
-            return "";
-          })()
-        : "") || ""
-    ).replace(/\D+/g, "");
+    const phone = String(clientPhone || '').replace(/\D+/g, '');
     const encoded = encodeURIComponent(msg);
     window.open(phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`, "_blank");
   };
@@ -118,7 +114,7 @@ export default function InvoiceCard({
       </div>
 
       {/* ── رابط الدفع — يظهر للفواتير غير المدفوعة ──────────────────────── */}
-      {!isPaid && (
+      {!isPaid && paymentUrl && (
         <div className="mb-3 p-3 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Link2 className="h-4 w-4 text-primary shrink-0" />
@@ -162,6 +158,11 @@ export default function InvoiceCard({
 
       {/* ── أزرار الإجراءات ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-border">
+        {invoice.client_id && onOpenClient && (
+          <Button variant="outline" size="sm" onClick={() => onOpenClient(invoice)} className="gap-1 text-xs h-8">
+            <ShieldCheck className="h-3.5 w-3.5" /> ملف الموكل
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => onPrint(invoice)} className="gap-1 text-xs h-8">
           <Download className="h-3.5 w-3.5" /> طباعة
         </Button>

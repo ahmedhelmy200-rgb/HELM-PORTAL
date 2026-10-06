@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { appParams } from "@/lib/app-params";
 
 const entityTableMap = {
   Case: 'cases',
@@ -37,12 +38,14 @@ const exportPlan = [
   ['OfficeSettings', 'office_settings'],
 ];
 
+export const BACKUP_SECTIONS = exportPlan.map(([, key]) => key);
+
 function nowStamp() {
   return new Date().toISOString().split('T')[0];
 }
 
 function bucketName() {
-  return import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || 'backups';
+  return appParams.storageBucket || 'uploads';
 }
 
 function fileName(prefix = 'helm-backup') {
@@ -100,7 +103,7 @@ export async function restoreBackupFromCloud() {
   const { data, error } = await supabase.storage.from(bucketName()).download(path);
   if (error) throw error;
   const text = await data.text();
-  return JSON.parse(text);
+  return JSON.parse(text.replace(/^\uFEFF/, ''));
 }
 
 async function upsertRows(table, rows) {
@@ -155,5 +158,5 @@ export async function restoreBackupData(backup) {
 
 export async function readBackupFile(file) {
   const text = await file.text();
-  return JSON.parse(text);
+  return JSON.parse(text.replace(/^\uFEFF/, ''));
 }

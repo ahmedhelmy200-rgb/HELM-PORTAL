@@ -1,5 +1,6 @@
 -- HELM Unified Stage 4: final security hardening for email login + client portal
--- نفذ هذا الملف بعد 001 إلى 010، أو نفذ FINAL_SECURITY_HARDENING.sql من جذر المشروع.
+-- نفذ هذا الملف بعد 001 إلى 010 (انظر docs/SQL_RUN_ORDER_AR.md)،
+-- أو نفذ FINAL_SECURITY_HARDENING.sql من جذر المشروع.
 
 create or replace function public.is_staff_email(target_email text)
 returns boolean

@@ -39,6 +39,10 @@ export default {
           ring: 'hsl(var(--sidebar-ring))',
         },
       },
+      spacing: {
+        '4.5': '1.125rem',
+        '13': '3.25rem',
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

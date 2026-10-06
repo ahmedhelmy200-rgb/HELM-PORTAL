@@ -91,6 +91,6 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.8.2",
     "vite": "^6.1.0",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.3"
   }
 }

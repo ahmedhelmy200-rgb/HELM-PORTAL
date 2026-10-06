@@ -11,7 +11,7 @@ import { loginWithCalendarScope } from "@/lib/googleCalendar";
 import { MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { THEMES, applyTheme, getActiveThemeId } from "@/lib/themes";
+import { THEMES, applyTheme as applyPresetTheme, getActiveThemeId, getThemeVisualSettings } from "@/lib/themes";
 import { SOUND_THEMES, getSoundTheme, setSoundTheme, getSoundEnabled, setSoundEnabled, previewTheme, playUiTone } from "@/lib/sound";
 import {
   Building2, Phone, Mail, Globe, MapPin, CreditCard, Palette,
@@ -22,13 +22,58 @@ import {
 } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 
-// ── Themes Panel ──────────────────────────────────────────────────────────────
-function ThemesPanel() {
-  const [active, setActive] = useState(getActiveThemeId())
+// ── Themes + visual effects panel ──────────────────────────────────────────────
+function ThemesPanel({ settings, setSettings }) {
+  const [active, setActive] = useState(() => localStorage.getItem('helm_active_theme') || settings?.features?.appearance?.theme_id || getActiveThemeId())
+
+  const appearance = settings?.features?.appearance || {}
+  const localEffectPower = localStorage.getItem('helm_electric_intensity')
+  const effectPower = Number(localEffectPower ?? appearance.effect_power ?? 1.15)
+  const localNetwork = localStorage.getItem('helm_network_enabled')
+  const localShapes = localStorage.getItem('helm_shapes_enabled')
+  const networkEnabled = localNetwork === null ? appearance.network_enabled !== false : localNetwork !== 'false'
+  const shapesEnabled = localShapes === null ? appearance.ambient_shapes_enabled !== false : localShapes !== 'false'
+
+  const updateAppearance = (patch) => {
+    const nextAppearance = { ...appearance, ...patch }
+    setSettings((current) => ({
+      ...current,
+      features: {
+        ...(current?.features || {}),
+        appearance: {
+          ...(current?.features?.appearance || {}),
+          ...patch,
+        },
+      },
+    }))
+
+    if (patch.effect_power !== undefined) localStorage.setItem('helm_electric_intensity', String(patch.effect_power))
+    if (patch.network_enabled !== undefined) localStorage.setItem('helm_network_enabled', String(patch.network_enabled))
+    if (patch.ambient_shapes_enabled !== undefined) localStorage.setItem('helm_shapes_enabled', String(patch.ambient_shapes_enabled))
+
+    try {
+      window.dispatchEvent(new CustomEvent('helm:appearance-change', { detail: nextAppearance }))
+    } catch {
+      // دعم المتصفحات القديمة التي لا توفّر CustomEvent كاملًا.
+    }
+  }
 
   const handleSelect = (themeId) => {
-    applyTheme(themeId)
+    const nextSettings = getThemeVisualSettings(themeId, settings)
+    setSettings(nextSettings)
+    const applied = applyPresetTheme(themeId, nextSettings)
     setActive(themeId)
+    try {
+      window.dispatchEvent(new CustomEvent('helm:appearance-change', {
+        detail: {
+          ...(nextSettings?.features?.appearance || {}),
+          theme_id: themeId,
+          theme_mode: applied.resolvedTheme,
+        },
+      }))
+    } catch {
+      // تم تطبيق الثيم محليًا بالفعل؛ تعذّر بث الحدث لا يوقف الحفظ.
+    }
     playUiTone('save', true)
   }
 
@@ -39,7 +84,7 @@ function ThemesPanel() {
           <CardTitle className="text-base flex items-center gap-2">
             <Palette className="h-4 w-4 text-primary" /> ثيمات الواجهة
           </CardTitle>
-          <p className="text-sm text-muted-foreground">اختر ثيم الألوان المناسب لمكتبك — يُطبَّق فوراً</p>
+          <p className="text-sm text-muted-foreground">الثيم يضبط الألوان والوضع البصري والشبكة والمؤثرات بشكل موحّد.</p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -55,17 +100,13 @@ function ThemesPanel() {
                       : "border-border hover:border-primary/40 hover:scale-[1.01]"
                   }`}
                 >
-                  {/* معاينة الثيم */}
                   <div className="h-20 relative" style={{ background: theme.preview.bg }}>
-                    {/* sidebar mock */}
                     <div className="absolute right-0 top-0 bottom-0 w-8" style={{ background: theme.preview.sidebar }} />
-                    {/* cards mock */}
                     <div className="absolute right-10 top-2 left-2 space-y-1.5">
                       <div className="h-3 rounded-full" style={{ background: theme.preview.primary, opacity: 0.8, width: '60%' }} />
                       <div className="h-2 rounded-full bg-white/10" style={{ width: '80%' }} />
                       <div className="h-2 rounded-full bg-white/10" style={{ width: '50%' }} />
                     </div>
-                    {/* accent dot */}
                     <div className="absolute left-3 bottom-3 w-4 h-4 rounded-full" style={{ background: theme.preview.accent }} />
                     {isActive && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -88,8 +129,63 @@ function ThemesPanel() {
             })}
           </div>
           <p className="text-xs text-muted-foreground mt-4 text-center">
-            الثيم محفوظ تلقائياً على هذا الجهاز — يُعاد تطبيقه عند كل تشغيل
+            يتم حفظ الثيم مع إعدادات المكتب عند الضغط على «حفظ الإعدادات»، مع نسخة محلية فورية على الجهاز.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" /> الشبكة العنكبوتية والأشكال
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">تحكم في الخلفية المتحركة والهالات البصرية وشدة التفاعل.</p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => updateAppearance({ network_enabled: !networkEnabled })}
+              className={`flex items-center justify-between gap-3 p-4 rounded-xl border transition-all ${networkEnabled ? 'border-primary/40 bg-primary/8' : 'border-border bg-muted/30'}`}
+            >
+              <span className="text-right">
+                <span className="block text-sm font-bold text-foreground">الشبكة العنكبوتية</span>
+                <span className="block text-xs text-muted-foreground mt-1">نقاط وخطوط مترابطة تتفاعل مع حركة المؤشر</span>
+              </span>
+              <Badge variant={networkEnabled ? "default" : "secondary"}>{networkEnabled ? "مفعلة" : "متوقفة"}</Badge>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => updateAppearance({ ambient_shapes_enabled: !shapesEnabled })}
+              className={`flex items-center justify-between gap-3 p-4 rounded-xl border transition-all ${shapesEnabled ? 'border-primary/40 bg-primary/8' : 'border-border bg-muted/30'}`}
+            >
+              <span className="text-right">
+                <span className="block text-sm font-bold text-foreground">الأشكال والهالات</span>
+                <span className="block text-xs text-muted-foreground mt-1">وهج خلفي متدرج يتبع ألوان الثيم</span>
+              </span>
+              <Badge variant={shapesEnabled ? "default" : "secondary"}>{shapesEnabled ? "مفعلة" : "متوقفة"}</Badge>
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-border p-4 bg-muted/20">
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div>
+                <p className="text-sm font-bold text-foreground">شدة المؤثرات</p>
+                <p className="text-xs text-muted-foreground">تؤثر على كثافة خطوط الشبكة واستجابتها</p>
+              </div>
+              <Badge variant="outline">{effectPower.toFixed(2)}×</Badge>
+            </div>
+            <input
+              type="range"
+              min="0.5"
+              max="2.2"
+              step="0.05"
+              value={effectPower}
+              onChange={(event) => updateAppearance({ effect_power: Number(event.target.value) })}
+              className="w-full accent-primary"
+            />
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -97,13 +193,33 @@ function ThemesPanel() {
 }
 
 // ── Sounds Panel ──────────────────────────────────────────────────────────────
-function SoundsPanel() {
-  const [activeTheme, setActiveTheme] = useState(getSoundTheme())
-  const [enabled,     setEnabled]     = useState(getSoundEnabled())
+function SoundsPanel({ settings, setSettings }) {
+  const savedAppearance = settings?.features?.appearance || {}
+  const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('helm_sound_theme') || savedAppearance.sound_theme || getSoundTheme())
+  const [enabled, setEnabled] = useState(() => localStorage.getItem('helm_sound_enabled') === null ? (savedAppearance.sound_enabled ?? getSoundEnabled()) : getSoundEnabled())
+
+  const updateAppearance = (patch) => {
+    setSettings((current) => ({
+      ...current,
+      features: {
+        ...(current?.features || {}),
+        appearance: {
+          ...(current?.features?.appearance || {}),
+          ...patch,
+        },
+      },
+    }))
+    try {
+      window.dispatchEvent(new CustomEvent('helm:appearance-change', { detail: patch }))
+    } catch {
+      // التفضيلات محفوظة محليًا حتى إذا تعذّر بث الحدث.
+    }
+  }
 
   const handleTheme = (id) => {
     setSoundTheme(id)
     setActiveTheme(id)
+    updateAppearance({ sound_theme: id })
     previewTheme(id)
   }
 
@@ -111,6 +227,7 @@ function SoundsPanel() {
     const next = !enabled
     setSoundEnabled(next)
     setEnabled(next)
+    updateAppearance({ sound_enabled: next })
     if (next) setTimeout(() => previewTheme(activeTheme), 100)
   }
 
@@ -127,7 +244,6 @@ function SoundsPanel() {
 
   return (
     <div className="space-y-6">
-      {/* تفعيل/إيقاف */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -142,11 +258,10 @@ function SoundsPanel() {
               <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${enabled ? "right-0.5" : "left-0.5"}`} />
             </button>
           </div>
-          <p className="text-sm text-muted-foreground">أصوات كهربائية تفاعلية تعطي البرنامج حياة وطابعاً مميزاً</p>
+          <p className="text-sm text-muted-foreground">اختيار الصوت يُحفظ مع مظهر المكتب ويمكن استعادته على جهاز آخر.</p>
         </CardHeader>
       </Card>
 
-      {/* اختيار الثيم الصوتي */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -170,14 +285,8 @@ function SoundsPanel() {
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <span className="text-2xl">{theme.icon}</span>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-foreground">{theme.label}</p>
-                  </div>
-                  {isActive && (
-                    <div className="absolute top-2 left-2">
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                    </div>
-                  )}
+                  <div className="text-center"><p className="text-sm font-bold text-foreground">{theme.label}</p></div>
+                  {isActive && <div className="absolute top-2 left-2"><CheckCircle2 className="h-4 w-4 text-primary" /></div>}
                 </button>
               )
             })}
@@ -185,7 +294,6 @@ function SoundsPanel() {
         </CardContent>
       </Card>
 
-      {/* معاينة الأصوات */}
       {enabled && (
         <Card>
           <CardHeader className="pb-3">
@@ -223,6 +331,8 @@ function SoundsPanel() {
 import { applyVisualIdentity } from "@/lib/theme";
 import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, readBackupFile } from "@/lib/backup";
 import { prepareSafeImport, applySafeImport } from "@/lib/safeImport";
+import { applyVisualIdentity, AVAILABLE_APP_FONTS } from "@/lib/theme";
+import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
 import { useAuth } from "@/lib/AuthContext";
 import { appParams } from "@/lib/app-params";
 
@@ -241,7 +351,7 @@ const Field = ({ label, icon, children }) => {
 };
 
 // Upload button component
-const UploadArea = ({ label, value, onUpload, uploading, accept = "image/*" }) => (
+const UploadArea = ({ label, value, onUpload, uploading }) => (
   <div className="border-2 border-dashed border-border rounded-xl p-5 text-center hover:border-primary/50 transition-colors bg-muted/30">
     {value ? (
       <div className="flex flex-col items-center gap-3">
@@ -314,7 +424,8 @@ export default function Settings() {
     invoice_notes_default: "",
     bank_name: "", bank_account: "", iban: "", vat_number: "",
     primary_color: "#1d4ed8", secondary_color: "#f59e0b", sidebar_color: "#1d4ed8",
-    app_font: "Cairo", currency: "د.إ",
+    app_font: "Cairo", currency: "د.إ", theme_mode: "system",
+    features: { appearance: { theme_id: "midnight", sound_theme: "electric", sound_enabled: true, effect_power: 1.15, network_enabled: true, ambient_shapes_enabled: true } },
     specializations: [], working_hours: "من 8 صباحاً إلى 5 مساءً",
     social_twitter: "", social_linkedin: "", social_whatsapp: "",
     stripe_publishable_key: "",
@@ -328,7 +439,14 @@ export default function Settings() {
       const merged = { ...defaultSettings, ...data[0] };
       setSettings(merged);
       setSettingsId(data[0].id);
-      applyTheme(merged);
+      const appearance = merged?.features?.appearance || {};
+      if (!localStorage.getItem('helm_active_theme') && appearance.theme_id) localStorage.setItem('helm_active_theme', appearance.theme_id);
+      if (!localStorage.getItem('helm_sound_theme') && appearance.sound_theme) setSoundTheme(appearance.sound_theme);
+      if (localStorage.getItem('helm_sound_enabled') === null && typeof appearance.sound_enabled === 'boolean') setSoundEnabled(appearance.sound_enabled);
+      if (localStorage.getItem('helm_electric_intensity') === null && Number.isFinite(Number(appearance.effect_power))) localStorage.setItem('helm_electric_intensity', String(appearance.effect_power));
+      if (localStorage.getItem('helm_network_enabled') === null && typeof appearance.network_enabled === 'boolean') localStorage.setItem('helm_network_enabled', String(appearance.network_enabled));
+      if (localStorage.getItem('helm_shapes_enabled') === null && typeof appearance.ambient_shapes_enabled === 'boolean') localStorage.setItem('helm_shapes_enabled', String(appearance.ambient_shapes_enabled));
+      applyCurrentVisualIdentity(merged);
     } else {
       setSettings(defaultSettings);
     }
@@ -344,7 +462,7 @@ export default function Settings() {
     }
     setSaving(false);
     setSaved(true);
-    applyTheme(settings);
+    applyCurrentVisualIdentity(settings);
     setTimeout(() => setSaved(false), 3000);
   };
 
@@ -385,13 +503,13 @@ export default function Settings() {
   };
 
   // Apply theme to the app CSS variables
-  const applyTheme = (s) => {
+  const applyCurrentVisualIdentity = (s) => {
     const themeClass = document.documentElement.classList.contains("theme-light") ? "light" : "dark";
     applyVisualIdentity(s, themeClass);
   };
 
   useEffect(() => {
-    if (settings) applyTheme(settings);
+    if (settings) applyCurrentVisualIdentity(settings);
   }, [settings?.primary_color, settings?.secondary_color, settings?.sidebar_color, settings?.app_font]);
 
 
@@ -768,7 +886,7 @@ const exportAllData = async () => {
                 </Field>
                 <Field label="خط التطبيق" icon={Type}>
                   <div className="flex gap-2 flex-wrap">
-                    {["Cairo","Tajawal","Amiri","IBM Plex Sans Arabic","Noto Sans Arabic","Readex Pro","El Messiri","Changa","Almarai"].map(font => (
+                    {AVAILABLE_APP_FONTS.map(font => (
                       <button key={font} onClick={() => set("app_font", font)}
                         className={`px-3 py-2 rounded-lg text-sm border transition-all ${settings.app_font === font ? "bg-primary text-white border-primary" : "bg-background border-border hover:border-primary/50"}`}
                         style={{ fontFamily: font }}
@@ -835,12 +953,12 @@ const exportAllData = async () => {
 
         {/* ========== الثيمات ========== */}
         <TabsContent value="themes">
-          <ThemesPanel />
+          <ThemesPanel settings={settings} setSettings={setSettings} />
         </TabsContent>
 
         {/* ========== الأصوات ========== */}
         <TabsContent value="sounds">
-          <SoundsPanel />
+          <SoundsPanel settings={settings} setSettings={setSettings} />
         </TabsContent>
 
         {/* ========== إعدادات الفواتير ========== */}
@@ -1221,7 +1339,7 @@ const exportAllData = async () => {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    للتفعيل الكامل: سجّل الدخول من زر "مزامنة مع Google" في صفحة الجلسات
+                    للتفعيل الكامل: سجّل الدخول من زر «مزامنة مع Google» في صفحة الجلسات
                   </p>
                   <Button variant="outline" size="sm" className="w-full text-xs gap-1.5"
                     onClick={async () => {

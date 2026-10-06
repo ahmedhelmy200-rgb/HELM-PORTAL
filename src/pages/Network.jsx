@@ -12,7 +12,6 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
 export default function Network() {
-  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [connections, setConnections] = useState([]);
   const [pendingReceived, setPendingReceived] = useState([]);
@@ -26,7 +25,6 @@ export default function Network() {
   const loadData = async () => {
     setLoading(true);
     const u = await base44.auth.me();
-    setUser(u);
 
     const [allProfiles, sentRequests, receivedRequests] = await Promise.all([
       base44.entities.FounderProfile.list(),
@@ -150,7 +148,7 @@ export default function Network() {
                           </div>
                         )}
                         {request.message && (
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-1">"{request.message}"</p>
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-1">«{request.message}»</p>
                         )}
                       </div>
                       <div className="flex gap-2">

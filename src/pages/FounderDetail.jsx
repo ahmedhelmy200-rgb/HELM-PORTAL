@@ -198,7 +198,7 @@ export default function FounderDetail() {
 
           {profile.one_liner && (
             <p className="text-foreground font-medium mt-6 text-lg leading-relaxed">
-              "{profile.one_liner}"
+              «{profile.one_liner}»
             </p>
           )}
 

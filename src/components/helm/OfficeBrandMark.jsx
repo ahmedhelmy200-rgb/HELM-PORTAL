@@ -3,6 +3,7 @@ import { Scale } from 'lucide-react'
 import { appParams } from '@/lib/app-params'
 
 const FALLBACK_LOGOS = [
+  '/icon-192.webp',
   '/icons/icon-192.png',
   '/icon-192.png',
   '/favicon.png',

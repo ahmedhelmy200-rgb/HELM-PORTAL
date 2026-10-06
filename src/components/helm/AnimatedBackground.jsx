@@ -1,6 +1,25 @@
 import { useEffect, useRef } from 'react'
 
-export default function AnimatedBackground({ active = true, intensity = 1, theme = 'dark' }) {
+function hexToRgb(hex, fallback = '#3b82f6') {
+  const value = /^#[0-9a-fA-F]{6}$/.test(String(hex || '').trim()) ? String(hex).trim() : fallback
+  return {
+    r: parseInt(value.slice(1, 3), 16),
+    g: parseInt(value.slice(3, 5), 16),
+    b: parseInt(value.slice(5, 7), 16),
+  }
+}
+
+function rgba(rgb, alpha) {
+  return `rgba(${rgb.r},${rgb.g},${rgb.b},${alpha})`
+}
+
+export default function AnimatedBackground({
+  active = true,
+  intensity = 1,
+  theme = 'dark',
+  primaryColor = '#3b82f6',
+  accentColor = '#06b6d4',
+}) {
   const canvasRef = useRef(null)
   const intensityRef = useRef(intensity)
 
@@ -17,6 +36,8 @@ export default function AnimatedBackground({ active = true, intensity = 1, theme
     const context = canvas.getContext('2d', { alpha: true })
     if (!context) return undefined
 
+    const primary = hexToRgb(primaryColor, '#3b82f6')
+    const accent = hexToRgb(accentColor, '#06b6d4')
     const isMobile = window.innerWidth < 768
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
@@ -30,12 +51,13 @@ export default function AnimatedBackground({ active = true, intensity = 1, theme
     let lastFrame = 0
     const pointer = { x: -9999, y: -9999 }
 
-    const points = Array.from({ length: pointCount }, () => ({
+    const points = Array.from({ length: pointCount }, (_, index) => ({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
       vx: (Math.random() - 0.5) * 0.22,
       vy: (Math.random() - 0.5) * 0.22,
       radius: 0.75 + Math.random() * 0.9,
+      accent: index % 3 === 0,
     }))
 
     const resize = () => {
@@ -61,7 +83,7 @@ export default function AnimatedBackground({ active = true, intensity = 1, theme
     const renderFrame = (time, movePoints = true) => {
       context.clearRect(0, 0, width, height)
       const power = Math.max(0.5, Math.min(2.2, intensityRef.current || 1))
-      const connectionDistance = isMobile ? 82 : 108
+      const connectionDistance = (isMobile ? 82 : 108) * Math.min(1.16, 0.92 + power * 0.08)
 
       if (movePoints) {
         points.forEach((point) => {
@@ -95,7 +117,7 @@ export default function AnimatedBackground({ active = true, intensity = 1, theme
           if (distance >= connectionDistance) continue
 
           const alpha = (1 - distance / connectionDistance) * 0.11 * power
-          context.strokeStyle = `rgba(96,165,250,${alpha})`
+          context.strokeStyle = rgba((left.accent || right.accent) ? accent : primary, alpha)
           context.lineWidth = 0.65
           context.beginPath()
           context.moveTo(left.x, left.y)
@@ -106,7 +128,7 @@ export default function AnimatedBackground({ active = true, intensity = 1, theme
 
       points.forEach((point, index) => {
         const pulse = reducedMotion ? 1 : 0.88 + Math.sin(time * 0.001 + index) * 0.12
-        context.fillStyle = `rgba(147,197,253,${0.34 * pulse})`
+        context.fillStyle = rgba(point.accent ? accent : primary, 0.34 * pulse)
         context.beginPath()
         context.arc(point.x, point.y, point.radius, 0, Math.PI * 2)
         context.fill()
@@ -138,7 +160,7 @@ export default function AnimatedBackground({ active = true, intensity = 1, theme
       window.removeEventListener('pointerleave', leavePointer)
       context.clearRect(0, 0, width, height)
     }
-  }, [active, theme])
+  }, [active, theme, primaryColor, accentColor])
 
   if (!active || theme === 'light') return null
 

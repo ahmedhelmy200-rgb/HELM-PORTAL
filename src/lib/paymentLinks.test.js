@@ -8,6 +8,7 @@ import {
   generatePaymentToken,
   parsePaymentToken,
   buildPaymentUrl,
+  buildSecurePaymentUrl,
   buildPaymentWhatsAppMessage,
 } from './paymentLinks'
 
@@ -105,6 +106,18 @@ describe('paymentLinks (رموز روابط الدفع)', () => {
     const url = buildPaymentUrl('inv-9', 'https://helm.example')
     expect(url.startsWith('https://helm.example/Payment?token=')).toBe(true)
     expect(parsePaymentToken(url.split('token=')[1])?.id).toBe('inv-9')
+  })
+
+  it('يبني رابط الدفع الآمن من token عشوائي بدون كشف invoice id', () => {
+    const token = 'f857d21c-10e6-4b57-9fa1-c96e7cf7a8fd'
+    const url = buildSecurePaymentUrl(token, 'https://helm.example')
+    expect(url).toBe(`https://helm.example/Payment?token=${token}`)
+    expect(url).not.toContain('INV-2026-001')
+  })
+
+  it('لا ينشئ رابط دفع آمن بدون token', () => {
+    expect(buildSecurePaymentUrl('', 'https://helm.example')).toBe('')
+    expect(buildSecurePaymentUrl(null, 'https://helm.example')).toBe('')
   })
 })
 

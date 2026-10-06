@@ -19,6 +19,7 @@ import KeyboardShortcutsModal from '@/components/app/KeyboardShortcutsModal'
 import MobilePriorityDock from '@/components/app/MobilePriorityDock'
 import SupabaseConfigGate from '@/components/app/SupabaseConfigGate'
 import AdibStatementSeedBridge from '@/components/app/AdibStatementSeedBridge'
+import GlobalSearch from '@/components/app/GlobalSearch'
 import { base44 } from '@/api/base44Client'
 
 const { Pages, Layout, mainPage } = pagesConfig
@@ -40,7 +41,7 @@ const PageFallback = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-background text-foreground">
     <div className="select-none space-y-4 text-center">
       <div className="relative mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
-        <img src="/icon-192.png" alt="HELM Portal" className="h-14 w-14 rounded-2xl object-contain" onError={(event) => { event.currentTarget.style.display = 'none' }} />
+        <img src="/icon-192.webp" alt="HELM Portal" className="h-14 w-14 rounded-2xl object-contain" onError={(event) => { event.currentTarget.style.display = 'none' }} />
       </div>
       <div className="space-y-2">
         <div className="mx-auto h-1.5 w-32 overflow-hidden rounded-full bg-muted">
@@ -64,7 +65,7 @@ const ContentFallback = () => (
 const RetiredAccountAccess = () => (
   <main dir="rtl" className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-5">
     <section className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/[.06] p-7 text-center shadow-2xl">
-      <img src="/icon-192.png" alt="HELM Portal" className="mx-auto h-20 w-20 rounded-3xl object-contain" />
+      <img src="/icon-192.webp" alt="HELM Portal" className="mx-auto h-20 w-20 rounded-3xl object-contain" />
       <h1 className="mt-5 text-2xl font-black">هذا النوع من الحسابات لم يعد مفعّلًا</h1>
       <p className="mt-3 leading-8 text-slate-300">تواصل مع إدارة المكتب لتحويل الحساب إلى موظف أو موكّل بحسب الصلاحية المطلوبة.</p>
       <button type="button" onClick={() => base44.auth.logout()} className="mt-6 rounded-2xl bg-white px-5 py-3 font-black text-slate-950">تسجيل الخروج</button>
@@ -134,6 +135,7 @@ const AuthenticatedApp = () => {
     <>
       <RealtimeBridge />
       <AdibStatementSeedBridge user={user} />
+      <GlobalSearch />
       <Routes>
         <Route path="/" element={user?.role === 'pending_client' ? <Navigate to={createPageUrl('ClientOnboarding')} replace /> : renderPage(fallbackPage, Pages[fallbackPage] || MainPage)} />
         <Route path={createPageUrl('ClientOnboarding')} element={<OnboardingRoute />} />

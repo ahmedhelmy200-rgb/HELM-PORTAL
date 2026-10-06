@@ -44,13 +44,42 @@ const PORTAL_SCOPE_OPTIONS = [
 ];
 
 function stripScopeFields(payload) {
-  const { portal_scope, business_unit, ...rest } = payload;
+  const { portal_scope: _portalScope, business_unit: _businessUnit, ...rest } = payload;
   return rest;
 }
 
 function isMissingScopeColumn(error) {
   const message = String(error?.message || error || "").toLowerCase();
   return message.includes("portal_scope") || message.includes("business_unit") || message.includes("schema cache");
+}
+
+function clientDisplayName(client = {}) {
+  return client.name_ar || client.full_name || client.name_en || "";
+}
+
+function clientChoiceLabel(client = {}) {
+  const primary = clientDisplayName(client);
+  const secondary = client.name_en && client.name_en !== primary ? ` — ${client.name_en}` : "";
+  return `${primary}${secondary}`;
+}
+
+function clientMatchesValue(client = {}, value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  const candidates = [
+    client.id,
+    client.full_name,
+    client.name_ar,
+    client.name_en,
+    clientChoiceLabel(client),
+    ...(Array.isArray(client.name_aliases) ? client.name_aliases : []),
+  ].map((item) => String(item || "").trim().toLowerCase()).filter(Boolean);
+  return candidates.includes(normalized);
+}
+
+function caseChoiceLabel(item = {}) {
+  const number = item.case_number ? `#${item.case_number} · ` : "";
+  const client = item.client_name ? ` — ${item.client_name}` : "";
+  return `${number}${item.title || "قضية"}${client}`;
 }
 
 export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved }) {
@@ -65,7 +94,7 @@ export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved
     const load = async () => {
       const [caseRows, clientRows, invoiceRows, settings] = await Promise.all([
         base44.entities.Case.list("-created_date", 2000),
-        base44.entities.Client.list("full_name", 2000),
+        base44.entities.Client.list("full_name", 5000),
         base44.entities.Invoice.list("-created_date", 3000),
         base44.entities.OfficeSettings.list(),
       ]);
@@ -105,32 +134,59 @@ export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved
   };
 
   const handleClientSelect = (value) => {
-    const selected = clients.find((client) => client.id === value || client.full_name === value);
+    const selected = clients.find((client) => clientMatchesValue(client, value));
     if (!selected) {
       setForm((previous) => ({ ...previous, client_id: null, client_name: value }));
       return;
     }
-    setForm((previous) => ({ ...previous, client_id: selected.id, client_name: selected.full_name }));
+    setForm((previous) => ({
+      ...previous,
+      client_id: selected.id,
+      client_name: clientDisplayName(selected),
+      case_id: previous.case_id && cases.some((item) => String(item.id) === String(previous.case_id) && String(item.client_id || "") === String(selected.id))
+        ? previous.case_id
+        : "",
+      case_title: previous.case_id && cases.some((item) => String(item.id) === String(previous.case_id) && String(item.client_id || "") === String(selected.id))
+        ? previous.case_title
+        : "",
+      case_number: previous.case_id && cases.some((item) => String(item.id) === String(previous.case_id) && String(item.client_id || "") === String(selected.id))
+        ? previous.case_number
+        : "",
+    }));
   };
 
-  const handleCaseSelect = (caseTitle) => {
-    const selected = cases.find((item) => item.title === caseTitle || item.id === caseTitle);
+  const handleCaseSelect = (value) => {
+    const selected = cases.find((item) =>
+      String(item.id) === String(value)
+      || item.title === value
+      || caseChoiceLabel(item) === value
+    );
     if (!selected) {
-      setForm((previous) => ({ ...previous, case_title: caseTitle, case_id: "" }));
+      setForm((previous) => ({ ...previous, case_title: value, case_id: "", case_number: "" }));
       return;
     }
-    const selectedClient = clients.find((client) => client.id === selected.client_id || client.full_name === selected.client_name);
+    const selectedClient = clients.find((client) =>
+      String(client.id) === String(selected.client_id)
+      || clientMatchesValue(client, selected.client_name)
+    );
     setForm((previous) => ({
       ...previous,
       case_id: selected.id,
       case_title: selected.title,
       case_number: selected.case_number || "",
       client_id: selected.client_id || selectedClient?.id || previous.client_id || null,
-      client_name: selected.client_name || selectedClient?.full_name || previous.client_name,
+      client_name: selectedClient ? clientDisplayName(selectedClient) : (selected.client_name || previous.client_name),
       total_fees: selected.fees ? String(selected.fees) : previous.total_fees,
       paid_amount: selected.paid_amount ? String(selected.paid_amount) : previous.paid_amount,
     }));
   };
+
+  const availableCases = useMemo(
+    () => form.client_id
+      ? cases.filter((item) => String(item.client_id || "") === String(form.client_id))
+      : cases,
+    [cases, form.client_id],
+  );
 
   const addItem = () => setForm((previous) => ({ ...previous, items: [...previous.items, { description: "", amount: "" }] }));
   const updateItem = (index, field, value) => {
@@ -216,8 +272,8 @@ export default function InvoiceFormDialog({ open, onOpenChange, invoice, onSaved
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1"><Label>القضية</Label><ChoiceInput value={form.case_title} onChange={handleCaseSelect} options={cases.map(item => item.title)} listId="invoice-cases" helper="اختيار القضية يربط الفاتورة بالموكل تلقائياً" /></div>
-            <div className="space-y-1"><Label>اسم الموكل *</Label><ChoiceInput value={form.client_name} onChange={handleClientSelect} options={clients.map(client => client.full_name)} listId="clients-invoice-list" helper="يُحفظ الربط بالمعرف والاسم معاً" /></div>
+            <div className="space-y-1"><Label>القضية</Label><ChoiceInput value={form.case_title} onChange={handleCaseSelect} options={availableCases.map(caseChoiceLabel)} listId="invoice-cases" helper={form.client_id ? "تظهر قضايا الموكل المختار فقط؛ اختيار القضية يربط الفاتورة بها" : "ابحث برقم القضية أو العنوان؛ اختيار القضية يربط الموكل تلقائياً"} /></div>
+            <div className="space-y-1"><Label>اسم الموكل *</Label><ChoiceInput value={form.client_name} onChange={handleClientSelect} options={clients.map(clientChoiceLabel)} listId="clients-invoice-list" helper="ابحث بالعربي أو الإنجليزي؛ يُحفظ client_id الحقيقي" /></div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

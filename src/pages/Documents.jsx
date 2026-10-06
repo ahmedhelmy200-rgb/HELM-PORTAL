@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import PaginationControls from "@/components/shared/PaginationControls";
 import { PageErrorState } from "@/components/app/AppStatusBar";
 import { usePageRefresh } from "@/hooks/usePageRefresh";
 import { APP_SHORTCUT_NEW, APP_SHORTCUT_SEARCH, subscribeAppEvent } from "@/lib/app-events";
+import { createPageUrl } from "@/utils";
 
 const FOLDER_MAP = {
   "صحيفة دعوى": "صحيفة دعوى",
@@ -34,9 +36,11 @@ function getDocFolder(doc) {
 
 export default function Documents() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isClient = user?.role === "client";
   const [docs, setDocs] = useState([]);
   const [cases, setCases] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
@@ -54,22 +58,25 @@ export default function Documents() {
     setLoading(true);
     setLoadError("");
     try {
-      const [{ data: d, total: totalDocs }, c] = await Promise.all([
-        base44.entities.Document.listPage("-created_date", { page, pageSize }),
-        base44.entities.Case.list( "title", 300)
+      const [docRows, caseRows, clientRows] = await Promise.all([
+        base44.entities.Document.list("-created_date", 5000),
+        base44.entities.Case.list("title", 5000),
+        base44.entities.Client.list("full_name", 5000),
       ]);
-      setDocs(d);
-      setCases(c);
-      setTotal(totalDocs);
+      const safeDocs = Array.isArray(docRows) ? docRows : [];
+      setDocs(safeDocs);
+      setCases(Array.isArray(caseRows) ? caseRows : []);
+      setClients(Array.isArray(clientRows) ? clientRows : []);
+      setTotal(safeDocs.length);
     } catch (error) {
       setLoadError(error.message || 'تعذر تحميل المستندات.');
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-  usePageRefresh(loadData, ['documents', 'cases']);
+  usePageRefresh(loadData, ['documents', 'cases', 'clients']);
 
   useEffect(() => {
     const offNew    = subscribeAppEvent(APP_SHORTCUT_NEW,    ({ page: p }) => p === 'Documents' && openCreate());
@@ -85,30 +92,61 @@ export default function Documents() {
     setSelectedFolder(null);
   };
 
-  const filteredDocs = docs.filter(doc => {
+  const clientLookup = useMemo(
+    () => Object.fromEntries(clients.map((client) => [String(client.id), client])),
+    [clients],
+  );
+
+  const filteredDocs = useMemo(() => docs.filter((doc) => {
     if (selectedCase === "__unlinked__") {
       if (doc.case_id) return false;
     } else if (selectedCase) {
-      if (doc.case_id !== selectedCase) return false;
+      if (String(doc.case_id || "") !== String(selectedCase)) return false;
     }
     if (selectedFolder && getDocFolder(doc) !== selectedFolder) return false;
+
     if (search) {
-      const inFields = searchInFields(doc, ['title', 'case_title', 'client_name', 'file_name'], search);
+      const client = clientLookup[String(doc.client_id || "")] || {};
+      const searchable = {
+        ...doc,
+        client_name_ar: client.name_ar || "",
+        client_name_en: client.name_en || "",
+        client_aliases: client.name_aliases || [],
+      };
+      const inFields = searchInFields(
+        searchable,
+        ['title', 'case_title', 'case_number', 'client_name', 'client_name_ar', 'client_name_en', 'client_aliases', 'file_name', 'doc_type', 'folder'],
+        search,
+      );
       const inOcr = ocrSearch && searchInFields(doc, ['ocr_text'], search);
       if (!inFields && !inOcr) return false;
     }
     return true;
-  });
+  }), [docs, selectedCase, selectedFolder, search, ocrSearch, clientLookup]);
+
+  const pagedDocs = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredDocs.slice(start, start + pageSize);
+  }, [filteredDocs, page]);
 
   const ocrMatchCount = search && ocrSearch
     ? filteredDocs.filter(d => searchInFields(d, ['ocr_text'], search)).length
     : 0;
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedCase, selectedFolder, ocrSearch]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filteredDocs.length / pageSize));
+    if (page > maxPage) setPage(maxPage);
+  }, [filteredDocs.length, page]);
+
   return (
     <div className="space-y-4">
       <PageHeader
         title={isClient ? "مستنداتي" : "أرشيف المستندات"}
-        subtitle={`${total || docs.length} مستند${isClient ? " خاص بك" : ''}`}
+        subtitle={`${filteredDocs.length} مستند ظاهر من أصل ${total || docs.length}${isClient ? " خاص بك" : ''}`}
         action={
           <Button onClick={openCreate} className="bg-primary text-white gap-2">
             <Plus className="h-4 w-4" />{isClient ? "رفع مستند" : "إضافة مستند"}
@@ -147,7 +185,7 @@ export default function Documents() {
       {ocrSearch && search && ocrMatchCount > 0 && (
         <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm text-primary flex items-center gap-2">
           <ScanText className="h-4 w-4" />
-          تم العثور على <strong>{ocrMatchCount}</strong> مستند يحتوي على "<strong>{search}</strong>" في نص المستند
+          تم العثور على <strong>{ocrMatchCount}</strong> مستند يحتوي على «<strong>{search}</strong>» في نص المستند
         </div>
       )}
 
@@ -196,18 +234,24 @@ export default function Documents() {
             ) : (
               <>
                 <div className="grid grid-cols-1 gap-3">
-                  {filteredDocs.map(doc => (
-                    <DocCard key={doc.id} doc={doc} onEdit={openEdit} searchQuery={ocrSearch ? search : ""} />
+                  {pagedDocs.map(doc => (
+                    <DocCard
+                      key={doc.id}
+                      doc={doc}
+                      onEdit={openEdit}
+                      searchQuery={ocrSearch ? search : ""}
+                      onOpenClient={(row) => row.client_id && navigate(createPageUrl("Client360") + `?id=${row.client_id}`)}
+                    />
                   ))}
                 </div>
-                <PaginationControls page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+                <PaginationControls page={page} pageSize={pageSize} total={filteredDocs.length} onPageChange={setPage} />
               </>
             )}
           </div>
         </div>
       )}
 
-      <DocFormDialog open={showDialog} onOpenChange={setShowDialog} editing={editing} cases={cases} onSaved={() => { setShowDialog(false); loadData(); }} />
+      <DocFormDialog open={showDialog} onOpenChange={setShowDialog} editing={editing} cases={cases} clients={clients} onSaved={() => { setShowDialog(false); loadData(); }} />
     </div>
   );
 }

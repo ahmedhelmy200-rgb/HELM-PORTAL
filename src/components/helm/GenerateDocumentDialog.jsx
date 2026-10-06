@@ -98,7 +98,9 @@ export default function GenerateDocumentDialog({ open, onClose, initialTemplate 
         try {
           const clients = await base44.entities.Client.filter({ id: caseData.client_id });
           clientData = clients[0] || null;
-        } catch {}
+        } catch {
+          // تبقى بيانات الموكّل فارغة إذا تعذّر جلبها؛ يمكن توليد الوثيقة من القضية فقط.
+        }
       }
     }
     const filled = fillTemplate(template.content, caseData, clientData, officeSettings);

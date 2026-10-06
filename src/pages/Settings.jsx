@@ -328,6 +328,9 @@ function SoundsPanel({ settings, setSettings }) {
 }
 
 
+import { applyVisualIdentity } from "@/lib/theme";
+import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, readBackupFile } from "@/lib/backup";
+import { prepareSafeImport, applySafeImport } from "@/lib/safeImport";
 import { applyVisualIdentity, AVAILABLE_APP_FONTS } from "@/lib/theme";
 import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
 import { useAuth } from "@/lib/AuthContext";
@@ -376,6 +379,24 @@ const UploadArea = ({ label, value, onUpload, uploading }) => (
 );
 
 const SPECIALIZATIONS = ["مدني", "جزائي", "تجاري", "عمالي", "أسري", "إداري", "عقاري", "ملكية فكرية", "تحكيم دولي", "قانون شركات"];
+
+const BACKUP_SECTION_LABELS = {
+  clients: "الموكلون",
+  cases: "القضايا",
+  sessions: "الجلسات",
+  tasks: "المهام",
+  documents: "المستندات",
+  invoices: "الفواتير",
+  expenses: "المصروفات",
+  legal_templates: "النماذج القانونية",
+  notifications: "الإشعارات",
+  events: "الفعاليات",
+  conversations: "المحادثات",
+  messages: "الرسائل",
+  connection_requests: "طلبات الربط",
+  founder_profiles: "ملفات المؤسسين",
+  office_settings: "إعدادات المكتب",
+};
 
 export default function Settings() {
   const { user } = useAuth();
@@ -495,6 +516,22 @@ export default function Settings() {
 // Restore backup from JSON file
 const [restoring, setRestoring] = useState(false);
 const [restoreStatus, setRestoreStatus] = useState(null);
+const [importPreview, setImportPreview] = useState(null);
+
+const previewImport = async (backup, source) => {
+  setRestoring(true);
+  setRestoreStatus(null);
+  setImportPreview(null);
+  try {
+    const plan = await prepareSafeImport(backup);
+    setImportPreview({ backup, counts: plan.counts, review: plan.review, source });
+    setRestoreStatus({ type: "warning", msg: "انتهى الفحص. راجع الأعداد والتعارضات قبل إضافة السجلات." });
+  } catch (error) {
+    setRestoreStatus({ type: "error", msg: error?.message || "تعذّر فحص الملف" });
+  } finally {
+    setRestoring(false);
+  }
+};
 
 const handleRestoreBackup = () => {
   const input = document.createElement("input");
@@ -503,22 +540,33 @@ const handleRestoreBackup = () => {
   input.onchange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setRestoring(true);
-    setRestoreStatus(null);
     try {
-      const backup = await readBackupFile(file);
-      const result = await restoreBackupData(backup);
-      base44.__clearCache?.();
-      setRestoreStatus({ type: result.failures?.length ? "warning" : "success", msg: result.msg });
-      await loadSettings();
+      await previewImport(await readBackupFile(file), file.name);
     } catch (error) {
-      setRestoreStatus({ type: "error", msg: error?.message || "تعذّر استيراد الملف" });
-    } finally {
-      setRestoring(false);
-      setTimeout(() => setRestoreStatus(null), 8000);
+      setRestoreStatus({ type: "error", msg: error?.message || "تعذّر قراءة الملف" });
     }
   };
   input.click();
+};
+
+const handleApplyImport = async () => {
+  if (!importPreview) return;
+  setRestoring(true);
+  try {
+    const result = await applySafeImport(importPreview.backup, importPreview.counts);
+    base44.__clearCache?.();
+    const added = Object.values(result.inserted).reduce((sum, n) => sum + n, 0);
+    setRestoreStatus({
+      type: result.errors.length || result.review.length ? "warning" : "success",
+      msg: `أُضيف ${added} سجلًا. للمراجعة: ${result.review.length}.${result.errors.length ? " توقّف الاستيراد بعد أخطاء الحفظ؛ افحص البيانات قبل إعادة المحاولة." : ""}`,
+    });
+    setImportPreview({ ...importPreview, completed: true, review: result.review });
+    await loadSettings();
+  } catch (error) {
+    setRestoreStatus({ type: "error", msg: error?.message || "تعذّر إتمام الاستيراد" });
+  } finally {
+    setRestoring(false);
+  }
 };
 
 const handleCloudBackup = async () => {
@@ -540,14 +588,12 @@ const handleCloudRestore = async () => {
   setCloudStatus(null);
   try {
     const backup = await restoreBackupFromCloud();
-    const result = await restoreBackupData(backup);
-    setCloudStatus({ type: result.failures?.length ? "warning" : "success", msg: result.msg });
-    await loadSettings();
+    await previewImport(backup, "النسخة السحابية");
+    setCloudStatus({ type: "success", msg: "تم فحص النسخة السحابية. راجع النتائج في قسم الاستيراد قبل الحفظ." });
   } catch (error) {
-    setCloudStatus({ type: "error", msg: error?.message || "فشل استرجاع النسخة السحابية" });
+    setCloudStatus({ type: "error", msg: error?.message || "فشل فحص النسخة السحابية" });
   } finally {
     setCloudRestoreBusy(false);
-    setTimeout(() => setCloudStatus(null), 8000);
   }
 };
 
@@ -1185,7 +1231,7 @@ const exportAllData = async () => {
                 <div className="p-4 bg-orange-100/60 rounded-xl space-y-2 text-sm border border-orange-200">
                   <p className="font-medium text-orange-800">⚠️ تنبيه مهم</p>
                   <p className="text-orange-700 text-xs leading-relaxed">
-                    سيتم إضافة البيانات من الملف إلى قاعدة البيانات الحالية (لن يتم حذف أي بيانات موجودة).
+                    سيُفحص الملف أولًا مقابل بيانات البوابة الحالية. تُضاف السجلات المؤكدة فقط، وتُعرض التعارضات للمراجعة دون تعديل السجلات الموجودة.
                     تأكد من رفع ملف نسخة احتياطية صادر من نظام حلم فقط.
                   </p>
                 </div>
@@ -1199,8 +1245,34 @@ const exportAllData = async () => {
 
                 <Button onClick={handleRestoreBackup} disabled={restoring} variant="outline" className="w-full gap-2 border-orange-300 text-orange-700 hover:bg-orange-50">
                   <UploadCloud className="h-4 w-4" />
-                  {restoring ? "جارٍ الاستيراد..." : "رفع واستيراد نسخة احتياطية (.json)"}
+                  {restoring ? "جارٍ الفحص أو الاستيراد..." : "اختيار نسخة احتياطية وفحصها (.json)"}
                 </Button>
+                {importPreview && (
+                  <div className="mt-4 space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm" dir="rtl">
+                    <p className="font-semibold">{importPreview.completed ? "نتيجة الاستيراد" : "معاينة الاستيراد"}: {importPreview.source}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(importPreview.counts).map(([table, count]) => (
+                        <p key={table}>{BACKUP_SECTION_LABELS[table] || table}: إضافة {count.add}، موجود {count.existing}، مراجعة {count.review}</p>
+                      ))}
+                    </div>
+                    <p>السجلات المؤجلة للمراجعة: {importPreview.review.length}. لن تُنشأ لها روابط تلقائية.</p>
+                    {importPreview.review.length > 0 && (
+                      <details>
+                        <summary className="cursor-pointer">عرض التعارضات</summary>
+                        <div className="max-h-48 overflow-y-auto">
+                          {importPreview.review.map((item, index) => (
+                            <p key={index}>{item.table} — {item.name || item.id || "بدون اسم"}: {item.reason}</p>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                    <div className="flex gap-2">
+                      {!importPreview.completed && <Button onClick={handleApplyImport} disabled={restoring} className="flex-1">إضافة السجلات الآمنة</Button>}
+                      <Button variant="outline" onClick={() => setImportPreview(null)} disabled={restoring}>إلغاء</Button>
+                    </div>
+                  </div>
+                )}
+
               </CardContent>
             </Card>
 

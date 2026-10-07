@@ -88,6 +88,7 @@ export default function Clients() {
   const navigate = useNavigate();
   const [allClients, setAllClients] = useState([]);
   const [cases, setCases] = useState([]);
+  const [caseLinks, setCaseLinks] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [documents, setDocs] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -111,15 +112,17 @@ export default function Clients() {
     setLoading(true);
     setError("");
     try {
-      const [allRows, caseRows, sessionRows, docRows, invoiceRows] = await Promise.all([
+      const [allRows, caseRows, caseLinkRows, sessionRows, docRows, invoiceRows] = await Promise.all([
         base44.entities.Client.list("-created_date", 5000),
         base44.entities.Case.list("-created_date", 5000),
+        base44.entities.CaseClient.list("-created_date", 10000).catch(() => []),
         base44.entities.Session.list("-session_date", 5000),
         base44.entities.Document.list("-created_date", 5000),
         base44.entities.Invoice.list("-created_date", 5000),
       ]);
       setAllClients(allRows || []);
       setCases(caseRows || []);
+      setCaseLinks(caseLinkRows || []);
       setSessions(sessionRows || []);
       setDocs(docRows || []);
       setInvoices(invoiceRows || []);
@@ -131,7 +134,7 @@ export default function Clients() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-  usePageRefresh(loadData, ["clients", "cases", "sessions", "documents", "invoices"]);
+  usePageRefresh(loadData, ["clients", "cases", "case_clients", "sessions", "documents", "invoices"]);
 
   useEffect(() => {
     const offNew = subscribeAppEvent(APP_SHORTCUT_NEW, ({ page: current }) => current === "Clients" && openCreate());
@@ -217,10 +220,17 @@ export default function Clients() {
   };
 
   const metrics = useMemo(() => allClients.map((client) => {
-    const clientCases = cases.filter((item) => belongsToClient(item, client));
-    const clientSessions = sessions.filter((item) => belongsToClient(item, client));
-    const clientDocuments = documents.filter((item) => belongsToClient(item, client));
-    const clientInvoices = invoices.filter((item) => belongsToClient(item, client));
+    const linkedCaseIds = new Set(
+      caseLinks
+        .filter((link) => String(link.client_id) === String(client.id))
+        .map((link) => String(link.case_id)),
+    );
+    const clientCases = cases.filter((item) => belongsToClient(item, client) || linkedCaseIds.has(String(item.id)));
+    const clientCaseIds = new Set(clientCases.map((item) => String(item.id)));
+    const relatedToCase = (item) => item?.case_id && clientCaseIds.has(String(item.case_id));
+    const clientSessions = sessions.filter((item) => belongsToClient(item, client) || relatedToCase(item));
+    const clientDocuments = documents.filter((item) => belongsToClient(item, client) || relatedToCase(item));
+    const clientInvoices = invoices.filter((item) => belongsToClient(item, client) || relatedToCase(item));
     const invoiceFinance = clientInvoices.reduce((acc, invoice) => {
       const totals = getInvoiceTotals(invoice);
       acc.total += totals.total;
@@ -264,7 +274,7 @@ export default function Clients() {
       needsNameReview: !String(client.name_ar || "").trim()
         && /[A-Za-z0-9]/.test(String(client.full_name || "")),
     };
-  }), [allClients, cases, sessions, documents, invoices, duplicateClientIds]);
+  }), [allClients, cases, caseLinks, sessions, documents, invoices, duplicateClientIds]);
 
   const ratedMetrics = useMemo(() => metrics.filter((client) => client.successRate !== null), [metrics]);
   const stats = useMemo(() => ({

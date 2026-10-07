@@ -76,6 +76,7 @@ const ALLOWED_UPLOAD_TYPES = [
 
 const entityTableMap = {
   Case: 'cases',
+  CaseClient: 'case_clients',
   Client: 'clients',
   Broker: 'brokers',
   ConnectionRequest: 'connection_requests',
@@ -213,7 +214,22 @@ function applyActorRestrictions(query, entityName, actor, options = {}) {
   const forceLegacy = !!options.forceLegacyClientName
   switch (entityName) {
     case 'Client': return query.eq('email', actor.email)
-    case 'Case':
+    case 'CaseClient':
+      return clientId ? query.eq('client_id', clientId) : query.eq('id', '__forbidden__')
+    case 'Case': {
+      if (clientId && !forceLegacy) {
+        const filters = [
+          `client_id.eq.${clientId}`,
+          `client_name.eq.${safePostgrestValue(clientName)}`,
+        ]
+        const sharedCaseIds = (options.sharedCaseIds || [])
+          .map((value) => String(value || '').trim())
+          .filter((value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value))
+        if (sharedCaseIds.length) filters.push(`id.in.(${sharedCaseIds.join(',')})`)
+        return query.or(filters.join(','))
+      }
+      return query.eq('client_name', clientName)
+    }
     case 'Invoice':
     case 'Document':
     case 'Session':
@@ -229,9 +245,22 @@ function applyActorRestrictions(query, entityName, actor, options = {}) {
 function applyCriteria(query, criteria = {}) { let next = query; Object.entries(criteria || {}).forEach(([key, value]) => { if (value === undefined || value === null || value === '') return; if (Array.isArray(value)) next = next.in(key, value); else next = next.eq(key, value) }); return next }
 function shouldRetryLegacyClientName(error, entityName, actor) { return actor?.role === 'client' && CLIENT_SCOPED_ENTITIES.has(entityName) && actor?.client?.full_name && (isMissingColumnError(error, 'client_id') || isMissingColumnError(error, 'user_id')) }
 async function runClientScopedRead({ table, entityName, actor, sortArg, limitValue, criteria = null, paged = false, page = 1, pageSize = 20 }) {
+  let sharedCaseIds = []
+  if (actor?.role === 'client' && entityName === 'Case' && actor?.client?.id) {
+    try {
+      const { data: links, error: linksError } = await supabase
+        .from('case_clients')
+        .select('case_id')
+        .eq('client_id', actor.client.id)
+      if (!linksError) sharedCaseIds = [...new Set((links || []).map((link) => link.case_id).filter(Boolean))]
+    } catch {
+      sharedCaseIds = []
+    }
+  }
+
   const build = (forceLegacyClientName = false) => {
     let query = paged ? supabase.from(table).select('*', { count: 'exact' }) : supabase.from(table).select('*')
-    query = applyActorRestrictions(query, entityName, actor, { forceLegacyClientName })
+    query = applyActorRestrictions(query, entityName, actor, { forceLegacyClientName, sharedCaseIds })
     if (criteria) query = applyCriteria(query, criteria)
     const sort = parseSort(sortArg)
     if (sort) query = query.order(sort.field, { ascending: sort.ascending })

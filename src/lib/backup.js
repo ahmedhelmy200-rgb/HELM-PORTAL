@@ -4,6 +4,7 @@ import { appParams } from "@/lib/app-params";
 
 const entityTableMap = {
   Case: 'cases',
+  CaseClient: 'case_clients',
   Client: 'clients',
   ConnectionRequest: 'connection_requests',
   Conversation: 'conversations',
@@ -23,6 +24,7 @@ const entityTableMap = {
 const exportPlan = [
   ['Client', 'clients'],
   ['Case', 'cases'],
+  ['CaseClient', 'case_clients'],
   ['Session', 'sessions'],
   ['Task', 'tasks'],
   ['Document', 'documents'],
@@ -122,6 +124,7 @@ export async function restoreBackupData(backup) {
     'clients',
     'office_settings',
     'cases',
+    'case_clients',
     'sessions',
     'tasks',
     'documents',

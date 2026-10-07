@@ -7,7 +7,7 @@ vi.mock('@/integrations/supabase/client', () => ({
       select: () => ({ order: () => ({ range: async (from, to) => ({ data: (database[table] || []).slice(from, to + 1), error: null }) }) }),
       insert: async row => {
         if (table === 'clients' && row.phone == null) return { error: new Error('clients.phone may not be null') }
-        if (table !== 'cases' && Object.hasOwn(row, 'client_id')) return { error: new Error(`${table}.client_id does not exist`) }
+        if (!['cases', 'case_clients'].includes(table) && Object.hasOwn(row, 'client_id')) return { error: new Error(`${table}.client_id does not exist`) }
         database[table].push(row)
         return { error: null }
       },
@@ -94,6 +94,7 @@ describe('safe import', () => {
     const backup = Object.fromEntries(BACKUP_SECTIONS.map(table => [table, []]))
     backup.clients = [{ id: 'client', full_name: 'موكل', id_number: '784-1', phone: '-' }]
     backup.cases = [{ id: 'case', title: 'دعوى', client_id: 'client', client_name: 'موكل' }]
+    backup.case_clients = [{ id: 'case-client', case_id: 'case', client_id: 'client', relation_role: 'موكل', is_primary: true }]
     backup.sessions = [{ id: 'session', case_id: 'case' }]
     backup.conversations = [{ id: 'conversation', participants: [] }]
     backup.messages = [{ id: 'message', conversation_id: 'conversation' }]

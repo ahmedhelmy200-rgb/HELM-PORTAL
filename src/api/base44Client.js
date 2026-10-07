@@ -2,9 +2,55 @@ import { supabase } from '@/integrations/supabase/client'
 import { appParams } from '@/lib/app-params'
 import { emitAppEvent } from '@/lib/app-events'
 
+// نظام LRU Cache محسّن
+class LRUCache {
+  constructor(maxSize = 500) {
+    this.maxSize = maxSize
+    this.cache = new Map()
+  }
+
+  get(key) {
+    if (!this.cache.has(key)) return null
+    // نقل العنصر للنهاية (الأحدث)
+    const value = this.cache.get(key)
+    this.cache.delete(key)
+    this.cache.set(key, value)
+    return value
+  }
+
+  set(key, value) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key)
+    }
+    this.cache.set(key, value)
+    
+    // إذا تجاوزنا الحد الأقصى، احذف الأقدم
+    if (this.cache.size > this.maxSize) {
+      const oldestKey = this.cache.keys().next().value
+      this.cache.delete(oldestKey)
+    }
+  }
+
+  clear() {
+    this.cache.clear()
+  }
+
+  delete(key) {
+    this.cache.delete(key)
+  }
+
+  deleteByPrefix(prefix) {
+    for (const key of [...this.cache.keys()]) {
+      if (key.includes(prefix)) {
+        this.cache.delete(key)
+      }
+    }
+  }
+}
+
 const actorCache = { value: null, at: 0 }
-const queryCache = new Map()
-const ACTOR_TTL = 10_000
+const lruQueryCache = new LRUCache(500) // محدود بـ 500 مدخل
+const ACTOR_TTL = 30_000 // زيادة من 10s إلى 30s
 const QUERY_TTL = 8000
 const PENDING_CLIENT_ROLE = 'pending_client'
 const BROKER_ROLE = 'broker'
@@ -52,7 +98,7 @@ const STORAGE_URL_FIELDS = ['file_url', 'logo_url', 'stamp_url', 'signature_url'
 
 function normalizeEmail(value) { return String(value || '').trim().toLowerCase() }
 function safePostgrestValue(value) { return String(value || '').replace(/\\/g, '\\\\').replace(/,/g, ' ').replace(/\(/g, ' ').replace(/\)/g, ' ').trim() }
-function isMissingColumnError(error, columnName) { const message = String(error?.message || error || '').toLowerCase(); return message.includes(`'${columnName}'`) || message.includes(`"${columnName}"`) || message.includes(`column ${columnName}`) || message.includes(`${columnName} column`) || (message.includes(columnName) && message.includes('does not exist')) }
+function isMissingColumnError(error, columnName) { const message = String(error?.message || error || '').toLowerCase(); return message.includes(`'${columnName}'`) || message.includes(`"${columnName}"`) }
 function isMissingStableScopeColumn(error) { return isMissingColumnError(error, 'client_id') || isMissingColumnError(error, 'user_id') }
 function parseSort(sortArg) { if (!sortArg) return null; const ascending = !String(sortArg).startsWith('-'); const field = String(sortArg).replace(/^-/, ''); return { field, ascending } }
 function friendlyError(error) {
@@ -60,13 +106,13 @@ function friendlyError(error) {
   const message = String(error.message || error || '')
   if (message.includes('Failed to fetch') || message.includes('NetworkError')) return new Error('تعذر الاتصال بالخادم. تحقق من الإنترنت ثم أعد المحاولة.')
   if (message.includes('Auth session missing') || message.includes('JWT')) return new Error('انتهت جلسة الدخول. أعد تسجيل الدخول.')
-  if (message.includes('Bucket not found')) return new Error('حاوية التخزين غير موجودة في Supabase. شغّل ملف SQL الخاص بالمرحلة الأولى أو أنشئ bucket باسم uploads من Supabase.')
+  if (message.includes('Bucket not found')) return new Error('حاوية التخزين غير موجودة في Supabase. شغّل ملف SQL الخاص بالمرحلة الأولى أو أنشئ حاوية جديدة.')
   return error instanceof Error ? error : new Error(message || 'حدث خطأ أثناء معالجة الطلب.')
 }
 async function safeRequest(work) { try { return await work() } catch (error) { throw friendlyError(error) } }
-function validateUploadFile(file) { if (!file) throw new Error('لم يتم اختيار ملف.'); if (file.size > MAX_UPLOAD_SIZE_BYTES) throw new Error('حجم الملف أكبر من 15 ميجابايت، وهذا غير مسموح حاليًا.'); const type = String(file.type || '').toLowerCase(); const name = String(file.name || '').toLowerCase(); const allowedByExtension = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|jpg|jpeg|png|webp|txt)$/i.test(name); if (type && !ALLOWED_UPLOAD_TYPES.includes(type) && !allowedByExtension) throw new Error('نوع الملف غير مدعوم. المسموح: PDF وWord وExcel وPowerPoint والصور والنصوص.') }
-function normalizeStorageBucket(value, fallback = 'uploads') { const raw = String(value || '').trim(); if (!raw) return fallback; const invalid = /^https?:\/\//i.test(raw) || raw.includes('/storage/v1/') || raw.includes('\\\\') || raw.includes('/'); return invalid ? fallback : raw }
-function isBucketConfigError(error) { const message = String(error?.message || error || '').toLowerCase(); return message.includes('bucket not found') || message.includes('bucket name invalid') || message.includes('invalid bucket') || (message.includes('bucket') && message.includes('not found')) }
+function validateUploadFile(file) { if (!file) throw new Error('لم يتم اختيار ملف.'); if (file.size > MAX_UPLOAD_SIZE_BYTES) throw new Error('حجم الملف أكبر من 15 ميغابايت.'); if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) throw new Error('نوع الملف غير مدعوم.'); return true }
+function normalizeStorageBucket(value, fallback = 'uploads') { const raw = String(value || '').trim(); if (!raw) return fallback; const invalid = /^https?:\/\//i.test(raw) || raw.includes('/storage/'); return invalid ? fallback : raw }
+function isBucketConfigError(error) { const message = String(error?.message || error || '').toLowerCase(); return message.includes('bucket not found') || message.includes('bucket name invalid') || message.includes('no bucket') }
 function buildStorageRef(bucket, path) { if (!bucket || !path) return null; return `storage://${bucket}/${String(path).replace(/^\/+/, '')}` }
 function parseStorageRef(value) {
   if (!value || typeof value !== 'string') return null
@@ -90,9 +136,9 @@ function parseStorageRef(value) {
     return { bucket, path, raw }
   } catch { return null }
 }
-async function getSignedFileUrl(bucket, path, expiresIn = SIGNED_FILE_EXPIRES_IN) { if (!bucket || !path) return null; const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn); if (error) { console.error('createSignedUrl error:', error); return null } return data?.signedUrl || null }
-async function resolveStorageValue(value) { const parsed = parseStorageRef(value); if (!parsed) return { raw: value, signedUrl: value, bucket: null, path: null }; const signedUrl = await getSignedFileUrl(parsed.bucket, parsed.path); return { raw: buildStorageRef(parsed.bucket, parsed.path), signedUrl: signedUrl || value, bucket: parsed.bucket, path: parsed.path } }
-async function hydrateRecordUrls(record) { if (!record || typeof record !== 'object') return record; const cloned = { ...record }; for (const field of STORAGE_URL_FIELDS) { if (!cloned[field]) continue; const resolved = await resolveStorageValue(cloned[field]); cloned[`${field}_ref`] = resolved.raw || cloned[field]; cloned[`${field}_bucket`] = resolved.bucket || null; cloned[`${field}_path`] = resolved.path || null; cloned[`${field}_original`] = cloned[field]; cloned[field] = resolved.signedUrl || cloned[field] } return cloned }
+async function getSignedFileUrl(bucket, path, expiresIn = SIGNED_FILE_EXPIRES_IN) { if (!bucket || !path) return null; const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn); if (error) throw error; return data?.signedUrl || null }
+async function resolveStorageValue(value) { const parsed = parseStorageRef(value); if (!parsed) return { raw: value, signedUrl: value, bucket: null, path: null }; const signedUrl = await getSignedFileUrl(parsed.bucket, parsed.path); return { raw: value, signedUrl, bucket: parsed.bucket, path: parsed.path } }
+async function hydrateRecordUrls(record) { if (!record || typeof record !== 'object') return record; const cloned = { ...record }; for (const field of STORAGE_URL_FIELDS) { if (!cloned[field]) continue; const resolved = await resolveStorageValue(cloned[field]); cloned[field] = resolved.signedUrl } return cloned }
 async function hydrateRows(rows) { if (!Array.isArray(rows)) return []; return Promise.all(rows.map(hydrateRecordUrls)) }
 async function findBrokerForActor(email, profile) {
   try {
@@ -130,12 +176,12 @@ async function currentActor() {
   actorCache.at = now
   return actorCache.value
 }
-function cacheKey(table, mode, criteria, sortArg, limitValue, actor) { return JSON.stringify({ table, mode, criteria, sortArg, limitValue, email: actor?.email, role: actor?.role, clientId: actor?.client?.id, brokerId: actor?.broker?.id }) }
-function getCached(key) { if (!QUERY_TTL) return null; const item = queryCache.get(key); if (!item) return null; if (Date.now() - item.at > QUERY_TTL) { queryCache.delete(key); return null } return item.value }
-function setCached(key, value) { if (!QUERY_TTL) return value; queryCache.set(key, { at: Date.now(), value }); return value }
-function stripVirtualFields(payload) { if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload; return Object.fromEntries(Object.entries(payload).filter(([key]) => !/(?:_ref|_bucket|_path|_original)$/.test(key) && key !== 'preview_url')) }
+function cacheKey(table, mode, criteria, sortArg, limitValue, actor) { return JSON.stringify({ table, mode, criteria, sortArg, limitValue, email: actor?.email, role: actor?.role, clientId: actor?.client?.id }) }
+function getCached(key) { if (!QUERY_TTL) return null; const item = lruQueryCache.get(key); if (!item) return null; if (Date.now() - item.at > QUERY_TTL) { lruQueryCache.delete(key); return null } return item.value }
+function setCached(key, value) { if (!QUERY_TTL) return value; lruQueryCache.set(key, { at: Date.now(), value }); return value }
+function stripVirtualFields(payload) { if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload; return Object.fromEntries(Object.entries(payload).filter(([key]) => !key.startsWith('_'))) }
 function stripStableClientFields(payload) { if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload; const { client_id, user_id, ...rest } = payload; return rest }
-function clearEntityCache(table = null) { actorCache.at = 0; if (!table) { queryCache.clear(); emitAppEvent('app:data-changed', { table: null }); return } for (const key of [...queryCache.keys()]) if (key.includes(`"table":"${table}"`)) queryCache.delete(key); emitAppEvent('app:data-changed', { table }) }
+function clearEntityCache(table = null) { actorCache.at = 0; if (!table) { lruQueryCache.clear(); emitAppEvent('app:data-changed', { table: null }); return } lruQueryCache.deleteByPrefix(table); emitAppEvent('app:data-changed', { table }) }
 function applyBrokerScope(query, entityName, actor) {
   const brokerName = actor?.broker?.full_name || actor?.profile?.full_name || actor?.email || '__none__'
   const brokerId = actor?.broker?.id || null
@@ -180,8 +226,8 @@ function applyActorRestrictions(query, entityName, actor, options = {}) {
     default: return query.eq('created_by', actor.email)
   }
 }
-function applyCriteria(query, criteria = {}) { let next = query; Object.entries(criteria || {}).forEach(([key, value]) => { if (value === undefined || value === null || value === '') return; if (Array.isArray(value)) next = next.contains(key, value); else next = next.eq(key, value) }); return next }
-function shouldRetryLegacyClientName(error, entityName, actor) { return actor?.role === 'client' && CLIENT_SCOPED_ENTITIES.has(entityName) && actor?.client?.full_name && (isMissingColumnError(error, 'client_id') || String(error?.message || '').includes('failed to parse logic tree')) }
+function applyCriteria(query, criteria = {}) { let next = query; Object.entries(criteria || {}).forEach(([key, value]) => { if (value === undefined || value === null || value === '') return; if (Array.isArray(value)) next = next.in(key, value); else next = next.eq(key, value) }); return next }
+function shouldRetryLegacyClientName(error, entityName, actor) { return actor?.role === 'client' && CLIENT_SCOPED_ENTITIES.has(entityName) && actor?.client?.full_name && (isMissingColumnError(error, 'client_id') || isMissingColumnError(error, 'user_id')) }
 async function runClientScopedRead({ table, entityName, actor, sortArg, limitValue, criteria = null, paged = false, page = 1, pageSize = 20 }) {
   const build = (forceLegacyClientName = false) => {
     let query = paged ? supabase.from(table).select('*', { count: 'exact' }) : supabase.from(table).select('*')
@@ -200,11 +246,11 @@ async function runClientScopedRead({ table, entityName, actor, sortArg, limitVal
   }
   return result
 }
-async function retryWriteWithoutStableClientFields({ table, payload, write }) { const first = await write(payload); if (!first.error || !isMissingStableScopeColumn(first.error)) return first; const fallbackPayload = Array.isArray(payload) ? payload.map(stripStableClientFields) : stripStableClientFields(payload); console.warn(`[base44] Falling back to legacy write for ${table}:`, first.error.message); return write(fallbackPayload) }
+async function retryWriteWithoutStableClientFields({ table, payload, write }) { const first = await write(payload); if (!first.error || !isMissingStableScopeColumn(first.error)) return first; console.warn(`[base44] Retrying write without stable fields:`, first.error.message); return write(stripStableClientFields(payload)) }
 function brokerScopedPayload(payload, actor) {
   const broker = actor?.broker || {}
   const brokerName = broker.full_name || actor?.profile?.full_name || payload?.broker_name || ''
-  return { ...payload, broker_id: broker.id || payload?.broker_id || null, broker_name: brokerName, broker_commission_percent: payload?.broker_commission_percent ?? broker.default_commission_percent ?? 0 }
+  return { ...payload, broker_id: broker.id || payload?.broker_id || null, broker_name: brokerName, broker_commission_percent: payload?.broker_commission_percent ?? broker.default_commission_percent ?? null }
 }
 async function sanitizeWritePayload(entityName, payload, actor) {
   if (actor.role === PENDING_CLIENT_ROLE) throw new Error('أكمل تسجيلك كموكّل أولاً قبل استخدام النظام.')
@@ -214,7 +260,7 @@ async function sanitizeWritePayload(entityName, payload, actor) {
   }
   if (actor.role !== 'client') return payload
   if (!['Document', 'Notification', 'ConnectionRequest'].includes(entityName)) throw new Error('هذا الإجراء غير متاح في بوابة الموكّل.')
-  if (entityName === 'Document') return { ...payload, client_id: actor.client?.id || payload.client_id || null, client_name: actor.client?.full_name || payload.client_name, created_by: actor.email, status: payload.status || 'مسودة' }
+  if (entityName === 'Document') return { ...payload, client_id: actor.client?.id || payload.client_id || null, client_name: actor.client?.full_name || payload.client_name, created_by: actor.email }
   if (entityName === 'Notification') return { ...payload, user_id: actor.user?.id || payload.user_id || null, user_email: payload.user_email || actor.email, created_by: actor.email }
   return { ...payload, from_email: payload.from_email || actor.email, from_name: payload.from_name || actor.client?.full_name || actor.profile?.full_name }
 }
@@ -222,34 +268,34 @@ function createEntity(entityName) {
   const table = entityTableMap[entityName]
   return {
     async list(sortArg = '-created_date', limitValue = 1000) {
-      return safeRequest(async () => { const actor = await currentActor(); const key = cacheKey(table, 'list', null, sortArg, limitValue, actor); const cached = getCached(key); if (cached) return cached; const { data, error } = await runClientScopedRead({ table, entityName, actor, sortArg, limitValue }); if (error) throw error; const hydrated = await hydrateRows(data || []); return setCached(key, hydrated) })
+      return safeRequest(async () => { const actor = await currentActor(); const key = cacheKey(table, 'list', null, sortArg, limitValue, actor); const cached = getCached(key); if (cached) return cached; const result = await runClientScopedRead({ table, entityName, actor, sortArg, limitValue }); const data = result.data ? await hydrateRows(result.data) : []; return setCached(key, data) })
     },
     async listPage(sortArg = '-created_date', options = {}) {
-      return safeRequest(async () => { const actor = await currentActor(); const page = Math.max(1, Number(options.page || 1)); const pageSize = Math.max(1, Math.min(100, Number(options.pageSize || 20))); const { data, error, count } = await runClientScopedRead({ table, entityName, actor, sortArg, paged: true, page, pageSize }); if (error) throw error; return { data: await hydrateRows(data || []), total: count || 0, page, pageSize } })
+      return safeRequest(async () => { const actor = await currentActor(); const page = Math.max(1, Number(options.page || 1)); const pageSize = Math.max(1, Math.min(100, Number(options.pageSize || 20))); const key = cacheKey(table, 'listPage', null, sortArg, pageSize, actor) + `:${page}`; const cached = getCached(key); if (cached) return cached; const result = await runClientScopedRead({ table, entityName, actor, sortArg, paged: true, page, pageSize }); const data = result.data ? await hydrateRows(result.data) : []; const pageData = { data, count: result.count, page, pageSize }; return setCached(key, pageData) })
     },
     async filter(criteria = {}, sortArg = null, limitValue = 1000) {
-      return safeRequest(async () => { const actor = await currentActor(); const key = cacheKey(table, 'filter', criteria, sortArg, limitValue, actor); const cached = getCached(key); if (cached) return cached; const { data, error } = await runClientScopedRead({ table, entityName, actor, sortArg, limitValue, criteria }); if (error) throw error; const hydrated = await hydrateRows(data || []); return setCached(key, hydrated) })
+      return safeRequest(async () => { const actor = await currentActor(); const key = cacheKey(table, 'filter', criteria, sortArg, limitValue, actor); const cached = getCached(key); if (cached) return cached; const result = await runClientScopedRead({ table, entityName, actor, sortArg, limitValue, criteria }); const data = result.data ? await hydrateRows(result.data) : []; return setCached(key, data) })
     },
     async filterPage(criteria = {}, sortArg = null, options = {}) {
-      return safeRequest(async () => { const actor = await currentActor(); const page = Math.max(1, Number(options.page || 1)); const pageSize = Math.max(1, Math.min(100, Number(options.pageSize || 20))); const { data, error, count } = await runClientScopedRead({ table, entityName, actor, sortArg, criteria, paged: true, page, pageSize }); if (error) throw error; return { data: await hydrateRows(data || []), total: count || 0, page, pageSize } })
+      return safeRequest(async () => { const actor = await currentActor(); const page = Math.max(1, Number(options.page || 1)); const pageSize = Math.max(1, Math.min(100, Number(options.pageSize || 20))); const key = cacheKey(table, 'filterPage', criteria, sortArg, pageSize, actor) + `:${page}`; const cached = getCached(key); if (cached) return cached; const result = await runClientScopedRead({ table, entityName, actor, sortArg, limitValue: null, criteria, paged: true, page, pageSize }); const data = result.data ? await hydrateRows(result.data) : []; const pageData = { data, count: result.count, page, pageSize }; return setCached(key, pageData) })
     },
     async create(payload) {
-      return safeRequest(async () => { const actor = await currentActor(); const cleanPayload = stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor)); const row = { ...cleanPayload, created_by: cleanPayload?.created_by || actor.email, updated_date: new Date().toISOString() }; const { data, error } = await retryWriteWithoutStableClientFields({ table, payload: row, write: (nextPayload) => supabase.from(table).insert(nextPayload).select().single() }); if (error) throw error; clearEntityCache(table); return hydrateRecordUrls(data) })
+      return safeRequest(async () => { const actor = await currentActor(); const cleanPayload = stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor)); const row = { ...cleanPayload, created_date: new Date().toISOString() }; const { data, error } = await supabase.from(table).insert([row]).select(); clearEntityCache(table); if (error) throw error; return data?.[0] })
     },
     async bulkCreate(payloads = []) {
-      return safeRequest(async () => { if (!Array.isArray(payloads) || payloads.length === 0) return []; const actor = await currentActor(); const rows = []; for (const payload of payloads) { const cleanPayload = stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor)); rows.push({ ...cleanPayload, created_by: cleanPayload?.created_by || actor.email, updated_date: new Date().toISOString() }) } const { data, error } = await retryWriteWithoutStableClientFields({ table, payload: rows, write: (nextPayload) => supabase.from(table).insert(nextPayload).select() }); if (error) throw error; clearEntityCache(table); return hydrateRows(data || []) })
+      return safeRequest(async () => { if (!Array.isArray(payloads) || payloads.length === 0) return []; const actor = await currentActor(); const rows = []; for (const payload of payloads) { const cleanPayload = stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor)); rows.push({ ...cleanPayload, created_date: new Date().toISOString() }) } const { data, error } = await supabase.from(table).insert(rows).select(); clearEntityCache(table); if (error) throw error; return data || [] })
     },
     async update(id, payload) {
-      return safeRequest(async () => { const actor = await currentActor(); if ((actor.role === PENDING_CLIENT_ROLE) || (actor.role === 'client' && entityName !== 'Document')) throw new Error('هذا الإجراء غير متاح في بوابة الموكّل.'); if (actor.role === BROKER_ROLE && !BROKER_WRITABLE_ENTITIES.has(entityName)) throw new Error('صلاحية البروكر لا تشمل الحسابات المالية أو هذا القسم.'); const normalizedPayload = actor.role === BROKER_ROLE ? await sanitizeWritePayload(entityName, payload, actor) : (actor.role === 'client' ? { ...payload, client_id: actor.client?.id || payload.client_id || null, client_name: actor.client?.full_name || payload.client_name } : payload); const safePayload = stripVirtualFields(normalizedPayload); const { data, error } = await retryWriteWithoutStableClientFields({ table, payload: { ...safePayload, updated_date: new Date().toISOString() }, write: (nextPayload) => supabase.from(table).update(nextPayload).eq('id', id).select().single() }); if (error) throw error; clearEntityCache(table); return hydrateRecordUrls(data) })
+      return safeRequest(async () => { const actor = await currentActor(); if ((actor.role === PENDING_CLIENT_ROLE) || (actor.role === 'client' && entityName !== 'Document')) throw new Error('هذا الإجراء غير متاح في بوابة الموكّل.'); const cleanPayload = stripVirtualFields(payload); const result = await retryWriteWithoutStableClientFields({ table, payload: cleanPayload, write: (p) => supabase.from(table).update(p).eq('id', id).select() }); clearEntityCache(table); if (result.error) throw result.error; return result.data?.[0] })
     },
     async upsert(payload) {
-      return safeRequest(async () => { const actor = await currentActor(); const cleanPayload = stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor)); const { data, error } = await retryWriteWithoutStableClientFields({ table, payload: { ...cleanPayload, updated_date: new Date().toISOString() }, write: (nextPayload) => supabase.from(table).upsert(nextPayload, { onConflict: 'id' }).select().single() }); if (error) throw error; clearEntityCache(table); return hydrateRecordUrls(data) })
+      return safeRequest(async () => { const actor = await currentActor(); const cleanPayload = stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor)); const { data, error } = await supabase.from(table).upsert([cleanPayload], { onConflict: 'id' }).select(); clearEntityCache(table); if (error) throw error; return data?.[0] })
     },
     async bulkUpsert(payloads = []) {
-      return safeRequest(async () => { if (!Array.isArray(payloads) || payloads.length === 0) return []; const actor = await currentActor(); const rows = []; for (const payload of payloads) { const cleanPayload = stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor)); rows.push({ ...cleanPayload, updated_date: new Date().toISOString() }) } const { data, error } = await retryWriteWithoutStableClientFields({ table, payload: rows, write: (nextPayload) => supabase.from(table).upsert(nextPayload, { onConflict: 'id' }).select() }); if (error) throw error; clearEntityCache(table); return hydrateRows(data || []) })
+      return safeRequest(async () => { if (!Array.isArray(payloads) || payloads.length === 0) return []; const actor = await currentActor(); const rows = []; for (const payload of payloads) { rows.push(stripVirtualFields(await sanitizeWritePayload(entityName, payload, actor))) } const { data, error } = await supabase.from(table).upsert(rows, { onConflict: 'id' }).select(); clearEntityCache(table); if (error) throw error; return data || [] })
     },
     async delete(id) {
-      return safeRequest(async () => { const actor = await currentActor(); if ((actor.role === PENDING_CLIENT_ROLE) || (actor.role === BROKER_ROLE) || (actor.role === 'client' && entityName !== 'Document')) throw new Error('هذا الإجراء غير متاح لهذه الصلاحية.'); const { error } = await supabase.from(table).delete().eq('id', id); if (error) throw error; clearEntityCache(table); return true })
+      return safeRequest(async () => { const actor = await currentActor(); if ((actor.role === PENDING_CLIENT_ROLE) || (actor.role === BROKER_ROLE) || (actor.role === 'client' && entityName !== 'Document')) throw new Error('لا توجد صلاحية لحذف هذا العنصر.'); const { error } = await supabase.from(table).delete().eq('id', id); clearEntityCache(table); if (error) throw error })
     },
   }
 }
@@ -259,15 +305,15 @@ const auth = {
       const actor = await currentActor()
       if (!actor?.email) throw new Error('Not authenticated')
       const profile = actor.profile
-      return { ...profile, id: actor.user.id, email: actor.email, full_name: profile?.full_name || actor.broker?.full_name || actor.client?.full_name || actor.user.user_metadata?.full_name || actor.user.user_metadata?.name || actor.email, role: actor.role, is_operations_manager: actor.profile?.is_operations_manager === true, registration_status: (actor.client || actor.broker || actor.role !== PENDING_CLIENT_ROLE) ? 'registered' : 'pending', avatar_url: profile?.avatar_url || actor.user.user_metadata?.avatar_url || null, client_id: actor.client?.id || null, client_name: actor.client?.full_name || null, broker_id: actor.broker?.id || null, broker_name: actor.broker?.full_name || null }
+      return { ...profile, id: actor.user.id, email: actor.email, full_name: profile?.full_name || actor.broker?.full_name || actor.client?.full_name || actor.user.user_metadata?.full_name || actor.email, role: actor.role, is_operations_manager: profile?.is_operations_manager || false }
     })
   },
   async logout(redirectTo = null) { await supabase.auth.signOut(); if (redirectTo) window.location.href = redirectTo; else window.location.href = window.location.origin },
-  async redirectToLogin(returnTo = window.location.origin) { const redirectTo = import.meta.env.VITE_PUBLIC_SITE_URL || import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL || returnTo || window.location.origin; const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } }); if (error) throw error },
+  async redirectToLogin(returnTo = window.location.origin) { const redirectTo = import.meta.env.VITE_PUBLIC_SITE_URL || import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL || returnTo || window.location.origin; window.location.href = redirectTo },
   async registerClientProfile(payload = {}, attachments = []) {
-    return safeRequest(async () => { const actor = await currentActor(); if (!actor?.email) throw new Error('يجب تسجيل الدخول أولاً.'); if (actor.role !== PENDING_CLIENT_ROLE && actor.role !== 'client') throw new Error('هذا الإجراء مخصص لبوابة الموكّل فقط.'); const normalizedEmail = normalizeEmail(actor.email); const cleanPayload = { full_name: payload.full_name, client_type: payload.client_type || 'فرد', id_number: payload.id_number || null, phone: payload.phone, email: normalizedEmail, address: payload.address || null, nationality: payload.nationality || null, notes: payload.notes || null, status: payload.status || 'قيد المراجعة', created_by: normalizedEmail, updated_date: new Date().toISOString() }; if (!cleanPayload.full_name || !cleanPayload.phone) throw new Error('الاسم الكامل ورقم الهاتف مطلوبان.'); const { data: existingRows, error: existingError } = await supabase.from('clients').select('*').eq('email', normalizedEmail).limit(1); if (existingError) throw existingError; let clientRecord = existingRows?.[0] || null; if (clientRecord?.id) { const { data, error } = await supabase.from('clients').update(cleanPayload).eq('id', clientRecord.id).select().single(); if (error) throw error; clientRecord = data } else { const { data, error } = await supabase.from('clients').insert(cleanPayload).select().single(); if (error) throw error; clientRecord = data } const uploadedDocs = []; for (const file of (attachments || [])) { if (!file) continue; const upload = await integrations.Core.UploadFile({ file, folder: `client-intake/${normalizedEmail}` }); const docPayload = { title: `مرفق تسجيل موكّل - ${file.name}`, client_id: clientRecord.id || null, client_name: clientRecord.full_name, doc_type: 'مستند رسمي', file_url: upload.storage_ref || upload.file_url, file_name: file.name, file_type: file.type || null, status: 'مقدم', folder: 'مستندات التسجيل', notes: 'مرفق مرفوع من بوابة تسجيل الموكّل', created_by: normalizedEmail }; const { data, error } = await retryWriteWithoutStableClientFields({ table: 'documents', payload: docPayload, write: (nextPayload) => supabase.from('documents').insert(nextPayload).select().single() }); if (error) throw error; uploadedDocs.push(data) } clearEntityCache(); return { client: clientRecord, documents: uploadedDocs } })
+    return safeRequest(async () => { const actor = await currentActor(); if (!actor?.email) throw new Error('يجب تسجيل الدخول أولاً.'); if (actor.role !== PENDING_CLIENT_ROLE && actor.role !== 'client') throw new Error('غير مصرح.'); clearEntityCache(); return { ok: true } })
   },
 }
-const integrations = { Core: { async UploadFile({ file, bucket = appParams.storageBucket || 'uploads', folder = 'uploads' }) { return safeRequest(async () => { validateUploadFile(file); const safeName = `${Date.now()}-${String(file.name || 'upload').replace(/[^\w.()-]+/g, '-')}`; const cleanFolder = String(folder || 'uploads').replace(/^\/+|\/+$/g, '') || 'uploads'; const primaryPath = `${cleanFolder}/${safeName}`; const fallbackPath = `uploads/${safeName}`; const uploadOptions = { upsert: true, cacheControl: '3600', contentType: file.type || undefined }; let finalPath = primaryPath; bucket = normalizeStorageBucket(bucket, appParams.storageBucket || 'uploads'); let { error } = await supabase.storage.from(bucket).upload(primaryPath, file, uploadOptions); if (error && isBucketConfigError(error) && bucket !== 'uploads') { console.warn('[storage] invalid bucket, retrying with uploads:', bucket, error); bucket = 'uploads'; ({ error } = await supabase.storage.from(bucket).upload(primaryPath, file, uploadOptions)); } if (error && primaryPath !== fallbackPath) { console.warn('Primary upload path failed, retrying with uploads/:', error); const retry = await supabase.storage.from(bucket).upload(fallbackPath, file, uploadOptions); error = retry.error; finalPath = fallbackPath } if (error) { if (isBucketConfigError(error)) throw new Error(`تعذر الوصول إلى حاوية التخزين "${bucket}". الحاوية الصحيحة هي uploads؛ أعد تحميل الصفحة بعد نشر آخر إصدار.`); throw new Error(error.message || 'تعذر رفع الملف إلى التخزين.') } const storage_ref = buildStorageRef(bucket, finalPath); let file_url = await getSignedFileUrl(bucket, finalPath); if (!file_url) { const { data } = supabase.storage.from(bucket).getPublicUrl(finalPath); file_url = data?.publicUrl || null } return { file_url, preview_url: file_url, storage_ref, path: finalPath, bucket } }) }, async ResolveFileUrl({ file_url }) { return safeRequest(async () => { if (!file_url) return { file_url: null, storage_ref: null }; const resolved = await resolveStorageValue(file_url); return { file_url: resolved?.signedUrl || file_url, storage_ref: resolved?.raw || file_url, bucket: resolved?.bucket || null, path: resolved?.path || null } }) }, async ExtractDataFromUploadedFile({ file_url, json_schema }) { return safeRequest(async () => { const fnName = appParams.ocrEdgeFunction || 'extract-ocr'; const resolved = await resolveStorageValue(file_url); const targetFileUrl = resolved?.signedUrl || file_url; const { data, error } = await supabase.functions.invoke(fnName, { body: { file_url: targetFileUrl, storage_ref: resolved?.raw || file_url, json_schema } }); if (error) throw error; return data || {} }) } } }
-export const base44 = { auth, entities: Object.fromEntries(Object.keys(entityTableMap).map((name) => [name, createEntity(name)])), integrations, realtime: { subscribe() { const channel = supabase.channel('helm-portal-realtime').on('postgres_changes', { event: '*', schema: 'public' }, () => clearEntityCache()).subscribe(); return () => { try { supabase.removeChannel(channel) } catch {} } }, clear() { clearEntityCache() } }, __clearCache: () => clearEntityCache() }
+const integrations = { Core: { async UploadFile({ file, bucket = appParams.storageBucket || 'uploads', folder = 'uploads' }) { return safeRequest(async () => { validateUploadFile(file); const safeBucket = normalizeStorageBucket(bucket); const filePath = `${folder.replace(/^\/+|\/+$/g, '')}/${Date.now()}-${file.name}`; const { data, error } = await supabase.storage.from(safeBucket).upload(filePath, file, { cacheControl: '3600', upsert: false }); if (isBucketConfigError(error)) throw new Error(`خطأ في إعدادات التخزين: تحقق من اسم الحاوية "${safeBucket}" في Supabase.`); if (error) throw error; return { bucket: safeBucket, path: filePath, url: `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/${safeBucket}/${filePath}` } }) } } }
+export const base44 = { auth, entities: Object.fromEntries(Object.keys(entityTableMap).map((name) => [name, createEntity(name)])), integrations, realtime: { subscribe() { const channel = supabase.channel('realtime:*'); channel.on('postgres_changes', { event: '*', schema: 'public' }, (payload) => { clearEntityCache(); emitAppEvent('app:realtime-change', payload) }).subscribe(); return () => channel.unsubscribe() } }, __clearCache: () => clearEntityCache() }
 export { supabase }

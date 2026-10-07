@@ -68,7 +68,7 @@ export default function Client360() {
   const clientId = params.get("id") || "";
   const [client, setClient] = useState(null);
   const [data, setData] = useState({
-    cases: [], invoices: [], documents: [], sessions: [], tasks: [], expenses: [],
+    cases: [], caseLinks: [], invoices: [], documents: [], sessions: [], tasks: [], expenses: [],
   });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -82,9 +82,10 @@ export default function Client360() {
     setLoading(true);
     setLoadError("");
     try {
-      const [clientRows, cases, invoices, documents, sessions, tasks, expenses] = await Promise.all([
+      const [clientRows, cases, caseLinks, invoices, documents, sessions, tasks, expenses] = await Promise.all([
         base44.entities.Client.filter({ id: clientId }, null, 1),
         base44.entities.Case.list("-created_date", 3000),
+        base44.entities.CaseClient.filter({ client_id: clientId }, "-created_date", 3000).catch(() => []),
         base44.entities.Invoice.list("-created_date", 3000),
         base44.entities.Document.list("-created_date", 3000),
         base44.entities.Session.list("-session_date", 3000),
@@ -93,14 +94,17 @@ export default function Client360() {
       ]);
       const selected = clientRows?.[0] || null;
       if (!selected) throw new Error("لم يتم العثور على ملف الموكل.");
+      const linkedCaseIds = new Set((caseLinks || []).map((link) => String(link.case_id)));
+      const relatedToLinkedCase = (row) => row?.case_id && linkedCaseIds.has(String(row.case_id));
       setClient(selected);
       setData({
-        cases: (cases || []).filter((row) => belongsToClient(row, selected)),
-        invoices: (invoices || []).filter((row) => belongsToClient(row, selected)),
-        documents: (documents || []).filter((row) => belongsToClient(row, selected)),
-        sessions: (sessions || []).filter((row) => belongsToClient(row, selected)),
-        tasks: (tasks || []).filter((row) => belongsToClient(row, selected)),
-        expenses: (expenses || []).filter((row) => belongsToClient(row, selected)),
+        cases: (cases || []).filter((row) => belongsToClient(row, selected) || linkedCaseIds.has(String(row.id))),
+        caseLinks: caseLinks || [],
+        invoices: (invoices || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        documents: (documents || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        sessions: (sessions || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        tasks: (tasks || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
+        expenses: (expenses || []).filter((row) => belongsToClient(row, selected) || relatedToLinkedCase(row)),
       });
     } catch (error) {
       setLoadError(error?.message || "تعذر تحميل الملف الشامل للموكل.");

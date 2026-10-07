@@ -21,6 +21,9 @@ import {
   Printer, Hash, Banknote, Users, Briefcase, UploadCloud, Type
 } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
+import { applyVisualIdentity, AVAILABLE_APP_FONTS } from "@/lib/theme";
+import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
+import { prepareSafeImport, applySafeImport } from "@/lib/safeImport";
 
 // ── Themes + visual effects panel ──────────────────────────────────────────────
 function ThemesPanel({ settings, setSettings }) {
@@ -328,11 +331,6 @@ function SoundsPanel({ settings, setSettings }) {
 }
 
 
-import { applyVisualIdentity } from "@/lib/theme";
-import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, readBackupFile } from "@/lib/backup";
-import { prepareSafeImport, applySafeImport } from "@/lib/safeImport";
-import { applyVisualIdentity, AVAILABLE_APP_FONTS } from "@/lib/theme";
-import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
 import { useAuth } from "@/lib/AuthContext";
 import { appParams } from "@/lib/app-params";
 

@@ -127,7 +127,31 @@ export default function ArchivePage() {
         if (record[f] !== undefined && record[f] !== null) payload[f] = record[f]
       }
 
-      await base44.entities[entityName].create(payload)
+      const restored = await base44.entities[entityName].create(payload)
+      if (restored?.id && Array.isArray(record._case_client_links) && record._case_client_links.length) {
+        const links = record._case_client_links
+          .map((link) => {
+            if (entityName === 'Client' && link?.case_id) {
+              return {
+                case_id: link.case_id,
+                client_id: restored.id,
+                relation_role: link.relation_role || 'موكل',
+                is_primary: Boolean(link.is_primary),
+              }
+            }
+            if (entityName === 'Case' && link?.client_id) {
+              return {
+                case_id: restored.id,
+                client_id: link.client_id,
+                relation_role: link.relation_role || 'موكل',
+                is_primary: Boolean(link.is_primary),
+              }
+            }
+            return null
+          })
+          .filter(Boolean)
+        if (links.length) await base44.entities.CaseClient.bulkCreate(links)
+      }
       await markArchiveRestored(entry.id)
       await reload()
     } catch (err) {

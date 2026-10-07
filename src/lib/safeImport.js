@@ -148,6 +148,33 @@ export async function prepareSafeImport(backup) {
     for (const row of backup[table] || []) {
       if (!row || !row.id) { addForReview(review, table, row, 'معرّف السجل مفقود'); continue }
       const oldId = String(row.id)
+
+      if (table === 'case_clients') {
+        const clientId = resolveClient(row, sourceClients, aliases, clients)
+        const caseId = resolveCase(row, caseAliases, planned.cases, live.cases, clientId)
+        if (!clientId) { addForReview(review, table, row, 'تعذر تحديد الموكل المرتبط'); continue }
+        if (!caseId) { addForReview(review, table, row, 'تعذر تحديد القضية المرتبطة'); continue }
+
+        const duplicate = liveRows.find(item =>
+          String(item.id) === oldId ||
+          (String(item.case_id) === String(caseId) && String(item.client_id) === String(clientId))
+        )
+        if (duplicate) {
+          skipped[table]++
+          continue
+        }
+
+        const data = cleanRow(row, table)
+        data.id = data.id && !seenIds.has(String(data.id)) ? data.id : generatedId()
+        data.case_id = caseId
+        data.client_id = clientId
+        data.relation_role = data.relation_role || 'موكل'
+        data.is_primary = Boolean(data.is_primary)
+        planned[table].push(data)
+        seenIds.add(String(data.id))
+        continue
+      }
+
       const existing = liveRows.find(item => String(item.id) === oldId)
       const key = getBusinessKey(row)
       if (existing || seenIds.has(oldId) || (key && seenKeys.has(key))) {

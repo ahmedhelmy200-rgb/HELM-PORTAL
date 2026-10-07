@@ -57,6 +57,7 @@ const emptyForm = {
   case_result: "غير محسومة",
   success_percentage: "",
   result_notes: "",
+  shared_client_ids: [],
 };
 
 function stripLegacyBrokerFields(value = {}) {
@@ -107,6 +108,7 @@ export default function Cases() {
   const isClient = user?.role === "client";
   const [cases, setCases] = useState([]);
   const [clients, setClients] = useState([]);
+  const [caseLinks, setCaseLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
@@ -126,13 +128,15 @@ export default function Cases() {
     setLoading(true);
     setLoadError("");
     try {
-      const [caseRows, clientRows] = await Promise.all([
+      const [caseRows, clientRows, caseLinkRows] = await Promise.all([
         base44.entities.Case.list(sortBy, 5000),
         base44.entities.Client.list("full_name", 5000),
+        base44.entities.CaseClient.list("-created_date", 10000).catch(() => []),
       ]);
       const safeCases = Array.isArray(caseRows) ? caseRows : [];
       setCases(safeCases);
       setClients(Array.isArray(clientRows) ? clientRows : []);
+      setCaseLinks(Array.isArray(caseLinkRows) ? caseLinkRows : []);
       setTotal(safeCases.length);
     } catch (error) {
       setLoadError(error.message || "تعذر تحميل القضايا.");
@@ -142,7 +146,7 @@ export default function Cases() {
   }, [sortBy]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  usePageRefresh(loadData, ["cases", "clients"]);
+  usePageRefresh(loadData, ["cases", "clients", "case_clients"]);
 
   useEffect(() => {
     const offNew = subscribeAppEvent(APP_SHORTCUT_NEW, ({ page: currentPage }) => {
@@ -180,8 +184,14 @@ export default function Cases() {
     setShowDialog(true);
   };
 
-  const openEdit = (item) => {
+  const openEdit = async (item) => {
     const cleanItem = stripLegacyBrokerFields(item);
+    const links = await base44.entities.CaseClient
+      .filter({ case_id: item.id }, "-created_date", 1000)
+      .catch(() => []);
+    const sharedClientIds = (links || [])
+      .filter((link) => !link.is_primary && String(link.client_id) !== String(cleanItem.client_id || ""))
+      .map((link) => String(link.client_id));
     setEditing(item);
     setForm({
       ...emptyForm,
@@ -193,9 +203,60 @@ export default function Cases() {
       result_notes: cleanItem.result_notes || "",
       next_session_date: cleanItem.next_session_date?.slice(0, 16) || "",
       filing_date: cleanItem.filing_date || "",
+      shared_client_ids: sharedClientIds,
     });
     setFormTab("core");
     setShowDialog(true);
+  };
+
+  const syncCaseClients = async (caseId, primaryClientId, sharedClientIds = []) => {
+    if (!caseId) return;
+    const desired = new Map();
+    if (primaryClientId) {
+      desired.set(String(primaryClientId), {
+        client_id: primaryClientId,
+        relation_role: "موكل",
+        is_primary: true,
+      });
+    }
+    for (const clientId of sharedClientIds || []) {
+      const key = String(clientId || "");
+      if (!key || key === String(primaryClientId || "")) continue;
+      desired.set(key, {
+        client_id: clientId,
+        relation_role: "موكل مشارك",
+        is_primary: false,
+      });
+    }
+
+    const existing = await base44.entities.CaseClient
+      .filter({ case_id: caseId }, "-created_date", 1000)
+      .catch(() => []);
+    const existingByClient = new Map((existing || []).map((link) => [String(link.client_id), link]));
+
+    for (const link of existing || []) {
+      const wanted = desired.get(String(link.client_id));
+      if (!wanted) {
+        await base44.entities.CaseClient.delete(link.id);
+        continue;
+      }
+      if (Boolean(link.is_primary) !== Boolean(wanted.is_primary) || link.relation_role !== wanted.relation_role) {
+        await base44.entities.CaseClient.update(link.id, {
+          relation_role: wanted.relation_role,
+          is_primary: wanted.is_primary,
+        });
+      }
+    }
+
+    const missing = [...desired.entries()]
+      .filter(([clientId]) => !existingByClient.has(clientId))
+      .map(([, value]) => ({
+        case_id: caseId,
+        client_id: value.client_id,
+        relation_role: value.relation_role,
+        is_primary: value.is_primary,
+      }));
+    if (missing.length) await base44.entities.CaseClient.bulkCreate(missing);
   };
 
   const handleSave = async () => {
@@ -204,16 +265,20 @@ export default function Cases() {
       const explicitSuccess = form.success_percentage === "" || form.success_percentage === null || form.success_percentage === undefined
         ? null
         : Math.min(100, Math.max(0, Number(form.success_percentage)));
+      const { shared_client_ids: sharedClientIds = [], ...caseForm } = form;
       const payload = stripLegacyBrokerFields({
-        ...form,
-        fees: form.fees ? Number(form.fees) : undefined,
-        paid_amount: form.paid_amount ? Number(form.paid_amount) : 0,
-        case_result: form.case_result || "غير محسومة",
+        ...caseForm,
+        fees: caseForm.fees ? Number(caseForm.fees) : undefined,
+        paid_amount: caseForm.paid_amount ? Number(caseForm.paid_amount) : 0,
+        case_result: caseForm.case_result || "غير محسومة",
         success_percentage: explicitSuccess,
       });
 
-      if (editing) await base44.entities.Case.update(editing.id, payload);
-      else await base44.entities.Case.create(payload);
+      const saved = editing
+        ? await base44.entities.Case.update(editing.id, payload)
+        : await base44.entities.Case.create(payload);
+      const savedCaseId = editing?.id || saved?.id;
+      await syncCaseClients(savedCaseId, payload.client_id, sharedClientIds);
 
       setShowDialog(false);
       await loadData();
@@ -226,20 +291,30 @@ export default function Cases() {
 
   const filtered = useMemo(() => cases.filter((item) => {
     const linkedClient = clients.find((client) => String(client.id) === String(item.client_id));
+    const sharedIds = caseLinks
+      .filter((link) => String(link.case_id) === String(item.id) && !link.is_primary)
+      .map((link) => String(link.client_id));
+    const sharedClients = clients.filter((client) => sharedIds.includes(String(client.id)));
     const searchable = {
       ...item,
       client_name_ar: linkedClient?.name_ar || "",
       client_name_en: linkedClient?.name_en || "",
       client_aliases: linkedClient?.name_aliases || [],
+      shared_client_names: sharedClients.flatMap((client) => [
+        client.full_name,
+        client.name_ar,
+        client.name_en,
+        ...(Array.isArray(client.name_aliases) ? client.name_aliases : []),
+      ]).filter(Boolean),
     };
     const matchSearch = searchInFields(
       searchable,
-      ["title", "client_name", "client_name_ar", "client_name_en", "client_aliases", "case_number", "court", "assigned_lawyer", "opponent_name", "case_result"],
+      ["title", "client_name", "client_name_ar", "client_name_en", "client_aliases", "shared_client_names", "case_number", "court", "assigned_lawyer", "opponent_name", "case_result"],
       search,
     );
     const matchStatus = statusFilter === "الكل" || item.status === statusFilter;
     return matchSearch && matchStatus;
-  }), [cases, clients, search, statusFilter]);
+  }), [cases, clients, caseLinks, search, statusFilter]);
 
   const pagedCases = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -393,7 +468,36 @@ export default function Cases() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                   <div className="space-y-1 md:col-span-2"><Label>عنوان القضية *</Label><Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} className="h-11" /></div>
                   <div className="space-y-1"><Label>رقم القضية</Label><Input value={form.case_number} onChange={(event) => setForm({ ...form, case_number: event.target.value })} className="h-11" /></div>
-                  <div className="space-y-1"><Label>اسم الموكل *</Label><ChoiceInput value={form.client_name} onChange={applyClient} options={clients.map(clientChoiceLabel)} listId="clients-list" helper="ابحث بالعربي أو الإنجليزي؛ يُحفظ الربط بالمعرف الحقيقي للموكل" /></div>
+                  <div className="space-y-1"><Label>اسم الموكل الأساسي *</Label><ChoiceInput value={form.client_name} onChange={applyClient} options={clients.map(clientChoiceLabel)} listId="clients-list" helper="ابحث بالعربي أو الإنجليزي؛ يُحفظ الربط بالمعرف الحقيقي للموكل" /></div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label>موكلون إضافيون في نفس القضية</Label>
+                    <div className="max-h-40 overflow-y-auto rounded-xl border border-border p-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {clients
+                        .filter((client) => String(client.id) !== String(form.client_id || ""))
+                        .map((client) => {
+                          const selected = (form.shared_client_ids || []).map(String).includes(String(client.id));
+                          return (
+                            <button
+                              key={client.id}
+                              type="button"
+                              onClick={() => setForm((previous) => {
+                                const current = new Set((previous.shared_client_ids || []).map(String));
+                                if (current.has(String(client.id))) current.delete(String(client.id));
+                                else current.add(String(client.id));
+                                return { ...previous, shared_client_ids: [...current] };
+                              })}
+                              className={`rounded-lg border px-3 py-2 text-right text-sm transition ${selected ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted/50"}`}
+                            >
+                              <span className="font-bold">{clientDisplayName(client)}</span>
+                              {client.name_en && client.name_en !== clientDisplayName(client) && (
+                                <span className="block text-[11px] text-muted-foreground" dir="ltr">{client.name_en}</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">استخدمها عندما تكون القضية مشتركة بين أكثر من موكل. الموكل الأساسي يظل محفوظًا في سجل القضية كما هو.</p>
+                  </div>
                   <div className="space-y-1"><Label>نوع القضية</Label><ChoiceInput value={form.case_type} onChange={(value) => setForm({ ...form, case_type: value })} options={CASE_TYPES} listId="case-types" /></div>
                   <div className="space-y-1"><Label>الحالة</Label><ChoiceInput value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={STATUSES} listId="case-statuses" /></div>
                   <div className="space-y-1"><Label>الأولوية</Label><ChoiceInput value={form.priority} onChange={(value) => setForm({ ...form, priority: value })} options={PRIORITIES} listId="case-priority" /></div>

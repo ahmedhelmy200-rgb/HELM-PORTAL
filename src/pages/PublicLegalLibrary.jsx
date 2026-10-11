@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, Search, ShieldCheck, LogIn, FileText, Gavel, Landmark, FolderArchive, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { PUBLIC_LEGAL_LIBRARY, PUBLIC_LEGAL_NOTICE } from '@/lib/publicLegalLibrary'
@@ -51,6 +51,20 @@ export default function PublicLegalLibrary() {
   const officeName = appPublicSettings?.office_name || 'أحمد حلمي للاستشارات القانونية'
   const officeLogo = appPublicSettings?.logo_url || null
   const categories = useMemo(() => ['الكل', ...new Set(PUBLIC_LEGAL_LIBRARY.map((item) => item.category))], [])
+  useEffect(() => {
+    document.title = 'المكتبة القانونية العامة | HELM Legal'
+    const description = 'مكتبة HELM Legal العامة: أدلة عملية في القانون الإماراتي والتنفيذ والعمل والعقود والمستندات والإجراءات.'
+    const meta = document.head.querySelector('meta[name="description"]')
+    if (meta) meta.setAttribute('content', description)
+    let canonical = document.head.querySelector('link[rel="canonical"]')
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.setAttribute('rel', 'canonical')
+      document.head.appendChild(canonical)
+    }
+    canonical.setAttribute('href', 'https://helm-protal.vercel.app/PublicLegalLibrary')
+  }, [])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return PUBLIC_LEGAL_LIBRARY.filter((item) => {

@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /portal
 Disallow: /Dashboard
 Disallow: /Cases
 Disallow: /Clients

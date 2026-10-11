@@ -10,6 +10,7 @@ import ClientOnboarding from './pages/ClientOnboarding'
 import ClientDashboard from './pages/ClientDashboard'
 import PublicEntryWithLogo from './pages/PublicEntryWithLogo'
 import PublicLegalLibrary from './pages/PublicLegalLibrary'
+import { PublicHome, AboutPage, ContactPage, PrivacyPage, TermsPage, EditorialPolicyPage } from './pages/PublicSite'
 import PasswordReset from './pages/PasswordReset'
 import Payment from './pages/Payment'
 import { createPageUrl } from '@/utils'
@@ -104,7 +105,13 @@ function OnboardingRoute() {
 function PublicRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<PublicEntryWithLogo />} />
+      <Route path="/" element={<PublicHome />} />
+      <Route path="/portal" element={<PublicEntryWithLogo />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/editorial-policy" element={<EditorialPolicyPage />} />
       <Route path="/Payment" element={<Payment />} />
       <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />
       <Route path="/PasswordReset" element={<PasswordReset />} />
@@ -138,6 +145,12 @@ const AuthenticatedApp = () => {
       <GlobalSearch />
       <Routes>
         <Route path="/" element={user?.role === 'pending_client' ? <Navigate to={createPageUrl('ClientOnboarding')} replace /> : renderPage(fallbackPage, Pages[fallbackPage] || MainPage)} />
+        <Route path="/portal" element={<Navigate to={createPageUrl('Dashboard')} replace />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/editorial-policy" element={<EditorialPolicyPage />} />
         <Route path={createPageUrl('ClientOnboarding')} element={<OnboardingRoute />} />
         <Route path="/Payment" element={<Payment />} />
         <Route path="/PublicLegalLibrary" element={<PublicLegalLibrary />} />

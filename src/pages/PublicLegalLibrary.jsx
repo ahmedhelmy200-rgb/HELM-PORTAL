@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, BookOpen, Search, ShieldCheck, LogIn, FileText, Gavel, Landmark, FolderArchive, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { PUBLIC_LEGAL_LIBRARY, PUBLIC_LEGAL_NOTICE } from '@/lib/publicLegalLibrary'
@@ -51,6 +51,20 @@ export default function PublicLegalLibrary() {
   const officeName = appPublicSettings?.office_name || 'أحمد حلمي للاستشارات القانونية'
   const officeLogo = appPublicSettings?.logo_url || null
   const categories = useMemo(() => ['الكل', ...new Set(PUBLIC_LEGAL_LIBRARY.map((item) => item.category))], [])
+  useEffect(() => {
+    document.title = 'المكتبة القانونية العامة | HELM Legal'
+    const description = 'مكتبة HELM Legal العامة: أدلة عملية في القانون الإماراتي والتنفيذ والعمل والعقود والمستندات والإجراءات.'
+    const meta = document.head.querySelector('meta[name="description"]')
+    if (meta) meta.setAttribute('content', description)
+    let canonical = document.head.querySelector('link[rel="canonical"]')
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.setAttribute('rel', 'canonical')
+      document.head.appendChild(canonical)
+    }
+    canonical.setAttribute('href', 'https://helm-protal.vercel.app/PublicLegalLibrary')
+  }, [])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return PUBLIC_LEGAL_LIBRARY.filter((item) => {
@@ -67,9 +81,9 @@ export default function PublicLegalLibrary() {
           <OfficeBrandMark logoUrl={officeLogo} officeName={officeName} subtitle="المكتبة القانونية العامة" compact tone="dark" />
           <div className="flex items-center gap-2">
             <Link to="/" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-900 hover:bg-blue-50">
-              <ArrowRight className="h-4 w-4" /> العودة للدخول
+              <ArrowRight className="h-4 w-4" /> العودة للرئيسية
             </Link>
-            <Link to="/" className="hidden h-11 items-center gap-2 rounded-2xl bg-blue-900 px-4 text-sm font-black text-white sm:inline-flex">
+            <Link to="/portal" className="hidden h-11 items-center gap-2 rounded-2xl bg-blue-900 px-4 text-sm font-black text-white sm:inline-flex">
               <LogIn className="h-4 w-4" /> دخول البوابة
             </Link>
           </div>
@@ -142,7 +156,7 @@ export default function PublicLegalLibrary() {
               <h2 className="text-2xl font-black">هل تريد متابعة ملفك داخل البوابة؟</h2>
               <p className="mt-2 max-w-3xl text-base font-medium leading-8 text-blue-100">المكتبة للتوعية العامة فقط. فتح ملف فعلي يحتاج تسجيل دخول وصلاحية من المكتب حتى تحفظ بياناتك ومرفقاتك داخل بوابة آمنة.</p>
             </div>
-            <Link to="/" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-sm font-black text-slate-950">
+            <Link to="/portal" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-sm font-black text-slate-950">
               <LogIn className="h-4 w-4" /> دخول أو إنشاء حساب
             </Link>
           </div>

@@ -67,9 +67,9 @@ export default function PublicLegalLibrary() {
           <OfficeBrandMark logoUrl={officeLogo} officeName={officeName} subtitle="المكتبة القانونية العامة" compact tone="dark" />
           <div className="flex items-center gap-2">
             <Link to="/" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-900 hover:bg-blue-50">
-              <ArrowRight className="h-4 w-4" /> العودة للدخول
+              <ArrowRight className="h-4 w-4" /> العودة للرئيسية
             </Link>
-            <Link to="/" className="hidden h-11 items-center gap-2 rounded-2xl bg-blue-900 px-4 text-sm font-black text-white sm:inline-flex">
+            <Link to="/portal" className="hidden h-11 items-center gap-2 rounded-2xl bg-blue-900 px-4 text-sm font-black text-white sm:inline-flex">
               <LogIn className="h-4 w-4" /> دخول البوابة
             </Link>
           </div>
@@ -142,7 +142,7 @@ export default function PublicLegalLibrary() {
               <h2 className="text-2xl font-black">هل تريد متابعة ملفك داخل البوابة؟</h2>
               <p className="mt-2 max-w-3xl text-base font-medium leading-8 text-blue-100">المكتبة للتوعية العامة فقط. فتح ملف فعلي يحتاج تسجيل دخول وصلاحية من المكتب حتى تحفظ بياناتك ومرفقاتك داخل بوابة آمنة.</p>
             </div>
-            <Link to="/" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-sm font-black text-slate-950">
+            <Link to="/portal" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-sm font-black text-slate-950">
               <LogIn className="h-4 w-4" /> دخول أو إنشاء حساب
             </Link>
           </div>

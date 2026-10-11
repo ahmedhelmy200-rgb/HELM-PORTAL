@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Briefcase, Building2, CheckCircle2, FileText, Gavel, Globe2, Landmark, LockKeyhole, Mail, Scale, ShieldCheck } from 'lucide-react'
+import { BookOpen, Briefcase, FileText, Gavel, Landmark, LockKeyhole, Scale, ShieldCheck } from 'lucide-react'
 import OfficeBrandMark from '@/components/helm/OfficeBrandMark'
 import { useAuth } from '@/lib/AuthContext'
 

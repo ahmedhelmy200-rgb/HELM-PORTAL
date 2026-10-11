@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, Briefcase, FileText, Gavel, Landmark, LockKeyhole, Scale, ShieldCheck } from 'lucide-react'
 import OfficeBrandMark from '@/components/helm/OfficeBrandMark'
@@ -12,6 +12,40 @@ const GUIDES = [
   { href: '/contracts-uae', title: 'العقود', desc: 'صياغة ومراجعة الالتزامات والجزاءات وشروط السداد والاختصاص.' },
   { href: '/international-legal-services', title: 'ملفات دولية', desc: 'تنسيق الملفات القانونية العابرة للحدود والعقود والمطالبات الدولية.' },
 ]
+
+
+function PublicMeta({ title, description, path = '/' }) {
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined
+    const fullTitle = title.includes('HELM Legal') ? title : `${title} | HELM Legal`
+    document.title = fullTitle
+
+    const setMeta = (selector, attrs) => {
+      let node = document.head.querySelector(selector)
+      if (!node) {
+        node = document.createElement('meta')
+        document.head.appendChild(node)
+      }
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value))
+    }
+
+    setMeta('meta[name="description"]', { name: 'description', content: description })
+    setMeta('meta[name="robots"]', { name: 'robots', content: 'index,follow,max-image-preview:large,max-snippet:-1' })
+    setMeta('meta[property="og:title"]', { property: 'og:title', content: fullTitle })
+    setMeta('meta[property="og:description"]', { property: 'og:description', content: description })
+
+    let canonical = document.head.querySelector('link[rel="canonical"]')
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.setAttribute('rel', 'canonical')
+      document.head.appendChild(canonical)
+    }
+    canonical.setAttribute('href', `https://helm-protal.vercel.app${path === '/' ? '/' : path}`)
+
+    return undefined
+  }, [title, description, path])
+  return null
+}
 
 const SERVICES = [
   { icon: Scale, title: 'مدني وتجاري', text: 'مطالبات مالية، عقود، مسؤولية وتعويض، ونزاعات تجارية.' },
@@ -90,6 +124,11 @@ function TrustStrip() {
 export function PublicHome() {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 text-slate-950">
+      <PublicMeta
+        title="أحمد حلمي للاستشارات القانونية | الإمارات ومصر ودوليًا | HELM Legal"
+        description="محتوى قانوني وأدلة عملية في الإمارات والعقود والتنفيذ والمنازعات، مع بوابة منفصلة وآمنة لمتابعة ملفات الموكلين."
+        path="/"
+      />
       <PublicHeader />
       <main>
         <section className="bg-[radial-gradient(circle_at_15%_10%,rgba(30,64,175,.22),transparent_34%),linear-gradient(135deg,#020617,#102a56_60%,#07152e)] text-white">
@@ -160,9 +199,10 @@ export function PublicHome() {
   )
 }
 
-function InfoPage({ eyebrow, title, children }) {
+function InfoPage({ eyebrow, title, description, path, children }) {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 text-slate-950">
+      <PublicMeta title={title} description={description} path={path} />
       <PublicHeader />
       <main className="mx-auto max-w-4xl px-4 py-12 md:px-8 md:py-16">
         <p className="text-sm font-black text-amber-700">{eyebrow}</p>
@@ -175,21 +215,21 @@ function InfoPage({ eyebrow, title, children }) {
 }
 
 export function AboutPage() {
-  return <InfoPage eyebrow="عن HELM Legal" title="عن المكتب"><p>HELM Legal Consultancy منصة استشارات وتنظيم ملفات قانونية في دولة الإمارات العربية المتحدة، وتركز على تقديم قراءة عملية للوقائع والمستندات والعقود والمنازعات والإجراءات ذات الصلة.</p><p>الموقع العام مخصص للمحتوى القانوني التوعوي. أما بيانات الموكلين والقضايا والمرفقات الخاصة فتظل داخل بوابة منفصلة بصلاحيات وصول محددة.</p><p>عند الحاجة إلى تمثيل قضائي أو عمل مهني منظم يتطلب ترخيصًا محليًا خاصًا، يتم التعامل معه وفق القواعد والاختصاصات المهنية المطبقة.</p></InfoPage>
+  return <InfoPage eyebrow="عن HELM Legal" title="عن المكتب" description="تعرف على HELM Legal Consultancy وطبيعة الموقع العام والبوابة المنفصلة للملفات القانونية الخاصة." path="/about"><p>HELM Legal Consultancy منصة استشارات وتنظيم ملفات قانونية في دولة الإمارات العربية المتحدة، وتركز على تقديم قراءة عملية للوقائع والمستندات والعقود والمنازعات والإجراءات ذات الصلة.</p><p>الموقع العام مخصص للمحتوى القانوني التوعوي. أما بيانات الموكلين والقضايا والمرفقات الخاصة فتظل داخل بوابة منفصلة بصلاحيات وصول محددة.</p><p>عند الحاجة إلى تمثيل قضائي أو عمل مهني منظم يتطلب ترخيصًا محليًا خاصًا، يتم التعامل معه وفق القواعد والاختصاصات المهنية المطبقة.</p></InfoPage>
 }
 
 export function ContactPage() {
-  return <InfoPage eyebrow="التواصل" title="تواصل مع HELM Legal"><p>للاستفسارات العامة، ابدأ من القنوات الرسمية للمكتب أو من بوابة الموكلين إذا كان لديك حساب وملف قائم.</p><div className="grid gap-3 sm:grid-cols-2"><Link to="/portal" className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 font-black text-blue-950"><LockKeyhole className="h-5 w-5" /> دخول بوابة الموكلين</Link><Link to="/PublicLegalLibrary" className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 font-black text-blue-950"><BookOpen className="h-5 w-5" /> المكتبة القانونية العامة</Link></div><p>لا ترسل كلمات مرور أو بيانات مصرفية أو مستندات سرية عبر نماذج أو قنوات عامة. الملفات الخاصة تُرفع فقط من خلال المسار الآمن المعتمد.</p></InfoPage>
+  return <InfoPage eyebrow="التواصل" title="تواصل مع HELM Legal" description="طرق التواصل والوصول إلى المكتبة القانونية العامة وبوابة الموكلين الآمنة في HELM Legal." path="/contact"><p>للاستفسارات العامة، ابدأ من القنوات الرسمية للمكتب أو من بوابة الموكلين إذا كان لديك حساب وملف قائم.</p><div className="grid gap-3 sm:grid-cols-2"><Link to="/portal" className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 font-black text-blue-950"><LockKeyhole className="h-5 w-5" /> دخول بوابة الموكلين</Link><Link to="/PublicLegalLibrary" className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 font-black text-blue-950"><BookOpen className="h-5 w-5" /> المكتبة القانونية العامة</Link></div><p>لا ترسل كلمات مرور أو بيانات مصرفية أو مستندات سرية عبر نماذج أو قنوات عامة. الملفات الخاصة تُرفع فقط من خلال المسار الآمن المعتمد.</p></InfoPage>
 }
 
 export function PrivacyPage() {
-  return <InfoPage eyebrow="السياسات" title="سياسة الخصوصية"><p>نحترم خصوصية الزوار والموكلين ونفصل بين بيانات التصفح العامة وبيانات الملفات القانونية الخاصة. بيانات القضايا والمرفقات لا تُعرض ضمن صفحات المحتوى العام.</p><p>قد تُستخدم تقنيات أساسية لازمة لتشغيل الموقع، مثل التخزين المحلي وملفات تعريف الارتباط المرتبطة بتسجيل الدخول والأمان. وإذا فُعّلت خدمات تحليل أو إعلانات خارجية مستقبلًا، يتم تحديث هذه السياسة بما يوضح طبيعة تلك الخدمات واستخداماتها.</p><p>لا نبيع بيانات الموكلين أو محتوى الملفات القانونية. ويقتصر الوصول إلى المعلومات الخاصة على الحسابات والصلاحيات المرتبطة بالملف.</p><p>يمكن تحديث هذه السياسة عند تطوير الموقع أو إضافة خدمات جديدة، ويُعتمد أحدث نص منشور في هذه الصفحة.</p></InfoPage>
+  return <InfoPage eyebrow="السياسات" title="سياسة الخصوصية" description="سياسة خصوصية HELM Legal وفصل بيانات التصفح العامة عن بيانات الموكلين والملفات القانونية الخاصة." path="/privacy"><p>نحترم خصوصية الزوار والموكلين ونفصل بين بيانات التصفح العامة وبيانات الملفات القانونية الخاصة. بيانات القضايا والمرفقات لا تُعرض ضمن صفحات المحتوى العام.</p><p>قد تُستخدم تقنيات أساسية لازمة لتشغيل الموقع، مثل التخزين المحلي وملفات تعريف الارتباط المرتبطة بتسجيل الدخول والأمان. وإذا فُعّلت خدمات تحليل أو إعلانات خارجية مستقبلًا، يتم تحديث هذه السياسة بما يوضح طبيعة تلك الخدمات واستخداماتها.</p><p>لا نبيع بيانات الموكلين أو محتوى الملفات القانونية. ويقتصر الوصول إلى المعلومات الخاصة على الحسابات والصلاحيات المرتبطة بالملف.</p><p>يمكن تحديث هذه السياسة عند تطوير الموقع أو إضافة خدمات جديدة، ويُعتمد أحدث نص منشور في هذه الصفحة.</p></InfoPage>
 }
 
 export function TermsPage() {
-  return <InfoPage eyebrow="السياسات" title="شروط الاستخدام"><p>المحتوى المنشور في الصفحات العامة لأغراض التوعية والمعلومات العامة ولا يُعد استشارة قانونية مخصصة لواقعة بعينها.</p><p>يجب مراجعة الوقائع والمستندات والمواعيد والجهة المختصة قبل اتخاذ أي إجراء قانوني. لا يجوز الاعتماد على مقال عام كبديل عن تقييم ملف محدد.</p><p>بوابة الموكلين مخصصة للمستخدمين المصرح لهم فقط. يحظر محاولة الوصول إلى ملفات أو بيانات لا تخص المستخدم أو تجاوز الصلاحيات التقنية الممنوحة للحساب.</p><p>قد تتغير القوانين والإجراءات، لذلك يراعى تاريخ نشر أو تحديث المحتوى والمصادر الرسمية الأحدث عند التطبيق.</p></InfoPage>
+  return <InfoPage eyebrow="السياسات" title="شروط الاستخدام" description="شروط استخدام موقع HELM Legal والمحتوى القانوني العام وبوابة الموكلين." path="/terms"><p>المحتوى المنشور في الصفحات العامة لأغراض التوعية والمعلومات العامة ولا يُعد استشارة قانونية مخصصة لواقعة بعينها.</p><p>يجب مراجعة الوقائع والمستندات والمواعيد والجهة المختصة قبل اتخاذ أي إجراء قانوني. لا يجوز الاعتماد على مقال عام كبديل عن تقييم ملف محدد.</p><p>بوابة الموكلين مخصصة للمستخدمين المصرح لهم فقط. يحظر محاولة الوصول إلى ملفات أو بيانات لا تخص المستخدم أو تجاوز الصلاحيات التقنية الممنوحة للحساب.</p><p>قد تتغير القوانين والإجراءات، لذلك يراعى تاريخ نشر أو تحديث المحتوى والمصادر الرسمية الأحدث عند التطبيق.</p></InfoPage>
 }
 
 export function EditorialPolicyPage() {
-  return <InfoPage eyebrow="الثقة والمراجعة" title="سياسة التحرير والمراجعة القانونية"><p>يهدف محتوى HELM Legal إلى تقديم معلومات قانونية عملية بلغة واضحة، مع الفصل بين التوعية العامة والرأي القانوني الخاص بملف محدد.</p><p>يُراجع المحتوى قبل النشر من منظور الدقة القانونية، وضوح المصطلحات، وتجنب الجزم في المسائل التي تعتمد على وقائع أو مستندات غير معروضة. وعند ذكر قاعدة أو إجراء قابل للتغير، تكون الأولوية للمصادر الرسمية والتشريعات والجهات الحكومية ذات الصلة.</p><p>تُحدّث المواد عند وجود تعديل تشريعي أو إجرائي مؤثر، أو عند اكتشاف نقطة تحتاج إلى تصحيح أو توضيح. ولا تُستخدم بيانات موكلين حقيقية في الأمثلة المنشورة للعامة.</p><p>المواد المنشورة لا تحل محل دراسة الملف. أي تقييم لمسؤولية أو حق أو ميعاد أو إجراء يجب أن يبنى على المستندات والمرحلة الإجرائية الفعلية.</p></InfoPage>
+  return <InfoPage eyebrow="الثقة والمراجعة" title="سياسة التحرير والمراجعة القانونية" description="منهج HELM Legal في إعداد ومراجعة وتحديث المحتوى القانوني العام والاعتماد على المصادر الرسمية." path="/editorial-policy"><p>يهدف محتوى HELM Legal إلى تقديم معلومات قانونية عملية بلغة واضحة، مع الفصل بين التوعية العامة والرأي القانوني الخاص بملف محدد.</p><p>يُراجع المحتوى قبل النشر من منظور الدقة القانونية، وضوح المصطلحات، وتجنب الجزم في المسائل التي تعتمد على وقائع أو مستندات غير معروضة. وعند ذكر قاعدة أو إجراء قابل للتغير، تكون الأولوية للمصادر الرسمية والتشريعات والجهات الحكومية ذات الصلة.</p><p>تُحدّث المواد عند وجود تعديل تشريعي أو إجرائي مؤثر، أو عند اكتشاف نقطة تحتاج إلى تصحيح أو توضيح. ولا تُستخدم بيانات موكلين حقيقية في الأمثلة المنشورة للعامة.</p><p>المواد المنشورة لا تحل محل دراسة الملف. أي تقييم لمسؤولية أو حق أو ميعاد أو إجراء يجب أن يبنى على المستندات والمرحلة الإجرائية الفعلية.</p></InfoPage>
 }

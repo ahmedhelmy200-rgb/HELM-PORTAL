@@ -66,3 +66,16 @@
  .legal-reading-page .reading-hero *{color:#111!important}
  .legal-reading-page .reading-section{break-inside:avoid}
 }
+
+
+/* Mobile typography for all public editorial pages, including existing guides */
+@media(max-width:820px){
+ .article p,.article li{font-size:1.04rem;line-height:2.05}
+ .article h2{font-size:clamp(1.35rem,5.4vw,1.6rem);line-height:1.6}
+ .article h3{font-size:1.2rem;line-height:1.6}
+ .article a{overflow-wrap:anywhere;text-underline-offset:3px}
+ .article .note,.article .source{padding:14px}
+ .top .nav a{display:inline-flex;align-items:center;min-height:44px}
+ .side a{min-height:44px;display:flex;align-items:center}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

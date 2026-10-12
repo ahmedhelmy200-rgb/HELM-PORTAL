@@ -5,6 +5,9 @@ import OfficeBrandMark from '@/components/helm/OfficeBrandMark'
 import { useAuth } from '@/lib/AuthContext'
 
 const GUIDES = [
+  { href: '/whatsapp-bank-transfer-evidence-uae', title: 'الواتساب والتحويلات في إثبات الدين', desc: 'كيف نقرأ الاعترافات الرقمية ونربط كل حوالة بسببها ودليلها؟' },
+  { href: '/uae-financial-claim-route', title: 'اختيار مسار المطالبة المالية', desc: 'الصفة والاختصاص وأصل الدين وأمر الأداء قبل قيد الدعوى.' },
+  { href: '/uae-contract-breach-evidence', title: 'إثبات الإخلال بالعقود', desc: 'من الالتزام المكتوب إلى التنفيذ الفعلي والدليل والتعويض.' },
   { href: '/uae-legal-guides', title: 'دليل القانون الإماراتي', desc: 'أدلة عملية في التنفيذ والعمل والعقود والإثبات والمنازعات.' },
   { href: '/uae-criminal-guides', title: 'القضايا الجزائية', desc: 'الكفالة والاستئناف والمضبوطات والعفو ومنع السفر الجزائي.' },
   { href: '/judgment-execution-uae', title: 'تنفيذ الأحكام', desc: 'من السند التنفيذي إلى الإجراءات والطلبات المرتبطة بالتنفيذ.' },

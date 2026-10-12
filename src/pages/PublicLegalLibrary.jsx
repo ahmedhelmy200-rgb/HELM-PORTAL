@@ -9,6 +9,9 @@ const CATEGORY_ICONS = [BookOpen, Gavel, FileText, Landmark, FolderArchive, Shie
 
 // Only link to published, public-facing articles. Internal case and accounting routes are excluded.
 const GUIDE_LINKS = {
+  'whatsapp-bank-transfer-evidence': { href: '/whatsapp-bank-transfer-evidence-uae', label: 'قراءة دليل الإثبات الكامل' },
+  'financial-claim-route-guide': { href: '/uae-financial-claim-route', label: 'كيف تختار مسار المطالبة؟' },
+  'contract-breach-evidence-guide': { href: '/uae-contract-breach-evidence', label: 'قراءة دليل إخلال العقد' },
   'uae-civil-procedure': { href: '/civil-commercial-disputes-uae', label: 'قراءة دليل المنازعات المدنية والتجارية' },
   'uae-criminal-complaint': { href: '/uae-criminal-guides', label: 'فتح أدلة القضايا الجزائية' },
   'uae-labour-claims': { href: '/labour-dispute-uae', label: 'قراءة دليل النزاعات العمالية' },

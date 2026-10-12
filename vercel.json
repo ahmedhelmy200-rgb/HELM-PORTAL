@@ -354,6 +354,18 @@
       "destination": "/seo/en-international-debt-recovery.html"
     },
     {
+      "source": "/whatsapp-bank-transfer-evidence-uae",
+      "destination": "/seo/whatsapp-bank-transfer-evidence-uae.html"
+    },
+    {
+      "source": "/uae-financial-claim-route",
+      "destination": "/seo/uae-financial-claim-route.html"
+    },
+    {
+      "source": "/uae-contract-breach-evidence",
+      "destination": "/seo/uae-contract-breach-evidence.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

@@ -194,6 +194,18 @@ export default function PublicLegalLibrary() {
           </div>
         </section>
       </main>
+
+      <footer className="mt-12 border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-7 text-sm text-slate-700 md:flex-row md:items-center md:justify-between md:px-8">
+          <p>المكتبة للتوعية العامة. تُراجع المواعيد والإجراءات وفق النصوص النافذة والجهة القضائية المختصة.</p>
+          <nav className="flex flex-wrap gap-x-5 gap-y-2 font-bold" aria-label="روابط المكتبة القانونية">
+            <a className="text-blue-900 underline underline-offset-4" href="https://uaelegislation.gov.ae/ar/" target="_blank" rel="noopener noreferrer">تشريعات الإمارات الرسمية</a>
+            <Link to="/editorial-policy" className="hover:underline">سياسة التحرير</Link>
+            <Link to="/privacy" className="hover:underline">الخصوصية</Link>
+            <Link to="/terms" className="hover:underline">شروط الاستخدام</Link>
+          </nav>
+        </div>
+      </footer>
     </div>
   )
 }

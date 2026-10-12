@@ -7,8 +7,24 @@ import { useAuth } from '@/lib/AuthContext'
 
 const CATEGORY_ICONS = [BookOpen, Gavel, FileText, Landmark, FolderArchive, ShieldCheck]
 
+// Only link to published, public-facing articles. Internal case and accounting routes are excluded.
+const GUIDE_LINKS = {
+  'uae-civil-procedure': { href: '/civil-commercial-disputes-uae', label: 'قراءة دليل المنازعات المدنية والتجارية' },
+  'uae-criminal-complaint': { href: '/uae-criminal-guides', label: 'فتح أدلة القضايا الجزائية' },
+  'uae-labour-claims': { href: '/labour-dispute-uae', label: 'قراءة دليل النزاعات العمالية' },
+  'uae-commercial-debts': { href: '/payment-order-uae', label: 'متى يصلح طريق أمر الأداء؟' },
+  'uae-contract-review': { href: '/contracts-uae', label: 'قراءة دليل مراجعة العقود' },
+  'uae-execution': { href: '/judgment-execution-uae', label: 'قراءة دليل تنفيذ الأحكام' },
+  'uae-appeal': { href: '/civil-appeal-uae', label: 'قراءة دليل الاستئناف المدني' },
+  'uae-evidence-documents': { href: '/electronic-evidence-uae', label: 'قراءة دليل الإثبات الإلكتروني' },
+  'uae-legal-notices': { href: '/contract-enforcement-uae', label: 'قراءة دليل الالتزامات التعاقدية' },
+  'uae-urgent-files': { href: '/uae-legal-guides', label: 'استعراض الأدلة القانونية' },
+  'uae-client-portal': { href: '/portal', label: 'فتح بوابة الموكلين' },
+}
+
 function LibraryCard({ item, index }) {
   const Icon = CATEGORY_ICONS[index % CATEGORY_ICONS.length]
+  const guide = GUIDE_LINKS[item.id]
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-blue-900 hover:shadow-xl">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -29,6 +45,11 @@ function LibraryCard({ item, index }) {
           </div>
         ))}
       </div>
+      {guide && (
+        <a href={guide.href} className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-blue-950 px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500">
+          {guide.label} <span aria-hidden="true" className="mr-2">←</span>
+        </a>
+      )}
     </article>
   )
 }
@@ -118,6 +139,9 @@ export default function PublicLegalLibrary() {
             <div className="relative flex-1">
               <Search className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
               <input
+                id="public-library-search"
+                type="search"
+                aria-label="البحث في المكتبة القانونية العامة"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="ابحث: إيجارات، عمالي، تنفيذ، استئناف، عقود، أدلة..."
@@ -138,6 +162,14 @@ export default function PublicLegalLibrary() {
             </div>
           </div>
         </section>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-1 text-sm font-bold text-slate-700" aria-live="polite">
+          <p>عدد الموضوعات المعروضة: {filtered.length} من {PUBLIC_LEGAL_LIBRARY.length}</p>
+          {(query || category !== 'الكل') && (
+            <button type="button" onClick={() => { setQuery(''); setCategory('الكل') }} className="rounded-xl border border-blue-900 px-4 py-2 text-blue-900 hover:bg-blue-50">
+              مسح البحث والتصنيفات
+            </button>
+          )}
+        </div>
 
         <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((item, index) => <LibraryCard key={item.id} item={item} index={index} />)}
@@ -162,6 +194,18 @@ export default function PublicLegalLibrary() {
           </div>
         </section>
       </main>
+
+      <footer className="mt-12 border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-7 text-sm text-slate-700 md:flex-row md:items-center md:justify-between md:px-8">
+          <p>المكتبة للتوعية العامة. تُراجع المواعيد والإجراءات وفق النصوص النافذة والجهة القضائية المختصة.</p>
+          <nav className="flex flex-wrap gap-x-5 gap-y-2 font-bold" aria-label="روابط المكتبة القانونية">
+            <a className="text-blue-900 underline underline-offset-4" href="https://uaelegislation.gov.ae/ar/" target="_blank" rel="noopener noreferrer">تشريعات الإمارات الرسمية</a>
+            <Link to="/editorial-policy" className="hover:underline">سياسة التحرير</Link>
+            <Link to="/privacy" className="hover:underline">الخصوصية</Link>
+            <Link to="/terms" className="hover:underline">شروط الاستخدام</Link>
+          </nav>
+        </div>
+      </footer>
     </div>
   )
 }

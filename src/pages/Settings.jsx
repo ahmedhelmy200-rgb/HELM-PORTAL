@@ -303,7 +303,7 @@ function SoundsPanel({ settings, setSettings }) {
             <CardTitle className="text-base flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" /> معاينة الأصوات
             </CardTitle>
-            <p className="text-sm text-muted-foreground">اضغط لسماع كل صوت بشكل منفرد</p>
+            <p className="text-sm text-muted-foreground">��ضغط لسماع كل صوت بشكل منفرد</p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1195,7 +1195,7 @@ const exportAllData = async () => {
               <CardContent className="space-y-4">
                 <div className="p-4 bg-muted/40 rounded-xl space-y-2 text-sm">
                   <p className="font-medium text-foreground">سيتم تصدير:</p>
-                  {["جميع القضايا وتفاصيلها", "بيانات الموكلين الكاملة", "سجل الجلسات", "المهام والمستندات", "الفواتير و��لمدفوعات", "المصاريف والتنبيهات", "النماذج القانونية وإعدادات المكتب"].map(item => (
+                  {["جميع القضايا وتفاصيلها", "بيانات الموكلين الكاملة", "سجل الجلسات", "المهام والمستندات", "الفواتير والمدفوعات", "المصاريف والتنبيهات", "النماذج القانونية وإعدادات المكتب"].map(item => (
                     <div key={item} className="flex items-center gap-2 text-muted-foreground">
                       <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
                       <span>{item}</span>

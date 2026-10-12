@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import { applyVisualIdentity, AVAILABLE_APP_FONTS } from "@/lib/theme";
-import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
+import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, readBackupFile } from "@/lib/backup";
 import { prepareSafeImport, applySafeImport } from "@/lib/safeImport";
 
 // ── Themes + visual effects panel ──────────────────────────────────────────────
@@ -303,7 +303,7 @@ function SoundsPanel({ settings, setSettings }) {
             <CardTitle className="text-base flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" /> معاينة الأصوات
             </CardTitle>
-            <p className="text-sm text-muted-foreground">اضغط لسماع كل صوت بشكل منفرد</p>
+            <p className="text-sm text-muted-foreground">��ضغط لسماع كل صوت بشكل منفرد</p>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

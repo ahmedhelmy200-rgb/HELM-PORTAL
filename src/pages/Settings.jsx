@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import PageHeader from "../components/helm/PageHeader";
 import { applyVisualIdentity, AVAILABLE_APP_FONTS } from "@/lib/theme";
-import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, restoreBackupData, readBackupFile } from "@/lib/backup";
+import { downloadLocalBackup, uploadBackupToCloud, restoreBackupFromCloud, readBackupFile } from "@/lib/backup";
 import { prepareSafeImport, applySafeImport } from "@/lib/safeImport";
 
 // ── Themes + visual effects panel ──────────────────────────────────────────────
@@ -1195,7 +1195,7 @@ const exportAllData = async () => {
               <CardContent className="space-y-4">
                 <div className="p-4 bg-muted/40 rounded-xl space-y-2 text-sm">
                   <p className="font-medium text-foreground">سيتم تصدير:</p>
-                  {["جميع القضايا وتفاصيلها", "بيانات الموكلين الكاملة", "سجل الجلسات", "المهام والمستندات", "الفواتير والمدفوعات", "المصاريف والتنبيهات", "النماذج القانونية وإعدادات المكتب"].map(item => (
+                  {["جميع القضايا وتفاصيلها", "بيانات الموكلين الكاملة", "سجل الجلسات", "المهام والمستندات", "الفواتير و��لمدفوعات", "المصاريف والتنبيهات", "النماذج القانونية وإعدادات المكتب"].map(item => (
                     <div key={item} className="flex items-center gap-2 text-muted-foreground">
                       <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
                       <span>{item}</span>

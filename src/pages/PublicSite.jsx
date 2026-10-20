@@ -234,7 +234,7 @@ export function AboutPage() {
       <h2 className="text-xl font-black text-slate-950">الموقع العام والبوابة الخاصة</h2>
       <p>الأدلة المنشورة متاحة للتصفح دون تسجيل دخول. وتظل القضايا والمستندات وبيانات الموكلين داخل بوابة خاصة ذات صلاحيات وصول، منفصلة عن الصفحات المخصصة للقراءة العامة والإعلانات.</p>
       <div className="flex flex-wrap gap-3">
-        <Link to="/uae-legal-guides" className="rounded-xl border border-slate-300 px-4 py-2 font-black text-blue-950">الأدلة القانونية الإماراتية</Link>
+        <a href="/uae-legal-guides" className="rounded-xl border border-slate-300 px-4 py-2 font-black text-blue-950">الأدلة القانونية الإماراتية</a>
         <Link to="/editorial-policy" className="rounded-xl border border-slate-300 px-4 py-2 font-black text-blue-950">سياسة التحرير والمراجعة</Link>
         <Link to="/contact" className="rounded-xl border border-slate-300 px-4 py-2 font-black text-blue-950">التواصل</Link>
       </div>

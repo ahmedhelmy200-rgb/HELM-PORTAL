@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - 'arena/**'
+      - 'fix/adsense-*'
   workflow_dispatch:
 
 permissions:
@@ -46,6 +47,9 @@ jobs:
 
       - name: Build web application
         run: npm run build
+
+      - name: Audit public SEO structure
+        run: npm run audit:adsense
 
       - name: Parse Electron main process
         run: node --check electron/main.cjs

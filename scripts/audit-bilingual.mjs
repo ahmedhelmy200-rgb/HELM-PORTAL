@@ -12,6 +12,15 @@ const vercel = JSON.parse(readFileSync(join(root, 'vercel.json'), 'utf8'))
 const sitemap = readFileSync(join(root, 'public/sitemap.xml'), 'utf8')
 const locs = new Set([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]))
 const rewrites = new Map(vercel.rewrites.map((r) => [r.source, r.destination]))
+const switcher = readFileSync(join(root, 'public/seo/language-switch.js'), 'utf8')
+const embedded = switcher.match(/const pairs = (\{[^\n]+\})/)
+if (!embedded) throw new Error('Language switcher does not expose its routing table')
+const switcherPairs = JSON.parse(embedded[1])
+const manifestPairs = Object.entries(pairs).sort(([a], [b]) => a.localeCompare(b))
+const clientPairs = Object.entries(switcherPairs).sort(([a], [b]) => a.localeCompare(b))
+if (JSON.stringify(manifestPairs) !== JSON.stringify(clientPairs)) {
+  throw new Error('Language switcher routes do not match bilingual-routes.json')
+}
 const errors = []
 const english = new Set()
 let checked = 0

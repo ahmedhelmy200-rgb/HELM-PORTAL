@@ -69,6 +69,7 @@ function PublicHeader() {
         </Link>
         <nav className="flex flex-wrap items-center gap-2 text-sm font-black text-slate-700" aria-label="التنقل العام">
           <Link className="rounded-xl px-3 py-2 hover:bg-slate-100" to="/about">عن المكتب</Link>
+          <a className="rounded-xl px-3 py-2 hover:bg-slate-100" href="/legal-services-uae">الاستشارات القانونية</a>
           <Link className="rounded-xl px-3 py-2 hover:bg-slate-100" to="/PublicLegalLibrary">المكتبة القانونية</Link>
           <Link className="rounded-xl px-3 py-2 hover:bg-slate-100" to="/contact">تواصل</Link>
           <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-white" to="/portal">دخول البوابة</Link>
@@ -90,6 +91,8 @@ function PublicFooter() {
           <p className="font-black text-white">الموقع</p>
           <div className="mt-3 grid gap-2 text-sm">
             <Link to="/about">عن المكتب</Link>
+            <a href="/legal-services-uae">الاستشارات القانونية في الإمارات</a>
+            <a href="/legal-consultant-uae-locations">الخدمات حسب الإمارة</a>
             <Link to="/contact">تواصل معنا</Link>
             <Link to="/editorial-policy">سياسة التحرير والمراجعة</Link>
           </div>
@@ -128,8 +131,8 @@ export function PublicHome() {
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 text-slate-950">
       <PublicMeta
-        title="أحمد حلمي للاستشارات القانونية | الإمارات ومصر ودوليًا | HELM Legal"
-        description="محتوى قانوني وأدلة عملية في الإمارات والعقود والتنفيذ والمنازعات، مع بوابة منفصلة وآمنة لمتابعة ملفات الموكلين."
+        title="استشارات قانونية في الإمارات | أحمد حلمي | HELM Legal"
+        description="أحمد حلمي للاستشارات القانونية: استشارات ومعلومات عملية عن المطالبات المالية، تنفيذ الأحكام، العقود والمنازعات في الإمارات مع أدلة قانونية عامة."
         path="/"
       />
       <PublicHeader />
@@ -137,16 +140,41 @@ export function PublicHome() {
         <section className="bg-[radial-gradient(circle_at_15%_10%,rgba(30,64,175,.22),transparent_34%),linear-gradient(135deg,#020617,#102a56_60%,#07152e)] text-white">
           <div className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-24">
             <span className="inline-flex rounded-full border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-sm font-black text-amber-200">HELM Legal Consultancy</span>
-            <h1 className="mt-6 max-w-5xl text-4xl font-black leading-tight md:text-6xl">محتوى قانوني واضح، وتنظيم مهني للملف قبل اتخاذ الإجراء.</h1>
-            <p className="mt-6 max-w-4xl text-lg font-medium leading-9 text-blue-100">موقع قانوني عام يضم أدلة عملية ومعلومات توعوية في القانون الإماراتي والعقود والتنفيذ والمنازعات، مع بوابة منفصلة وآمنة لمتابعة ملفات الموكلين.</p>
+            <h1 className="mt-6 max-w-5xl text-4xl font-black leading-tight md:text-6xl">استشارات قانونية في الإمارات: المطالبات والعقود وتنفيذ الأحكام</h1>
+            <p className="mt-6 max-w-4xl text-lg font-medium leading-9 text-blue-100">HELM Legal — أحمد حلمي للاستشارات القانونية. تعرّف على الخدمات القانونية والمستندات اللازمة للمطالبات المالية والعقود والتنفيذ وقضايا العمل في الإمارات، واقرأ أدلة عملية تستند إلى المصادر الرسمية، مع بوابة مستقلة للموكلين.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/PublicLegalLibrary" className="rounded-2xl bg-amber-300 px-5 py-3.5 text-sm font-black text-slate-950">فتح المكتبة القانونية</Link>
+              <a href="/legal-services-uae" className="rounded-2xl bg-amber-300 px-5 py-3.5 text-sm font-black text-slate-950">تعرف على الخدمات القانونية</a>
+              <a href="/uae-legal-guides" className="rounded-2xl border border-white/20 bg-white/5 px-5 py-3.5 text-sm font-black text-white">الأدلة القانونية في الإمارات</a>
               <Link to="/portal" className="rounded-2xl border border-white/20 bg-white/5 px-5 py-3.5 text-sm font-black text-white">دخول بوابة الموكلين</Link>
             </div>
           </div>
         </section>
 
         <TrustStrip />
+
+        <section className="mx-auto max-w-7xl px-4 py-12 md:px-8" aria-labelledby="search-intent-paths">
+          <div className="max-w-4xl">
+            <p className="text-sm font-black text-amber-700">اختر موضوعك القانوني</p>
+            <h2 id="search-intent-paths" className="mt-2 text-3xl font-black">ما الإجراء الذي تبحث عنه في الإمارات؟</h2>
+            <p className="mt-4 text-base leading-8 text-slate-600">انتقل مباشرة إلى الشرح المرتبط بمشكلتك. الأوصاف معلومات عامة، ويحتاج اختيار الإجراء المناسب إلى مراجعة المستندات والجهة المختصة.</p>
+          </div>
+          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ['/uae-financial-claim-route', 'المطالبة المالية في الإمارات', 'كيف تختار بين الدعوى وأمر الأداء والتنفيذ بناءً على السند؟'],
+              ['/payment-order-uae', 'أمر الأداء وشروطه', 'المستندات والتكليف بالوفاء وكيفية تقييم الطريق الإجرائي.'],
+              ['/judgment-execution-uae', 'تنفيذ الأحكام والقرارات', 'ما الذي يُراجع في الحكم والسند التنفيذي وطلبات التنفيذ؟'],
+              ['/labour-dispute-uae', 'المطالبات والنزاعات العمالية', 'المستحقات ومحاضر التسوية ومستندات علاقة العمل.'],
+              ['/legal-consultant-dubai', 'استشارات قانونية في دبي', 'تقييم العقود والمطالبات والملفات المدنية والتجارية في دبي.'],
+              ['/legal-consultant-ajman', 'استشارات قانونية في عجمان', 'مراجعة المطالبات المالية والتنفيذ والتسويات والأقساط.'],
+            ].map(([href, title, summary]) => (
+              <a key={href} href={href} className="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-amber-400 hover:shadow-md">
+                <h3 className="font-black text-blue-950">{title}</h3>
+                <p className="mt-2 text-sm leading-7 text-slate-600">{summary}</p>
+                <span className="mt-3 inline-block text-sm font-black text-amber-800">فتح الدليل ←</span>
+              </a>
+            ))}
+          </div>
+        </section>
 
         <section className="mx-auto max-w-7xl px-4 py-14 md:px-8">
           <div className="max-w-3xl">

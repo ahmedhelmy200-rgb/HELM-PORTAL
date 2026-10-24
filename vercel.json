@@ -386,6 +386,46 @@
       "destination": "/seo/editorial-policy.html"
     },
     {
+      "source": "/en/about",
+      "destination": "/seo/en-about.html"
+    },
+    {
+      "source": "/en/contact",
+      "destination": "/seo/en-contact.html"
+    },
+    {
+      "source": "/en/privacy",
+      "destination": "/seo/en-privacy.html"
+    },
+    {
+      "source": "/en/terms",
+      "destination": "/seo/en-terms.html"
+    },
+    {
+      "source": "/en/editorial-policy",
+      "destination": "/seo/en-editorial-policy.html"
+    },
+    {
+      "source": "/en/uae-legal-guides",
+      "destination": "/seo/en-uae-legal-guides.html"
+    },
+    {
+      "source": "/en/financial-claim-uae",
+      "destination": "/seo/en-financial-claim-uae.html"
+    },
+    {
+      "source": "/en/payment-order-uae",
+      "destination": "/seo/en-payment-order-uae.html"
+    },
+    {
+      "source": "/en/judgment-execution-uae",
+      "destination": "/seo/en-judgment-execution-uae.html"
+    },
+    {
+      "source": "/en/whatsapp-bank-transfer-evidence-uae",
+      "destination": "/seo/en-whatsapp-bank-transfer-evidence-uae.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

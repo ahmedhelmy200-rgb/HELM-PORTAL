@@ -482,6 +482,30 @@
       "destination": "/seo/en-legal-consultant-ajman.html"
     },
     {
+      "source": "/en/uae-criminal-guides",
+      "destination": "/seo/en-uae-criminal-guides.html"
+    },
+    {
+      "source": "/en/criminal-appeal-uae",
+      "destination": "/seo/en-criminal-appeal-uae.html"
+    },
+    {
+      "source": "/en/bail-provisional-release-uae",
+      "destination": "/seo/en-bail-provisional-release-uae.html"
+    },
+    {
+      "source": "/en/deportation-uae-guide",
+      "destination": "/seo/en-deportation-uae-guide.html"
+    },
+    {
+      "source": "/en/judicial-deportation-uae",
+      "destination": "/seo/en-judicial-deportation-uae.html"
+    },
+    {
+      "source": "/en/administrative-deportation-uae",
+      "destination": "/seo/en-administrative-deportation-uae.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

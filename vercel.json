@@ -506,6 +506,74 @@
       "destination": "/seo/en-administrative-deportation-uae.html"
     },
     {
+      "source": "/en/legal-consultation-uae",
+      "destination": "/seo/en-legal-consultation-uae.html"
+    },
+    {
+      "source": "/en/execution-uae",
+      "destination": "/seo/en-execution-uae.html"
+    },
+    {
+      "source": "/en/labour-law-uae",
+      "destination": "/seo/en-labour-law-uae.html"
+    },
+    {
+      "source": "/en/foreign-judgments-uae",
+      "destination": "/seo/en-foreign-judgments-uae.html"
+    },
+    {
+      "source": "/en/electronic-signature-uae",
+      "destination": "/seo/en-electronic-signature-uae.html"
+    },
+    {
+      "source": "/en/contract-enforcement-uae",
+      "destination": "/seo/en-contract-enforcement-uae.html"
+    },
+    {
+      "source": "/en/contract-termination-damages-uae",
+      "destination": "/seo/en-contract-termination-damages-uae.html"
+    },
+    {
+      "source": "/en/commercial-companies-uae-guide",
+      "destination": "/seo/en-commercial-companies-uae-guide.html"
+    },
+    {
+      "source": "/en/mediation-conciliation-uae",
+      "destination": "/seo/en-mediation-conciliation-uae.html"
+    },
+    {
+      "source": "/en/legal-consultant-uae-locations",
+      "destination": "/seo/en-legal-consultant-uae-locations.html"
+    },
+    {
+      "source": "/en/legal-consultant-sharjah",
+      "destination": "/seo/en-legal-consultant-sharjah.html"
+    },
+    {
+      "source": "/en/legal-consultant-al-ain",
+      "destination": "/seo/en-legal-consultant-al-ain.html"
+    },
+    {
+      "source": "/en/legal-consultant-ras-al-khaimah",
+      "destination": "/seo/en-legal-consultant-ras-al-khaimah.html"
+    },
+    {
+      "source": "/en/legal-consultant-fujairah",
+      "destination": "/seo/en-legal-consultant-fujairah.html"
+    },
+    {
+      "source": "/en/legal-consultant-umm-al-quwain",
+      "destination": "/seo/en-legal-consultant-umm-al-quwain.html"
+    },
+    {
+      "source": "/en/global-legal-services",
+      "destination": "/seo/en-global-legal-services.html"
+    },
+    {
+      "source": "/en/global-legal-topics",
+      "destination": "/seo/en-global-legal-topics.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

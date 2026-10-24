@@ -72,6 +72,7 @@ function PublicHeader() {
           <a className="rounded-xl px-3 py-2 hover:bg-slate-100" href="/legal-services-uae">الاستشارات القانونية</a>
           <Link className="rounded-xl px-3 py-2 hover:bg-slate-100" to="/PublicLegalLibrary">المكتبة القانونية</Link>
           <Link className="rounded-xl px-3 py-2 hover:bg-slate-100" to="/contact">تواصل</Link>
+          <a href="/en" lang="en" dir="ltr" className="rounded-xl border border-amber-400 px-3 py-2 font-black text-blue-950 hover:bg-amber-50">English</a>
           <Link className="rounded-xl bg-slate-950 px-4 py-2.5 text-white" to="/portal">دخول البوابة</Link>
         </nav>
       </div>

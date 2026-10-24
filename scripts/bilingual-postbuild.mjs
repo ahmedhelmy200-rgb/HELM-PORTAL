@@ -21,7 +21,7 @@ for (const file of files) {
   if (!html.includes('</head>')) throw new Error('Missing head in ' + file)
   const canonical = html.match(/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']/i)?.[1]
   const slug = canonical?.startsWith(site) ? canonical.slice(site.length).replace(/\/$/, '') || '/' : null
-  if (!slug) throw new Error('Missing canonical for ' + file)
+  if (!slug) console.warn('HELM bilingual: canonical not found, language bar only: ' + file)
   const ar = inverse[slug] || (pairs[slug] ? slug : null)
   const en = pairs[slug] || (inverse[slug] ? slug : null)
   if (ar && en) {

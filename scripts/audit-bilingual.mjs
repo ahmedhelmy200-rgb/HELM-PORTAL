@@ -47,6 +47,7 @@ for (const [ar, en] of Object.entries(pairs)) {
 const urls = [...locs]
 const arPages = urls.filter((u) => u.startsWith(site + '/') && u !== site + '/en' && !u.startsWith(site + '/en/'))
 const remaining = arPages.filter((u) => !(u.slice(site.length) in pairs))
+if (remaining.length) errors.push('Missing authored English counterpart for ' + remaining.length + ' Arabic URL(s)')
 console.log('Bilingual equivalents: ' + Object.keys(pairs).length + ' of ' + arPages.length + ' indexed Arabic routes')
 console.log('Linked source documents checked: ' + checked)
 console.log('Remaining Arabic routes without authored English counterpart: ' + remaining.length)
@@ -55,5 +56,5 @@ if (errors.length) {
   console.error(errors.map((e) => '- ' + e).join('\n'))
   process.exitCode = 1
 } else {
-  console.log('Route/canonical/sitemap audit passed. Full translation coverage has NOT yet been reached.')
+  console.log('Bilingual route, canonical and sitemap audit passed with complete public translation coverage.')
 }

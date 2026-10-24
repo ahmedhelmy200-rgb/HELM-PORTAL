@@ -28,7 +28,7 @@ let checked = 0
 for (const [ar, en] of Object.entries(pairs)) {
   if (english.has(en)) errors.push('English URL is mapped more than once: ' + en)
   english.add(en)
-  const getSource = (route) => route === '/' ? 'index.html' : rewrites.get(route)?.replace(/^\//, 'public/')
+  const getSource = (route) => route === '/' ? 'index.html' : route === '/PublicLegalLibrary' ? 'src/pages/PublicLegalLibrary.jsx' : rewrites.get(route)?.replace(/^\//, 'public/')
   const arFile = getSource(ar)
   const enFile = getSource(en)
   for (const [route, file] of [[ar, arFile], [en, enFile]]) {
@@ -36,7 +36,9 @@ for (const [ar, en] of Object.entries(pairs)) {
     if (!locs.has(site + (route === '/' ? '/' : route))) errors.push('Missing sitemap URL: ' + route)
     const html = readFileSync(join(root, file), 'utf8')
     const expected = site + (route === '/' ? '/' : route)
-    if (!html.includes('rel="canonical" href="' + expected + '"')) errors.push('Wrong canonical: ' + route)
+    if (route === '/PublicLegalLibrary') {
+      if (!html.includes("canonical.setAttribute('href', 'https://helm-protal.vercel.app/PublicLegalLibrary')")) errors.push('Arabic library canonical missing')
+    } else if (!html.includes('rel="canonical" href="' + expected + '"')) errors.push('Wrong canonical: ' + route)
     if (route === en && html.match(/<meta\s+name=["']robots["']\s+content=["']noindex/i)) errors.push('English page is not indexable: ' + en)
     if (route === en && !/<html\s+lang=["']en["']/i.test(html)) errors.push('English page language marker missing: ' + en)
     checked++
@@ -45,6 +47,7 @@ for (const [ar, en] of Object.entries(pairs)) {
 const urls = [...locs]
 const arPages = urls.filter((u) => u.startsWith(site + '/') && u !== site + '/en' && !u.startsWith(site + '/en/'))
 const remaining = arPages.filter((u) => !(u.slice(site.length) in pairs))
+if (remaining.length) errors.push('Missing authored English counterpart for ' + remaining.length + ' Arabic URL(s)')
 console.log('Bilingual equivalents: ' + Object.keys(pairs).length + ' of ' + arPages.length + ' indexed Arabic routes')
 console.log('Linked source documents checked: ' + checked)
 console.log('Remaining Arabic routes without authored English counterpart: ' + remaining.length)
@@ -53,5 +56,5 @@ if (errors.length) {
   console.error(errors.map((e) => '- ' + e).join('\n'))
   process.exitCode = 1
 } else {
-  console.log('Route/canonical/sitemap audit passed. Full translation coverage has NOT yet been reached.')
+  console.log('Bilingual route, canonical and sitemap audit passed with complete public translation coverage.')
 }

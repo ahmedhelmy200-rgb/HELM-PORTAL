@@ -574,6 +574,166 @@
       "destination": "/seo/en-global-legal-topics.html"
     },
     {
+      "source": "/en/PublicLegalLibrary",
+      "destination": "/seo/en-PublicLegalLibrary.html"
+    },
+    {
+      "source": "/en/egypt-legal-guides",
+      "destination": "/seo/en-egypt-legal-guides.html"
+    },
+    {
+      "source": "/en/egypt-debt-claims",
+      "destination": "/seo/en-egypt-debt-claims.html"
+    },
+    {
+      "source": "/en/egypt-contracts-guide",
+      "destination": "/seo/en-egypt-contracts-guide.html"
+    },
+    {
+      "source": "/en/egypt-labour-law-2025",
+      "destination": "/seo/en-egypt-labour-law-2025.html"
+    },
+    {
+      "source": "/en/egypt-cassation-principles",
+      "destination": "/seo/en-egypt-cassation-principles.html"
+    },
+    {
+      "source": "/en/egypt-economic-courts-guide",
+      "destination": "/seo/en-egypt-economic-courts-guide.html"
+    },
+    {
+      "source": "/en/uae-egypt-legal-services",
+      "destination": "/seo/en-uae-egypt-legal-services.html"
+    },
+    {
+      "source": "/en/egyptian-clients-uae",
+      "destination": "/seo/en-egyptian-clients-uae.html"
+    },
+    {
+      "source": "/en/uae-egypt-contracts",
+      "destination": "/seo/en-uae-egypt-contracts.html"
+    },
+    {
+      "source": "/en/uae-egypt-cross-border-disputes",
+      "destination": "/seo/en-uae-egypt-cross-border-disputes.html"
+    },
+    {
+      "source": "/en/uae-egypt-judgments",
+      "destination": "/seo/en-uae-egypt-judgments.html"
+    },
+    {
+      "source": "/en/egypt-uae-business-legal",
+      "destination": "/seo/en-egypt-uae-business-legal.html"
+    },
+    {
+      "source": "/en/international-commercial-disputes",
+      "destination": "/seo/en-international-commercial-disputes.html"
+    },
+    {
+      "source": "/en/foreign-judgment-recognition",
+      "destination": "/seo/en-foreign-judgment-recognition.html"
+    },
+    {
+      "source": "/en/gcc-legal-coordination",
+      "destination": "/seo/en-gcc-legal-coordination.html"
+    },
+    {
+      "source": "/en/middle-east-legal-services",
+      "destination": "/seo/en-middle-east-legal-services.html"
+    },
+    {
+      "source": "/en/international-power-of-attorney",
+      "destination": "/seo/en-international-power-of-attorney.html"
+    },
+    {
+      "source": "/en/document-attestation-cross-border",
+      "destination": "/seo/en-document-attestation-cross-border.html"
+    },
+    {
+      "source": "/en/cross-border-inheritance-estates",
+      "destination": "/seo/en-cross-border-inheritance-estates.html"
+    },
+    {
+      "source": "/en/international-arbitration",
+      "destination": "/seo/en-international-arbitration.html"
+    },
+    {
+      "source": "/en/cross-border-shareholder-company-disputes",
+      "destination": "/seo/en-cross-border-shareholder-company-disputes.html"
+    },
+    {
+      "source": "/en/international-real-estate-property",
+      "destination": "/seo/en-international-real-estate-property.html"
+    },
+    {
+      "source": "/en/cross-border-family-personal-status",
+      "destination": "/seo/en-cross-border-family-personal-status.html"
+    },
+    {
+      "source": "/en/cross-border-employment",
+      "destination": "/seo/en-cross-border-employment.html"
+    },
+    {
+      "source": "/en/deportation-mercy-request-egypt-uae",
+      "destination": "/seo/en-deportation-mercy-request-egypt-uae.html"
+    },
+    {
+      "source": "/en/mercy-request-uae-criminal-case",
+      "destination": "/seo/en-mercy-request-uae-criminal-case.html"
+    },
+    {
+      "source": "/en/entry-ban-vs-deportation-uae",
+      "destination": "/seo/en-entry-ban-vs-deportation-uae.html"
+    },
+    {
+      "source": "/en/return-to-uae-after-deportation",
+      "destination": "/seo/en-return-to-uae-after-deportation.html"
+    },
+    {
+      "source": "/en/deportation-after-sentence-uae",
+      "destination": "/seo/en-deportation-after-sentence-uae.html"
+    },
+    {
+      "source": "/en/deportation-request-documents-uae",
+      "destination": "/seo/en-deportation-request-documents-uae.html"
+    },
+    {
+      "source": "/en/cancel-deportation-abu-dhabi",
+      "destination": "/seo/en-cancel-deportation-abu-dhabi.html"
+    },
+    {
+      "source": "/en/deportation-mercy-request-dubai",
+      "destination": "/seo/en-deportation-mercy-request-dubai.html"
+    },
+    {
+      "source": "/en/deportation-authority-uae",
+      "destination": "/seo/en-deportation-authority-uae.html"
+    },
+    {
+      "source": "/en/rehabilitation-uae",
+      "destination": "/seo/en-rehabilitation-uae.html"
+    },
+    {
+      "source": "/en/seized-items-return-uae",
+      "destination": "/seo/en-seized-items-return-uae.html"
+    },
+    {
+      "source": "/en/criminal-pardon-uae",
+      "destination": "/seo/en-criminal-pardon-uae.html"
+    },
+    {
+      "source": "/en/criminal-case-status-uae",
+      "destination": "/seo/en-criminal-case-status-uae.html"
+    },
+    {
+      "source": "/en/criminal-travel-ban-uae",
+      "destination": "/seo/en-criminal-travel-ban-uae.html"
+    },
+    {
+      "source": "/en/egypt-uae-criminal-case-help",
+      "destination": "/seo/en-egypt-uae-criminal-case-help.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

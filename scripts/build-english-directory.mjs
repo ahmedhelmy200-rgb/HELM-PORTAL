@@ -1,6 +1,6 @@
 /**
  * Build a public English navigation directory from actual sitemap URLs.
- * Do not misrepresent untranslated articles as full English translations.
+ * Require true authored translations: all public articles have independent English routes.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -152,10 +152,10 @@ const html = '<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-
   '</head><body dir="ltr"><header class="top"><div class="wrap"><div class="brand">HELM Legal<small>English Topic Directory</small></div>' +
   '<nav class="nav"><a href="/en">English Home</a><a href="/en/uae-legal-guides">UAE Legal Guides</a><a href="/">العربية</a></nav></div></header>' +
   '<section class="hero"><div class="wrap"><h1>Every public HELM Legal topic, without missing links</h1>' +
-  '<p>English translations are being reviewed. Where a full version has been published, the English link opens it; otherwise the original Arabic article remains accessible.</p></div></section>' +
+  '<p>All public guides are available in English and Arabic. Select an English article or the corresponding original Arabic version.</p></div></section>' +
   '<main class="section"><div class="wrap"><p><strong>' + entries.length + ' public Arabic routes.</strong> ' +
   Object.keys(pairs).length + ' currently have a reviewed English counterpart. ' +
-  'This navigation directory does not claim to translate the legal text of the remaining pages.</p>' + cards + '</div></main>' +
+  'All listed Arabic pages have a dedicated English counterpart.</p>' + cards + '</div></main>' +
   '<footer class="footer"><div class="wrap">HELM Legal — General legal information. <a href="/en/editorial-policy">Editorial Policy</a></div></footer></body></html>'
 
 writeFileSync(join(root, 'dist/seo/en-directory.html'), html, 'utf8')

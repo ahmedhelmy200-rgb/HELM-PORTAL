@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node node_modules/vite/bin/vite.js",
-    "build": "node node_modules/vite/bin/vite.js build",
+    "build": "node node_modules/vite/bin/vite.js build && node scripts/bilingual-postbuild.mjs",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
@@ -16,7 +16,7 @@
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "node node_modules/vite/bin/vite.js preview",
-    "vercel-build": "node node_modules/vite/bin/vite.js build",
+    "vercel-build": "npm run build",
     "audit:adsense": "node scripts/audit-adsense-content.mjs"
   },
   "dependencies": {

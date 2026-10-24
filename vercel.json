@@ -426,6 +426,10 @@
       "destination": "/seo/en-whatsapp-bank-transfer-evidence-uae.html"
     },
     {
+      "source": "/en/directory",
+      "destination": "/seo/en-directory.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

@@ -43,7 +43,7 @@ for (const [ar, en] of Object.entries(pairs)) {
   }
 }
 const urls = [...locs]
-const arPages = urls.filter((u) => u.startsWith(site + '/') && !u.startsWith(site + '/en'))
+const arPages = urls.filter((u) => u.startsWith(site + '/') && u !== site + '/en' && !u.startsWith(site + '/en/'))
 const remaining = arPages.filter((u) => !(u.slice(site.length) in pairs))
 console.log('Bilingual equivalents: ' + Object.keys(pairs).length + ' of ' + arPages.length + ' indexed Arabic routes')
 console.log('Linked source documents checked: ' + checked)

@@ -8,7 +8,7 @@
   const isEnglish = current === '/en' || current.startsWith('/en/')
   const arabicUrl = reverse[current] || (isEnglish ? '/' : current)
   const exactEnglishUrl = isEnglish ? current : pairs[current]
-  const englishUrl = exactEnglishUrl || '/en'
+  const englishUrl = exactEnglishUrl || '/en/directory'
   const bar = document.createElement('nav')
   bar.setAttribute('aria-label', 'Language selection')
   bar.className = 'helm-languages'
@@ -24,8 +24,8 @@
   english.lang = 'en'
   english.hreflang = 'en'
   english.dir = 'ltr'
-  english.textContent = exactEnglishUrl ? 'English' : 'English guides'
-  if (!exactEnglishUrl) english.title = 'English index — an English translation of this specific article is not available yet'
+  english.textContent = exactEnglishUrl ? 'English' : 'English topics'
+  if (!exactEnglishUrl) english.title = 'English directory — the complete translation of this article is being prepared'
   const label = document.createElement('span')
   label.textContent = isEnglish ? 'Language' : 'اللغة'
   label.className = 'helm-language-label'

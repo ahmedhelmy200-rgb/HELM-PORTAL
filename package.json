@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node node_modules/vite/bin/vite.js",
-    "build": "node node_modules/vite/bin/vite.js build && node scripts/bilingual-postbuild.mjs",
+    "build": "node node_modules/vite/bin/vite.js build && node scripts/build-english-directory.mjs && node scripts/bilingual-postbuild.mjs",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",

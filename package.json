@@ -17,7 +17,8 @@
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "node node_modules/vite/bin/vite.js preview",
     "vercel-build": "npm run build",
-    "audit:adsense": "node scripts/audit-adsense-content.mjs"
+    "audit:adsense": "node scripts/audit-adsense-content.mjs",
+    "audit:i18n": "node scripts/audit-bilingual.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",

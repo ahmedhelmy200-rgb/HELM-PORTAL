@@ -470,6 +470,18 @@
       "destination": "/seo/en-arbitration-uae-guide.html"
     },
     {
+      "source": "/en/legal-consultant-dubai",
+      "destination": "/seo/en-legal-consultant-dubai.html"
+    },
+    {
+      "source": "/en/legal-consultant-abu-dhabi",
+      "destination": "/seo/en-legal-consultant-abu-dhabi.html"
+    },
+    {
+      "source": "/en/legal-consultant-ajman",
+      "destination": "/seo/en-legal-consultant-ajman.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

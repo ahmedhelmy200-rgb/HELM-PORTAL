@@ -1,0 +1,20 @@
+{
+  "version": "2026-10-24",
+  "description": "Verified editorial Arabic/English equivalents only. Do not invent alternate URLs for untranslated pages.",
+  "pairs": {
+    "/": "/en",
+    "/about": "/en/about",
+    "/contact": "/en/contact",
+    "/privacy": "/en/privacy",
+    "/terms": "/en/terms",
+    "/editorial-policy": "/en/editorial-policy",
+    "/uae-legal-guides": "/en/uae-legal-guides",
+    "/legal-services-uae": "/en/uae-legal-services",
+    "/uae-financial-claim-route": "/en/financial-claim-uae",
+    "/payment-order-uae": "/en/payment-order-uae",
+    "/judgment-execution-uae": "/en/judgment-execution-uae",
+    "/whatsapp-bank-transfer-evidence-uae": "/en/whatsapp-bank-transfer-evidence-uae",
+    "/international-contracts": "/en/cross-border-contracts",
+    "/international-debt-recovery": "/en/international-debt-recovery"
+  }
+}

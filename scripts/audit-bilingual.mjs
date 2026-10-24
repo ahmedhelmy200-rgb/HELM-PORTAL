@@ -28,7 +28,7 @@ let checked = 0
 for (const [ar, en] of Object.entries(pairs)) {
   if (english.has(en)) errors.push('English URL is mapped more than once: ' + en)
   english.add(en)
-  const getSource = (route) => route === '/' ? 'index.html' : rewrites.get(route)?.replace(/^\//, 'public/')
+  const getSource = (route) => route === '/' ? 'index.html' : route === '/PublicLegalLibrary' ? 'src/pages/PublicLegalLibrary.jsx' : rewrites.get(route)?.replace(/^\//, 'public/')
   const arFile = getSource(ar)
   const enFile = getSource(en)
   for (const [route, file] of [[ar, arFile], [en, enFile]]) {
@@ -36,7 +36,9 @@ for (const [ar, en] of Object.entries(pairs)) {
     if (!locs.has(site + (route === '/' ? '/' : route))) errors.push('Missing sitemap URL: ' + route)
     const html = readFileSync(join(root, file), 'utf8')
     const expected = site + (route === '/' ? '/' : route)
-    if (!html.includes('rel="canonical" href="' + expected + '"')) errors.push('Wrong canonical: ' + route)
+    if (route === '/PublicLegalLibrary') {
+      if (!html.includes("canonical.setAttribute('href', 'https://helm-protal.vercel.app/PublicLegalLibrary')")) errors.push('Arabic library canonical missing')
+    } else if (!html.includes('rel="canonical" href="' + expected + '"')) errors.push('Wrong canonical: ' + route)
     if (route === en && html.match(/<meta\s+name=["']robots["']\s+content=["']noindex/i)) errors.push('English page is not indexable: ' + en)
     if (route === en && !/<html\s+lang=["']en["']/i.test(html)) errors.push('English page language marker missing: ' + en)
     checked++

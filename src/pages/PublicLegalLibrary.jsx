@@ -87,6 +87,16 @@ export default function PublicLegalLibrary() {
       document.head.appendChild(canonical)
     }
     canonical.setAttribute('href', 'https://helm-protal.vercel.app/PublicLegalLibrary')
+    for (const [lang, href] of [['ar-AE', 'https://helm-protal.vercel.app/PublicLegalLibrary'], ['en', 'https://helm-protal.vercel.app/en/PublicLegalLibrary']]) {
+      let alternate = document.head.querySelector(`link[rel="alternate"][hreflang="${lang}"]`)
+      if (!alternate) {
+        alternate = document.createElement('link')
+        alternate.setAttribute('rel', 'alternate')
+        alternate.setAttribute('hreflang', lang)
+        document.head.appendChild(alternate)
+      }
+      alternate.setAttribute('href', href)
+    }
   }, [])
 
   const filtered = useMemo(() => {
@@ -107,7 +117,7 @@ export default function PublicLegalLibrary() {
             <Link to="/" className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-sm font-black text-slate-800 transition hover:border-blue-900 hover:bg-blue-50">
               <ArrowRight className="h-4 w-4" /> العودة للرئيسية
             </Link>
-            <a href="/en/uae-legal-guides" lang="en" dir="ltr" className="inline-flex h-11 items-center rounded-2xl border border-amber-400 px-4 text-sm font-black text-blue-950 hover:bg-amber-50">English</a>
+            <a href="/en/PublicLegalLibrary" lang="en" dir="ltr" className="inline-flex h-11 items-center rounded-2xl border border-amber-400 px-4 text-sm font-black text-blue-950 hover:bg-amber-50">English</a>
             <Link to="/portal" className="hidden h-11 items-center gap-2 rounded-2xl bg-blue-900 px-4 text-sm font-black text-white sm:inline-flex">
               <LogIn className="h-4 w-4" /> دخول البوابة
             </Link>

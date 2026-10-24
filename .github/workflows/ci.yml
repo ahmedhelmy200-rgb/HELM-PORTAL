@@ -51,6 +51,9 @@ jobs:
       - name: Audit public SEO structure
         run: npm run audit:adsense
 
+      - name: Audit Arabic and English routes
+        run: npm run audit:i18n
+
       - name: Parse Electron main process
         run: node --check electron/main.cjs
 

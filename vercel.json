@@ -386,6 +386,126 @@
       "destination": "/seo/editorial-policy.html"
     },
     {
+      "source": "/en/about",
+      "destination": "/seo/en-about.html"
+    },
+    {
+      "source": "/en/contact",
+      "destination": "/seo/en-contact.html"
+    },
+    {
+      "source": "/en/privacy",
+      "destination": "/seo/en-privacy.html"
+    },
+    {
+      "source": "/en/terms",
+      "destination": "/seo/en-terms.html"
+    },
+    {
+      "source": "/en/editorial-policy",
+      "destination": "/seo/en-editorial-policy.html"
+    },
+    {
+      "source": "/en/uae-legal-guides",
+      "destination": "/seo/en-uae-legal-guides.html"
+    },
+    {
+      "source": "/en/financial-claim-uae",
+      "destination": "/seo/en-financial-claim-uae.html"
+    },
+    {
+      "source": "/en/payment-order-uae",
+      "destination": "/seo/en-payment-order-uae.html"
+    },
+    {
+      "source": "/en/judgment-execution-uae",
+      "destination": "/seo/en-judgment-execution-uae.html"
+    },
+    {
+      "source": "/en/whatsapp-bank-transfer-evidence-uae",
+      "destination": "/seo/en-whatsapp-bank-transfer-evidence-uae.html"
+    },
+    {
+      "source": "/en/directory",
+      "destination": "/seo/en-directory.html"
+    },
+    {
+      "source": "/en/contracts-uae",
+      "destination": "/seo/en-contracts-uae.html"
+    },
+    {
+      "source": "/en/civil-commercial-disputes-uae",
+      "destination": "/seo/en-civil-commercial-disputes-uae.html"
+    },
+    {
+      "source": "/en/labour-dispute-uae",
+      "destination": "/seo/en-labour-dispute-uae.html"
+    },
+    {
+      "source": "/en/civil-appeal-uae",
+      "destination": "/seo/en-civil-appeal-uae.html"
+    },
+    {
+      "source": "/en/electronic-evidence-uae",
+      "destination": "/seo/en-electronic-evidence-uae.html"
+    },
+    {
+      "source": "/en/uae-contract-breach-evidence",
+      "destination": "/seo/en-uae-contract-breach-evidence.html"
+    },
+    {
+      "source": "/en/travel-ban-debt-uae",
+      "destination": "/seo/en-travel-ban-debt-uae.html"
+    },
+    {
+      "source": "/en/cheque-execution-uae",
+      "destination": "/seo/en-cheque-execution-uae.html"
+    },
+    {
+      "source": "/en/end-of-service-benefits-uae",
+      "destination": "/seo/en-end-of-service-benefits-uae.html"
+    },
+    {
+      "source": "/en/arbitration-uae-guide",
+      "destination": "/seo/en-arbitration-uae-guide.html"
+    },
+    {
+      "source": "/en/legal-consultant-dubai",
+      "destination": "/seo/en-legal-consultant-dubai.html"
+    },
+    {
+      "source": "/en/legal-consultant-abu-dhabi",
+      "destination": "/seo/en-legal-consultant-abu-dhabi.html"
+    },
+    {
+      "source": "/en/legal-consultant-ajman",
+      "destination": "/seo/en-legal-consultant-ajman.html"
+    },
+    {
+      "source": "/en/uae-criminal-guides",
+      "destination": "/seo/en-uae-criminal-guides.html"
+    },
+    {
+      "source": "/en/criminal-appeal-uae",
+      "destination": "/seo/en-criminal-appeal-uae.html"
+    },
+    {
+      "source": "/en/bail-provisional-release-uae",
+      "destination": "/seo/en-bail-provisional-release-uae.html"
+    },
+    {
+      "source": "/en/deportation-uae-guide",
+      "destination": "/seo/en-deportation-uae-guide.html"
+    },
+    {
+      "source": "/en/judicial-deportation-uae",
+      "destination": "/seo/en-judicial-deportation-uae.html"
+    },
+    {
+      "source": "/en/administrative-deportation-uae",
+      "destination": "/seo/en-administrative-deportation-uae.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

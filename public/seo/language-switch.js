@@ -12,6 +12,7 @@
   const bar = document.createElement('nav')
   bar.setAttribute('aria-label', 'Language selection')
   bar.className = 'helm-languages'
+  bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #d5b36c;border-radius:12px;background:#173458;color:white;flex-wrap:wrap'
   const arabic = document.createElement('a')
   arabic.href = arabicUrl
   arabic.lang = 'ar'
@@ -30,6 +31,8 @@
   label.className = 'helm-language-label'
   if (isEnglish) english.setAttribute('aria-current', 'page')
   else arabic.setAttribute('aria-current', 'page')
+  arabic.style.cssText = 'color:white;padding:6px;border:1px solid #e8d4a9;border-radius:6px'
+  english.style.cssText = 'color:white;padding:6px;border:1px solid #e8d4a9;border-radius:6px'
   bar.append(label, arabic, english)
   const render = () => {
     if (document.querySelector('.helm-languages')) return

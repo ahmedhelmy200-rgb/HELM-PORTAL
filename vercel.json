@@ -366,6 +366,26 @@
       "destination": "/seo/uae-contract-breach-evidence.html"
     },
     {
+      "source": "/about",
+      "destination": "/seo/about.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/seo/contact.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/seo/privacy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/seo/terms.html"
+    },
+    {
+      "source": "/editorial-policy",
+      "destination": "/seo/editorial-policy.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

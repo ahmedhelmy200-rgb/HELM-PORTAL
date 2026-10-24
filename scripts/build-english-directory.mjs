@@ -105,7 +105,7 @@ const labels = {
 }
 const entries = [...sitemap.matchAll(/<loc>https:\/\/helm-protal\.vercel\.app([^<]*)<\/loc>/g)]
   .map((match) => match[1])
-  .filter((pathname) => !pathname.startsWith('/en'))
+  .filter((pathname) => pathname !== '/en' && !pathname.startsWith('/en/'))
   .map((pathname) => pathname === '' ? '/' : pathname)
 
 const escape = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;')

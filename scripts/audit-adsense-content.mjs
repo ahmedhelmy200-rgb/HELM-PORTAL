@@ -62,6 +62,6 @@ console.log('HELM public-site content audit')
 console.log('Sitemap URLs: ' + siteUrls.length + ', static SEO pages: ' + pageFiles.length + ', mapped SEO routes: ' + toPage.size)
 console.log('Errors: ' + errors.length + ', editorial warnings: ' + warnings.length)
 if (errors.length) console.error('\nStructural errors:\n' + errors.map((s) => '- ' + s).join('\n'))
-if (warnings.length) console.warn('\nEditorial triage (first 60):\n' + warnings.slice(0, 60).map((s) => '- ' + s).join('\n'))
+if (warnings.length) console.warn('\nEditorial triage:\n' + warnings.map((s) => '- ' + s).join('\n'))
 console.log('\nNote: these heuristics do not determine eligibility for AdSense. Review article accuracy, originality, user experience and real live URLs manually.')
 if (errors.length) process.exitCode = 1

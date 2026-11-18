@@ -1,29 +1,6 @@
 User-agent: *
 Allow: /
-Disallow: /portal
-Disallow: /Dashboard
-Disallow: /Cases
-Disallow: /Clients
-Disallow: /Contacts
-Disallow: /Documents
-Disallow: /Events
-Disallow: /Invoices
-Disallow: /Messages
-Disallow: /Notifications
-Disallow: /Profile
-Disallow: /Sessions
-Disallow: /Settings
-Disallow: /Tasks
-Disallow: /Expenses
-Disallow: /Income
-Disallow: /BankImport
-Disallow: /Reports
-Disallow: /Communications
-Disallow: /Archive
-Disallow: /Payment
-Disallow: /PasswordReset
-Disallow: /ClientOnboarding
-Disallow: /UserActivity
-Disallow: /SocialPublisher
 
+# Application routes are crawlable so search engines can read their X-Robots-Tag noindex header.
+# This keeps workspace screens out of search without relying on robots.txt to hide URLs.
 Sitemap: https://helm-protal.vercel.app/sitemap.xml

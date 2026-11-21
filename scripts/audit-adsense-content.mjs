@@ -21,18 +21,32 @@ const routes = new Set(siteUrls.map((url) => {
 const rewrites = (vercel.rewrites || []).filter((route) => typeof route.source === 'string' && typeof route.destination === 'string')
 const toPage = new Map(rewrites.filter((route) => route.destination.startsWith('/seo/')).map((route) => [route.source, route.destination]))
 const pageFiles = readdirSync(pagesDir).filter((name) => name.endsWith('.html'))
+// These files are built from maintained source data after Vite copies public/.
+// Audit the generated result because it is the file the rewrite serves in production.
+const generatedPages = new Map([
+  ['/seo/en-directory.html', join(root, 'dist', 'seo', 'en-directory.html')],
+  ['/seo/PublicLegalLibrary.html', join(root, 'dist', 'seo', 'PublicLegalLibrary.html')],
+])
+// The English directory is navigation only and intentionally uses noindex,follow.
+// It must not be added to the XML sitemap as an indexable editorial page.
+const excludedFromSitemap = new Set(['/en/directory'])
+const publicPagePath = (destination) => generatedPages.get(destination)
+  || join(root, 'public', destination.replace(/^\//, ''))
+const auditFiles = [
+  ...pageFiles.map((name) => 'public/seo/' + name),
+  ...[...generatedPages.values()].filter((path) => existsSync(path)).map((path) => path.slice(root.length + 1)),
+]
 const titles = new Map()
 const normalize = (value) => value.replace(/&[^;]+;/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 const words = (value) => normalize(value).split(/\s+/).filter(Boolean).length
 
 for (const [route, destination] of toPage) {
-  if (!existsSync(join(root, 'public', destination.replace(/^\//, '')))) {
+  if (!existsSync(publicPagePath(destination))) {
     errors.push('Mapped content file missing for ' + route + ': ' + destination)
   }
-  if (!routes.has(route)) warnings.push('Public article missing from sitemap: ' + route)
+  if (!routes.has(route) && !excludedFromSitemap.has(route)) warnings.push('Public article missing from sitemap: ' + route)
 }
-for (const name of pageFiles) {
-  const file = 'public/seo/' + name
+for (const file of auditFiles) {
   const html = read(file)
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim()
   const h1 = html.match(/<h1(?:\s[^>]*)?>/i)
@@ -42,8 +56,15 @@ for (const name of pageFiles) {
   if (!h1) errors.push(file + ': missing H1')
   if (!description) warnings.push(file + ': missing meta description')
   if (!canonical) errors.push(file + ': missing canonical')
-  if (canonical && (!canonical.startsWith(domain + '/') || !routes.has(new URL(canonical).pathname))) {
-    warnings.push(file + ': canonical not represented in sitemap: ' + canonical)
+  if (canonical) {
+    const canonicalPath = canonical.startsWith(domain + '/') ? new URL(canonical).pathname : null
+    if (!canonicalPath || (!routes.has(canonicalPath) && !excludedFromSitemap.has(canonicalPath))) {
+      warnings.push(file + ': canonical not represented in sitemap: ' + canonical)
+    }
+    if (canonicalPath && excludedFromSitemap.has(canonicalPath)
+      && !/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex/i.test(html)) {
+      errors.push(file + ': intentionally excluded canonical must use noindex: ' + canonical)
+    }
   }
   if (title) {
     const previous = titles.get(title)
@@ -59,7 +80,7 @@ for (const url of siteUrls) {
   if (!url.startsWith(domain + '/')) warnings.push('Sitemap URL on unexpected domain: ' + url)
 }
 console.log('HELM public-site content audit')
-console.log('Sitemap URLs: ' + siteUrls.length + ', static SEO pages: ' + pageFiles.length + ', mapped SEO routes: ' + toPage.size)
+console.log('Sitemap URLs: ' + siteUrls.length + ', audited SEO pages: ' + auditFiles.length + ', mapped SEO routes: ' + toPage.size)
 console.log('Errors: ' + errors.length + ', editorial warnings: ' + warnings.length)
 if (errors.length) console.error('\nStructural errors:\n' + errors.map((s) => '- ' + s).join('\n'))
 if (warnings.length) console.warn('\nEditorial triage:\n' + warnings.map((s) => '- ' + s).join('\n'))

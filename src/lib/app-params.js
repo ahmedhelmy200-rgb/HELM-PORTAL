@@ -27,7 +27,7 @@ export const appParams = {
     Boolean(rawStorageBucket) && normalizeBucketName(rawStorageBucket, 'uploads') !== String(rawStorageBucket).trim(),
   brandBucketRaw: rawBrandBucket || '',
   brandBucket: normalizeBucketName(rawBrandBucket, 'AHMED HELMY'),
-  googleRedirectUrl: import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL || window.location.origin,
+  googleRedirectUrl: import.meta.env.VITE_SUPABASE_GOOGLE_REDIRECT_URL || globalThis.location?.origin || '',
   ocrEdgeFunction: import.meta.env.VITE_OCR_EDGE_FUNCTION || 'extract-ocr',
   appName: import.meta.env.VITE_APP_NAME || 'HELM',
 }
